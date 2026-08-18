@@ -7,7 +7,6 @@
 - **后端**：.NET 10 + EF Core (Clean Architecture / DDD 分层架构)
 
 ## 目录结构
-## 项目文件结构 (Project Structure)
 
 ```text
 TJ-GYM/
