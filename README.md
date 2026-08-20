@@ -6,6 +6,15 @@
 - **前端**：Vue 3 + TypeScript + Vite + Pinia
 - **后端**：.NET 10 + EF Core (Clean Architecture / DDD 分层架构)
 
+## 技术栈
+
+| 部分   | 技术                                              |
+| ------ | ------------------------------------------------- |
+| 前端   | Vue 3、TypeScript、Vite、Pinia、Vue Router、Axios |
+| 后端   | .NET 10、ASP.NET Core Web API、EF Core            |
+| 数据库 | Oracle 18c+（组内共用实例）                       |
+| 协作   | Git + GitHub（提交记录作为分工依据）              |
+
 ## 目录结构
 
 ```text
