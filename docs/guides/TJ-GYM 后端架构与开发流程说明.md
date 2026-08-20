@@ -878,37 +878,12 @@ Api/
 
 ## 4.2 命名规范
 
-### DTO 命名
+详情见
 
-| 类型 | 命名示例 |
-| --- | --- |
-| 查询返回 DTO | `MemberDto`、`CoachDto` |
-| 创建请求 DTO | `CreateMemberRequestDto` |
-| 更新请求 DTO | `UpdateMemberRequestDto` |
-| 登录请求 DTO | `LoginRequestDto` |
-| 登录结果 DTO | `LoginResultDto` |
+```text
+docs/guides/文件命名规范.md
+```
 
-### 应用服务命名
-
-| 类型 | 命名示例 |
-| --- | --- |
-| 接口 | `IMemberAppService` |
-| 实现 | `MemberAppService` |
-
-### 仓储命名
-
-| 类型 | 命名示例 |
-| --- | --- |
-| 接口 | `IMemberRepository` |
-| 实现 | `MemberRepository` |
-
-### Controller 命名
-
-| 类型 | 命名示例 |
-| --- | --- |
-| Controller | `MembersController`、`AuthController` |
-
-Controller 通常使用复数资源名，例如 `MembersController`。
 
 ## 4.3 各层禁止事项
 
