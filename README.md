@@ -14,10 +14,26 @@ TJ-GYM/
 ├── .gitignore                        # Git 忽略规则（bin/、obj/、node_modules/ 等）
 │
 ├── docs/                             # 项目文档
-│   ├── project-build-and-run-guide.md # 构建、运行、联调、协作规范
-│   └── backend-development-guide.md  # 后端分层规则与开发流程
+│   ├── guides/                       # 构建、运行与开发说明
+│   │   ├── TJ-GYM 项目构建与运行说明.md     # 构建、运行、联调、协作规范
+│   │   └── TJ-GYM 后端架构与开发流程说明.md # 后端分层规则与开发流程
+│   └── design/                       # 课程设计原文
+│       ├── 健身房会员与课程预约管理系统_数据库设计文档.doc      # 数据库设计
+│       └── 健身房会员与课程预约管理系统_系统需求分析文档.docx   # 需求分析
 │
-├── backend/                          # 后端 .NET 解决方案
+├── database/                         # Oracle 脚本（课程要求入库对象）
+│   └── oracle/
+│       ├── README.md                 # 脚本目录说明与执行方式
+│       ├── views/                    # 视图，文件名 v_*.sql
+│       │   └── v_member_booking_summary.sql  #   会员团课预约汇总
+│       ├── procedures/               # 存储过程，文件名 sp_*.sql
+│       │   └── sp_book_group_course.sql      #   团课预约
+│       ├── functions/                # 函数，文件名 fn_*.sql
+│       │   └── fn_is_card_valid.sql          #   判断会员卡是否有效
+│       └── triggers/                 # 触发器，文件名 trg_*.sql
+│           └── trg_checkin_update_venue.sql  #   入场后更新场馆人数
+│
+├── backend/                          # 后端 .NET 解决方案（Clean Architecture / DDD）
 │   ├── backend.slnx                  # 解决方案入口
 │   │
 │   ├── Api/                          # 接口层（启动项目）
@@ -51,15 +67,11 @@ TJ-GYM/
 │   │   └── Application.csproj
 │   │
 │   ├── Domain/                       # 领域层（实体、规则、仓储接口）
-│   │   ├── Entities/                 # 领域实体（≈ Oracle 表，共 27 张）
+│   │   ├── Entities/                 # 领域实体（≈ Oracle 表；DbContext 映射 27 张）
 │   │   │   ├── Member.cs             #   MEMBER
 │   │   │   ├── Member.Domain.cs      #   Member 业务行为扩展
 │   │   │   ├── Coach.cs              #   COACH
-│   │   │   ├── Employee.cs           #   EMPLOYEE
 │   │   │   ├── Venue.cs              #   VENUE
-│   │   │   ├── Equipment.cs          #   EQUIPMENT
-│   │   │   ├── Inspectiontask.cs     #   INSPECTIONTASK
-│   │   │   ├── Repairrecord.cs       #   REPAIRRECORD
 │   │   │   ├── Capacitylog.cs        #   CAPACITYLOG
 │   │   │   ├── Cardproduct.cs        #   CARDPRODUCT
 │   │   │   ├── MemberBenefitCard.cs  #   MEMBER_BENEFIT_CARD
@@ -78,7 +90,6 @@ TJ-GYM/
 │   │   │   ├── MemberSchedule.cs     #   MEMBER_SCHEDULE
 │   │   │   ├── PaymentOrder.cs       #   PAYMENT_ORDER
 │   │   │   ├── PaymentDetail.cs      #   PAYMENT_DETAIL
-│   │   │   ├── Voucher.cs            #   VOUCHER
 │   │   │   └── PriceList.cs          #   PRICE_LIST
 │   │   ├── Enums/
 │   │   │   ├── MemberStatus.cs
@@ -107,15 +118,14 @@ TJ-GYM/
 │   │   │   └── MemberRepository.cs   # 会员仓储实现
 │   │   ├── Migrations/               # EF Core 迁移文件
 │   │   │   ├── 20260708030810_InitialCreate.cs
+│   │   │   ├── 20260708030810_InitialCreate.Designer.cs
 │   │   │   └── AppDbContextModelSnapshot.cs
 │   │   ├── Extensions/
 │   │   │   └── DependencyInjection.cs  # 注册 DbContext、Repository
 │   │   └── Infrastructure.csproj
 │   │
-│   ├── Shared/                       # 共享层（预留，当前无业务代码）
-│   │   └── Shared.csproj
-│   │
-│   └── tests/                        # 测试项目（预留）
+│   └── Shared/                       # 共享层（预留，当前无业务代码）
+│       └── Shared.csproj
 │
 └── frontend/                         # 前端 Vue 项目
     ├── public/
