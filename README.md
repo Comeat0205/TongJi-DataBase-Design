@@ -197,3 +197,5 @@ npm run dev
 cd backend/Api
 dotnet run
 ```
+
+具体启动步骤可参考 docs/guides/TJ-GYM 项目构建与运行说明.md
