@@ -172,7 +172,7 @@ npm run dev
 
 ### 后端
 1. 确保安装了 .NET 10 SDK。
-2. 配置 `backend/Api/appsettings.json` 中的数据库连接字符串。
+2. 配置 `backend/Api/appsettings.json` 中的数据库连接字符串(上传的文件中已经配置好，若想在自己创建的数据库中调试可以修改部分内容)。
 3. 运行后端：
 ```bash
 cd backend/Api
