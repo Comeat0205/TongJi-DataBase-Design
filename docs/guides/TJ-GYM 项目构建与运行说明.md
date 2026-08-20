@@ -113,7 +113,7 @@ backend/Shared           共享基础层
 更详细的后端架构说明见：
 
 ```text
-docs/backend-development-guide.md
+docs/guides/TJ-GYM 后端架构与开发流程说明.md
 ```
 
 ## 4. 后端配置
