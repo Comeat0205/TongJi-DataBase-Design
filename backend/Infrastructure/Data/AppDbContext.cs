@@ -75,7 +75,6 @@ public partial class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
-            .HasDefaultSchema("GYM_ADMIN")
             .UseCollation("USING_NLS_COMP");
 
         modelBuilder.Entity<Capacitylog>(entity =>

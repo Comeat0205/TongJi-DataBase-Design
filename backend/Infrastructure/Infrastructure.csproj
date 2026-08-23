@@ -29,7 +29,6 @@
     <Folder Include="Repositories\" />
     <Folder Include="Configuration\" />
     <Folder Include="Migrations\" />
-    <Folder Include="Oracle\" />
   </ItemGroup>
 
 </Project>

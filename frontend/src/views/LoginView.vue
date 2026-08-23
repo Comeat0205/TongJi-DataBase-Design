@@ -17,19 +17,32 @@ const isSubmitting = ref(false)
 const errorMessage = ref('')
 
 const submitLabel = computed(() => {
-  return selectedLoginType.value === 'member' ? '会员登录' : '教练登录即将开放'
+  switch (selectedLoginType.value) {
+    case 'member':
+      return '会员登录'
+    case 'employee':
+      return '员工登录'
+    case 'coach':
+      return '教练登录'
+  }
+})
+
+const identifierLabel = computed(() => {
+  switch (selectedLoginType.value) {
+    case 'member':
+      return '用户名 / 会员ID'
+    case 'employee':
+      return '姓名 / 员工ID'
+    case 'coach':
+      return '姓名 / 教练ID'
+  }
 })
 
 async function handleLogin() {
   errorMessage.value = ''
 
-  if (selectedLoginType.value !== 'member') {
-    errorMessage.value = '当前仅开放会员登录，教练登录功能后续接入。'
-    return
-  }
-
   if (!form.identifier.trim() || !form.phoneNumber.trim()) {
-    errorMessage.value = '请输入用户名/用户ID和手机号。'
+    errorMessage.value = '请输入账号标识和手机号。'
     return
   }
 
@@ -46,7 +59,7 @@ async function handleLogin() {
     await router.push(result.targetPath)
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiError ? error.message : '登录失败，请检查用户名/用户ID和手机号是否正确。'
+      error instanceof ApiError ? error.message : '登录失败，请检查账号和手机号是否正确。'
   } finally {
     isSubmitting.value = false
   }
@@ -70,21 +83,29 @@ async function handleLogin() {
             :class="{ active: selectedLoginType === 'member' }"
             @click="selectedLoginType = 'member'"
           >
-            会员登录
+            会员
           </button>
           <button
             type="button"
-            class="switch-btn ghost"
+            class="switch-btn"
+            :class="{ active: selectedLoginType === 'employee' }"
+            @click="selectedLoginType = 'employee'"
+          >
+            员工
+          </button>
+          <button
+            type="button"
+            class="switch-btn"
             :class="{ active: selectedLoginType === 'coach' }"
             @click="selectedLoginType = 'coach'"
           >
-            教练登录
+            教练
           </button>
         </div>
 
         <form class="login-form" @submit.prevent="handleLogin">
           <label class="field">
-            <span>用户名 / 用户ID</span>
+            <span>{{ identifierLabel }}</span>
             <input
               v-model="form.identifier"
               type="text"
@@ -109,6 +130,15 @@ async function handleLogin() {
             {{ isSubmitting ? '登录中...' : submitLabel }}
           </button>
         </form>
+
+        <div class="preview-links">
+          <p>也可先预览三端页面骨架（无需登录，仅看 Layout 与占位页）：</p>
+          <div class="preview-actions">
+            <RouterLink to="/preview/member/home">会员端预览</RouterLink>
+            <RouterLink to="/preview/admin/home">员工端预览</RouterLink>
+            <RouterLink to="/preview/coach/home">教练端预览</RouterLink>
+          </div>
+        </div>
       </section>
     </section>
   </main>
@@ -186,8 +216,8 @@ async function handleLogin() {
 
 .login-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   padding: 6px;
   border-radius: 16px;
   background: #eef3fb;
@@ -271,6 +301,34 @@ async function handleLogin() {
 .submit-btn:disabled {
   cursor: not-allowed;
   opacity: 0.75;
+}
+
+.preview-links {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid #e6edf8;
+}
+
+.preview-links p {
+  margin: 0 0 12px;
+  color: #5d6d88;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.preview-actions a {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #eef3fb;
+  color: #285cff;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 @media (min-width: 1280px) {

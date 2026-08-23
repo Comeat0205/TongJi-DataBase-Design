@@ -22,6 +22,8 @@ public static class DependencyInjection
 
         // 先注册最小可用的会员仓储和工作单元，后续新模块按同样模式扩展。
         services.AddScoped<IMemberRepository, MemberRepository>();
+        services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+        services.AddScoped<ICoachRepository, CoachRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

@@ -1,4 +1,5 @@
 @import './base.css';
+@import './tj-theme.css';
 
 #app {
   min-height: 100vh;

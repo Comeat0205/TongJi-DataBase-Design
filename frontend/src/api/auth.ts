@@ -1,6 +1,6 @@
 import { http } from './http'
 
-export type LoginType = 'member' | 'coach'
+export type LoginType = 'member' | 'employee' | 'coach'
 
 export interface LoginRequest {
   loginType: LoginType

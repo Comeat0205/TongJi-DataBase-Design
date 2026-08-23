@@ -1,0 +1,14 @@
+:root {
+  --tj-primary: #285cff;
+  --tj-primary-soft: #e8f0ff;
+  --tj-sidebar-bg: #121c31;
+  --tj-sidebar-text: rgba(255, 255, 255, 0.78);
+  --tj-sidebar-active: rgba(95, 139, 255, 0.22);
+  --tj-page-bg: #f4f8ff;
+  --tj-card-bg: #ffffff;
+  --tj-text: #17243a;
+  --tj-text-muted: #5d6d88;
+  --tj-danger: #d73c4f;
+  --tj-radius: 16px;
+  --tj-shadow: 0 18px 40px rgba(26, 49, 94, 0.08);
+}
