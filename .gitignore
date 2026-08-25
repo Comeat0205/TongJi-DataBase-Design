@@ -152,3 +152,6 @@ obj/
 *.db-shm
 *.db-wal
 
+# 本地敏感配置（账密），模板见 appsettings.Local.example.json
+appsettings.Local.json
+
