@@ -3,8 +3,11 @@ import type { RouteRecordRaw } from 'vue-router'
 const Placeholder = () => import('@/views/shared/ModulePlaceholderView.vue')
 const MemberHome = () => import('@/views/member/MemberHomeView.vue')
 const MemberProfile = () => import('@/views/member/MemberProfileView.vue')
+const PersonalPackageList = () => import('@/views/member/PersonalPackageListView.vue')
+const PtBooking = () => import('@/views/member/PtBookingView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
+const PtConfirm = () => import('@/views/coach/PtConfirmView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
 type RouteMode = 'auth' | 'preview'
@@ -65,6 +68,18 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       component: MemberProfile,
       meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
     },
+    {
+      path: 'pt-packages',
+      name: `${p}-pt-packages`,
+      component: PersonalPackageList,
+      meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
+    },
+    {
+      path: 'pt-bookings',
+      name: `${p}-pt-bookings`,
+      component: PtBooking,
+      meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
+    },
     ...placeholderChildRoutes('member', mode, [
       {
         path: 'cards',
@@ -100,20 +115,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '我的团课预约',
         owner: 'F',
         features: '#8 #9 #10 #11',
-      },
-      {
-        path: 'pt-packages',
-        name: `${p}-pt-packages`,
-        pageTitle: '私教课包',
-        owner: 'G',
-        features: '#12',
-      },
-      {
-        path: 'pt-bookings',
-        name: `${p}-pt-bookings`,
-        pageTitle: '私教预约',
-        owner: 'G',
-        features: '#12 #13 #14',
       },
       {
         path: 'schedule',
@@ -260,6 +261,12 @@ function coachChildren(mode: RouteMode): RouteRecordRaw[] {
       component: CoachHome,
       meta: { userType: 'coach', preview: mode === 'preview' },
     },
+    {
+      path: 'pt-confirm',
+      name: `${p}-pt-confirm`,
+      component: PtConfirm,
+      meta: { requiresAuth: mode === 'auth', userType: 'coach', preview: mode === 'preview' },
+    },
     ...placeholderChildRoutes('coach', mode, [
       {
         path: 'schedule',
@@ -267,13 +274,6 @@ function coachChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '教练日程',
         owner: 'J',
         features: '#4 #11 #13',
-      },
-      {
-        path: 'pt-confirm',
-        name: `${p}-pt-confirm`,
-        pageTitle: '私教确认与消课',
-        owner: 'G',
-        features: '#13 #14',
       },
     ]),
   ]
