@@ -1,0 +1,44 @@
+import { http } from './http'
+
+export interface PaymentOrder {
+  orderId: number
+  businessOrderId: number
+  totalAmount: number
+  discountValue: number
+  payableAmount: number
+  paymentStatus?: string
+  createTime?: string
+  paymentFinishTime?: string
+  voucherId?: number
+  voucherType?: string
+  memberId?: number
+  detailCount: number
+  refundAmount?: number
+  voucherRestored?: boolean
+  actionMessage?: string
+}
+
+export function getPaymentOrders(params?: { memberId?: number; pageNumber?: number; pageSize?: number }) {
+  const query = new URLSearchParams()
+  if (params?.memberId != null) query.set('memberId', String(params.memberId))
+  if (params?.pageNumber != null) query.set('pageNumber', String(params.pageNumber))
+  if (params?.pageSize != null) query.set('pageSize', String(params.pageSize))
+  const qs = query.toString()
+  return http.get<PaymentOrder[]>(`/paymentorders${qs ? `?${qs}` : ''}`)
+}
+
+export function createPaymentOrder(payload: { memberId: number; totalAmount?: number; voucherId?: number | null }) {
+  return http.post<PaymentOrder>('/paymentorders', payload)
+}
+
+export function updateOrderVoucher(orderId: number, voucherId: number | null) {
+  return http.put<PaymentOrder>(`/paymentorders/${orderId}/voucher`, { voucherId })
+}
+
+export function payPaymentOrder(orderId: number) {
+  return http.post<PaymentOrder>(`/paymentorders/${orderId}/pay`)
+}
+
+export function cancelPaymentOrder(orderId: number) {
+  return http.post<PaymentOrder>(`/paymentorders/${orderId}/cancel`)
+}
