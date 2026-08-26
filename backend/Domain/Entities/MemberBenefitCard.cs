@@ -13,6 +13,8 @@ public partial class MemberBenefitCard
 
     public string? CardStatus { get; set; }
 
+    public string? CardType { get; set; }
+
     public int? ProductId { get; set; }
 
     public virtual ICollection<Checkinout> Checkinouts { get; set; } = new List<Checkinout>();

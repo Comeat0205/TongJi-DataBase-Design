@@ -536,6 +536,11 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("'1' ")
                 .IsFixedLength()
                 .HasColumnName("CARD_STATUS");
+            entity.Property(e => e.CardType)
+                .HasMaxLength(1)
+                .IsUnicode(false)
+                .IsFixedLength()
+                .HasColumnName("CARD_TYPE");
             entity.Property(e => e.IssueDate)
                 .HasDefaultValueSql("SYSDATE")
                 .HasColumnType("DATE")

@@ -5,6 +5,9 @@ const MemberHome = () => import('@/views/member/MemberHomeView.vue')
 const MemberProfile = () => import('@/views/member/MemberProfileView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
+const CheckIn = () => import('@/views/member/CheckInView.vue')
+const CheckInDesk = () => import('@/views/admin/CheckInDeskView.vue')
+const CapacityLogs = () => import('@/views/admin/CapacityLogsView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
 type RouteMode = 'auth' | 'preview'
@@ -65,6 +68,12 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       component: MemberProfile,
       meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
     },
+    {
+      path: 'check-in',
+      name: `${p}-check-in`,
+      component: CheckIn,
+      meta: { pageTitle: '入场签到', owner: 'E', features: '#5 #6 #7 #18', preview: mode === 'preview', userType: 'member' },
+    },
     ...placeholderChildRoutes('member', mode, [
       {
         path: 'cards',
@@ -79,13 +88,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '购买会员卡',
         owner: 'D',
         features: '#20',
-      },
-      {
-        path: 'check-in',
-        name: `${p}-check-in`,
-        pageTitle: '入场签到',
-        owner: 'E',
-        features: '#5 #6 #7 #18',
       },
       {
         path: 'group-courses',
@@ -150,21 +152,19 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       component: AdminHome,
       meta: { userType: 'employee', preview: mode === 'preview' },
     },
-    ...placeholderChildRoutes('admin', mode, [
     {
       path: 'check-in-desk',
       name: `${p}-check-in-desk`,
-      pageTitle: '前台入场',
-      owner: 'E',
-      features: '#5 #6 #7',
+      component: CheckInDesk,
+      meta: { pageTitle: '前台入场', owner: 'E', features: '#5 #6 #7', preview: mode === 'preview', userType: 'employee' },
     },
     {
       path: 'capacity-logs',
       name: `${p}-capacity-logs`,
-      pageTitle: '容量日志',
-      owner: 'E',
-      features: '#7 #21',
+      component: CapacityLogs,
+      meta: { pageTitle: '容量日志', owner: 'E', features: '#7 #21', preview: mode === 'preview', userType: 'employee' },
     },
+    ...placeholderChildRoutes('admin', mode, [
     {
       path: 'members',
       name: `${p}-members`,
