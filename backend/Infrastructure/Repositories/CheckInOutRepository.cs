@@ -67,4 +67,13 @@ public sealed class CheckInOutRepository : Repository<Checkinout, int>, ICheckIn
             .MaxAsync(x => (int?)x.CheckInOutId, cancellationToken);
         return (maxId ?? 0) + 1;
     }
+
+    public async Task<MemberBenefitCard?> GetCardWithDetailsAsync(int cardId, CancellationToken cancellationToken = default)
+    {
+        return await Context.MemberBenefitCards
+            .Include(c => c.CountCardExtension)
+            .Include(c => c.TimeCardExtension)
+            .Include(c => c.Member)
+            .FirstOrDefaultAsync(c => c.CardId == cardId, cancellationToken);
+    }
 }

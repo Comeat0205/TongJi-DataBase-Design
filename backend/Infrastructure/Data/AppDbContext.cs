@@ -548,18 +548,11 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.MemberId)
                 .HasPrecision(10)
                 .HasColumnName("MEMBER_ID");
-            entity.Property(e => e.ProductId)
-                .HasPrecision(10)
-                .HasColumnName("PRODUCT_ID");
 
             entity.HasOne(d => d.Member).WithMany(p => p.MemberBenefitCards)
                 .HasForeignKey(d => d.MemberId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_CARD_MEMBER");
-
-            entity.HasOne(d => d.Product).WithMany(p => p.MemberBenefitCards)
-                .HasForeignKey(d => d.ProductId)
-                .HasConstraintName("FK_CARD_PRODUCT");
         });
 
         modelBuilder.Entity<MemberSchedule>(entity =>

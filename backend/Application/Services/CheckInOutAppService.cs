@@ -3,8 +3,6 @@ using Application.Interfaces;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces;
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
 
@@ -14,30 +12,23 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
     private readonly IVenueRepository _venueRepo;
     private readonly ICapacityLogRepository _capLogRepo;
     private readonly IUnitOfWork _uow;
-    private readonly AppDbContext _db;
 
     public CheckInOutAppService(
         ICheckInOutRepository checkInOutRepo,
         IVenueRepository venueRepo,
         ICapacityLogRepository capLogRepo,
-        IUnitOfWork uow,
-        AppDbContext db)
+        IUnitOfWork uow)
     {
         _checkInOutRepo = checkInOutRepo;
         _venueRepo = venueRepo;
         _capLogRepo = capLogRepo;
         _uow = uow;
-        _db = db;
     }
 
     public async Task<CheckInResultDto> CheckInAsync(CheckInRequestDto req, CancellationToken ct = default)
     {
         // 查卡片 + 扩展表 + 会员
-        var card = await _db.MemberBenefitCards
-            .Include(c => c.CountCardExtension)
-            .Include(c => c.TimeCardExtension)
-            .Include(c => c.Member)
-            .FirstOrDefaultAsync(c => c.CardId == req.CardId, ct);
+        var card = await _checkInOutRepo.GetCardWithDetailsAsync(req.CardId, ct);
 
         if (card is null)
             throw new InvalidOperationException("未找到该会员卡");
@@ -112,7 +103,8 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
             CardType = cardType == "0" ? "次卡" : "时间卡",
             CardStatus = card.CardStatus?.Trim() == "1" ? "正常" : "已用完",
             RemainingCount = remaining,
-            ExpireDate = expire
+            ExpireDate = expire,
+            CapacityWarningLevel = GetCapacityWarningLevel(cur + 1, venue.MaxCapacity)
         };
     }
 
@@ -135,16 +127,21 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
     public async Task<IReadOnlyList<VenueStatusDto>> GetVenueStatusAsync(CancellationToken ct = default)
     {
         var list = await _venueRepo.GetAllAsync(ct);
-        return list.Select(v => new VenueStatusDto
+        return list.Select(v =>
         {
-            VenueId = v.VenueId,
-            VenueName = v.VenueName,
-            MaxCapacity = v.MaxCapacity,
-            CurrentCapacity = v.CurrentCapacity ?? 0,
-            OccupancyRate = v.MaxCapacity > 0
-                ? Math.Round((decimal)(v.CurrentCapacity ?? 0) / v.MaxCapacity * 100, 1)
-                : 0,
-            VenueStatus = v.VenueStatus?.Trim() == "1" ? "营业中" : "已关闭"
+            var cur = v.CurrentCapacity ?? 0;
+            return new VenueStatusDto
+            {
+                VenueId = v.VenueId,
+                VenueName = v.VenueName,
+                MaxCapacity = v.MaxCapacity,
+                CurrentCapacity = cur,
+                OccupancyRate = v.MaxCapacity > 0
+                    ? Math.Round((decimal)cur / v.MaxCapacity * 100, 1)
+                    : 0,
+                VenueStatus = v.VenueStatus?.Trim() == "1" ? "营业中" : "已关闭",
+                CapacityWarningLevel = GetCapacityWarningLevel(cur, v.MaxCapacity)
+            };
         }).ToList();
     }
 
@@ -191,4 +188,15 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         CheckOutTime = e.CheckOutTime,
         CheckOutMode = e.CheckOutMode?.Trim()
     };
+
+    /// <summary>
+    /// 根据当前容量与最大容量计算预警级别（功能点 #7）
+    /// </summary>
+    static string GetCapacityWarningLevel(int current, int max)
+    {
+        if (max <= 0) return "normal";
+        if (current >= max) return "full";
+        var rate = (decimal)current / max;
+        return rate >= 0.9m ? "warning" : "normal";
+    }
 }

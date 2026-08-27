@@ -10,4 +10,8 @@ public sealed class CheckInResultDto
     public string CardStatus { get; init; } = string.Empty;
     public int? RemainingCount { get; init; }
     public DateTime? ExpireDate { get; init; }
+    /// <summary>
+    /// 入场后场馆容量预警级别：normal / warning(≥90%) / full
+    /// </summary>
+    public string CapacityWarningLevel { get; init; } = "normal";
 }

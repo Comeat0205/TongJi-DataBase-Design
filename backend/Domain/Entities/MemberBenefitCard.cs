@@ -15,15 +15,11 @@ public partial class MemberBenefitCard
 
     public string? CardType { get; set; }
 
-    public int? ProductId { get; set; }
-
     public virtual ICollection<Checkinout> Checkinouts { get; set; } = new List<Checkinout>();
 
     public virtual CountCardExtension? CountCardExtension { get; set; }
 
     public virtual Member Member { get; set; } = null!;
-
-    public virtual Cardproduct? Product { get; set; }
 
     public virtual TimeCardExtension? TimeCardExtension { get; set; }
 }
