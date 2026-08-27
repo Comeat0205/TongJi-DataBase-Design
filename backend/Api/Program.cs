@@ -4,6 +4,9 @@ using Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 本地敏感配置（账密等），已被 .gitignore 排除，不入库；example 见 appsettings.Local.example.json。
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 // 统一在入口项目完成依赖装配，避免控制器直接关心底层实现。
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

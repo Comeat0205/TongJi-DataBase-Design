@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Domain.Entities;
 
 /// <summary>
-/// Ô±¹¤ĞÅÏ¢±í
+/// å‘˜å·¥ä¿¡æ¯è¡¨
 /// </summary>
 public partial class Employee
 {
@@ -17,9 +17,11 @@ public partial class Employee
     public string? Phone { get; set; }
 
     /// <summary>
-    /// 1-ÔÚÖ°£¬0-ÀëÖ°
+    /// 1-åœ¨èŒï¼Œ0-ç¦»èŒ
     /// </summary>
     public string? Status { get; set; }
+
+    public int? UserId { get; set; }
 
     public virtual ICollection<Inspectiontask> Inspectiontasks { get; set; } = new List<Inspectiontask>();
 
