@@ -35,6 +35,14 @@ public sealed class PtBookingAppService : IPtBookingAppService
         return bookings.Select(MapToDto).ToList();
     }
 
+    public async Task<IReadOnlyList<PtBookingDto>> GetByCoachIdAsync(
+        int coachId,
+        CancellationToken cancellationToken = default)
+    {
+        var bookings = await _ptBookingRepository.GetByCoachIdAsync(coachId, cancellationToken);
+        return bookings.Select(MapToDto).ToList();
+    }
+
     public async Task<PtBookingDto> BookAsync(
         CreatePtBookingRequestDto request,
         CancellationToken cancellationToken = default)
@@ -115,11 +123,10 @@ public sealed class PtBookingAppService : IPtBookingAppService
         {
             if (!PersonalTrainingRules.IsPackageUsable(booking.Package, DateTime.Now))
             {
-                throw new DomainException("课包已过期、停用或没有剩余次数，无法确认消课。");
+                throw new DomainException("课包已过期、停用或没有剩余次数，无法确认预约。");
             }
 
             booking.CoachConfirmed = "1";
-            booking.Package.RemainingSessions--;
         }
         else
         {
@@ -129,8 +136,80 @@ public sealed class PtBookingAppService : IPtBookingAppService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task ConsumeAsync(
+        int bookingId,
+        PtBookingCoachActionRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var booking = await _ptBookingRepository.GetWithPackageAsync(bookingId, cancellationToken)
+            ?? throw new KeyNotFoundException($"未找到编号为 {bookingId} 的私教预约。");
+
+        if (booking.CoachId != request.CoachId)
+        {
+            throw new DomainException("只能处理分配给自己的私教预约。");
+        }
+
+        if (booking.MemberConfirmed != "1")
+        {
+            throw new DomainException("会员已取消该预约，不能消课。");
+        }
+
+        if (booking.CoachConfirmed != "1")
+        {
+            throw new DomainException("只有教练已确认的预约才能消课。");
+        }
+
+        if (!PersonalTrainingRules.CanConsume(booking, DateTime.Now))
+        {
+            throw new DomainException("未到上课时间或该预约已经消课。");
+        }
+
+        if (!PersonalTrainingRules.IsPackageUsable(booking.Package, DateTime.Now))
+        {
+            throw new DomainException("课包已过期、停用或没有剩余次数，无法消课。");
+        }
+
+        booking.ConsumeStatus = "1";
+        booking.ConsumedTime = DateTime.Now;
+        booking.Package.RemainingSessions--;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UndoConsumptionAsync(
+        int bookingId,
+        PtBookingCoachActionRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var booking = await _ptBookingRepository.GetWithPackageAsync(bookingId, cancellationToken)
+            ?? throw new KeyNotFoundException($"未找到编号为 {bookingId} 的私教预约。");
+
+        if (booking.CoachId != request.CoachId)
+        {
+            throw new DomainException("只能撤销自己处理过的私教消课。");
+        }
+
+        if (!PersonalTrainingRules.CanUndoConsumption(booking))
+        {
+            throw new DomainException("只有已消课的预约才能撤销消课。");
+        }
+
+        if (booking.Package.RemainingSessions >= booking.Package.TotalSessions)
+        {
+            throw new DomainException("课包剩余次数已达到总次数，不能继续恢复。");
+        }
+
+        booking.ConsumeStatus = "0";
+        booking.ConsumedTime = null;
+        booking.Package.RemainingSessions++;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
     private static PtBookingDto MapToDto(Ptbooking booking)
     {
+        var now = DateTime.Now;
+
         return new PtBookingDto
         {
             PtBookingId = booking.PtBookingId,
@@ -143,7 +222,12 @@ public sealed class PtBookingAppService : IPtBookingAppService
             SessionTime = booking.SessionTime,
             CoachConfirmed = booking.CoachConfirmed,
             MemberConfirmed = booking.MemberConfirmed,
-            Status = PersonalTrainingRules.GetBookingStatus(booking)
+            ConsumeStatus = booking.ConsumeStatus ?? "0",
+            ConsumedTime = booking.ConsumedTime,
+            Status = PersonalTrainingRules.GetBookingStatus(booking),
+            IsConsumed = PersonalTrainingRules.IsConsumed(booking),
+            CanConsume = PersonalTrainingRules.CanConsume(booking, now),
+            CanUndoConsumption = PersonalTrainingRules.CanUndoConsumption(booking)
         };
     }
 }

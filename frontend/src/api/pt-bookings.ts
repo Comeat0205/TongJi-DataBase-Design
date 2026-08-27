@@ -1,6 +1,7 @@
 import { http } from './http'
 
 export type PtBookingStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'
+export type PtConsumeStatus = '0' | '1'
 
 export interface PtBooking {
   ptBookingId: number
@@ -13,7 +14,12 @@ export interface PtBooking {
   sessionTime: string
   coachConfirmed: string
   memberConfirmed: string
+  consumeStatus: PtConsumeStatus
+  consumedTime?: string | null
   status: PtBookingStatus
+  isConsumed: boolean
+  canConsume: boolean
+  canUndoConsumption: boolean
 }
 
 export interface CreatePtBookingRequest {
@@ -30,6 +36,10 @@ export function getPendingCoachPtBookings(coachId: number) {
   return http.get<PtBooking[]>(`/coaches/${coachId}/pt-bookings/pending`)
 }
 
+export function getCoachPtBookings(coachId: number) {
+  return http.get<PtBooking[]>(`/coaches/${coachId}/pt-bookings`)
+}
+
 export function createPtBooking(request: CreatePtBookingRequest) {
   return http.post<PtBooking>('/pt-bookings', request)
 }
@@ -40,4 +50,12 @@ export function cancelPtBooking(bookingId: number, memberId: number) {
 
 export function confirmPtBooking(bookingId: number, coachId: number, accept: boolean) {
   return http.post<void>(`/pt-bookings/${bookingId}/confirm`, { coachId, accept })
+}
+
+export function consumePtBooking(bookingId: number, coachId: number) {
+  return http.post<void>(`/pt-bookings/${bookingId}/consume`, { coachId })
+}
+
+export function undoPtBookingConsumption(bookingId: number, coachId: number) {
+  return http.post<void>(`/pt-bookings/${bookingId}/undo-consume`, { coachId })
 }

@@ -12,6 +12,10 @@ public interface IPtBookingRepository : IRepository<Ptbooking, int>
         int coachId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Ptbooking>> GetByCoachIdAsync(
+        int coachId,
+        CancellationToken cancellationToken = default);
+
     Task<Ptbooking?> GetWithPackageAsync(
         int bookingId,
         CancellationToken cancellationToken = default);

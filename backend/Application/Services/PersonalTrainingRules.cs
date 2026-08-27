@@ -37,4 +37,24 @@ internal static class PersonalTrainingRules
             _ => "PENDING"
         };
     }
+
+    public static bool IsConsumed(Ptbooking booking)
+    {
+        return booking.ConsumeStatus == "1";
+    }
+
+    public static bool CanConsume(Ptbooking booking, DateTime now)
+    {
+        return booking.MemberConfirmed == "1"
+            && booking.CoachConfirmed == "1"
+            && !IsConsumed(booking)
+            && booking.SessionTime <= now;
+    }
+
+    public static bool CanUndoConsumption(Ptbooking booking)
+    {
+        return booking.MemberConfirmed == "1"
+            && booking.CoachConfirmed == "1"
+            && IsConsumed(booking);
+    }
 }

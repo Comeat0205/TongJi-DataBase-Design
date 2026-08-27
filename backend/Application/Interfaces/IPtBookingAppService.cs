@@ -12,6 +12,10 @@ public interface IPtBookingAppService
         int coachId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<PtBookingDto>> GetByCoachIdAsync(
+        int coachId,
+        CancellationToken cancellationToken = default);
+
     Task<PtBookingDto> BookAsync(
         CreatePtBookingRequestDto request,
         CancellationToken cancellationToken = default);
@@ -24,5 +28,15 @@ public interface IPtBookingAppService
     Task ConfirmAsync(
         int bookingId,
         ConfirmPtBookingRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task ConsumeAsync(
+        int bookingId,
+        PtBookingCoachActionRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task UndoConsumptionAsync(
+        int bookingId,
+        PtBookingCoachActionRequestDto request,
         CancellationToken cancellationToken = default);
 }

@@ -1,6 +1,29 @@
 -- G · 私教预约
 -- 规则：课包可用、剩余次数足够、会员/教练同一时刻无冲突后创建待教练确认的预约。
--- 次数在教练确认并消课时由后端扣减；待确认预约数不能超过当前剩余次数。
+-- 次数在教练确认预约并完成上课后，由教练端单独消课扣减。
+-- 已提交但未消课的预约数不能超过当前剩余次数。
+BEGIN
+    EXECUTE IMMEDIATE
+        'ALTER TABLE PTBOOKING ADD (CONSUME_STATUS CHAR(1) DEFAULT ''0'' NOT NULL)';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE <> -1430 THEN
+            RAISE;
+        END IF;
+END;
+/
+
+BEGIN
+    EXECUTE IMMEDIATE
+        'ALTER TABLE PTBOOKING ADD (CONSUMED_TIME DATE)';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE <> -1430 THEN
+            RAISE;
+        END IF;
+END;
+/
+
 DECLARE
     v_start_with NUMBER;
 BEGIN
@@ -76,7 +99,8 @@ BEGIN
     FROM PTBOOKING
     WHERE PACKAGE_ID = p_package_id
       AND MEMBER_CONFIRMED = '1'
-      AND COACH_CONFIRMED = '0';
+      AND COACH_CONFIRMED IN ('0', '1')
+      AND NVL(CONSUME_STATUS, '0') <> '1';
 
     IF v_pending_count >= v_remaining THEN
         p_message := '待确认预约已占满课包剩余次数';
@@ -108,7 +132,9 @@ BEGIN
         BOOKING_TIME,
         SESSION_TIME,
         COACH_CONFIRMED,
-        MEMBER_CONFIRMED
+        MEMBER_CONFIRMED,
+        CONSUME_STATUS,
+        CONSUMED_TIME
     )
     VALUES (
         p_booking_id,
@@ -118,7 +144,9 @@ BEGIN
         SYSDATE,
         p_session_time,
         '0',
-        '1'
+        '1',
+        '0',
+        NULL
     );
 
     COMMIT;

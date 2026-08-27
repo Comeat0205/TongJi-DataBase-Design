@@ -36,7 +36,7 @@ const usablePackages = computed(() => packages.value.filter((item) => item.isUsa
 
 const statusText: Record<PtBookingStatus, string> = {
   PENDING: '待教练确认',
-  CONFIRMED: '已确认并消课',
+  CONFIRMED: '教练已确认',
   REJECTED: '教练已拒绝',
   CANCELLED: '已取消',
 }
@@ -178,6 +178,7 @@ onMounted(loadData)
               <div>
                 <p class="course">{{ item.courseName }}</p>
                 <p>{{ item.coachName }}教练 · {{ formatDateTime(item.sessionTime) }}</p>
+                <p>{{ item.isConsumed ? '已消课' : '未消课' }}</p>
               </div>
               <div class="item-actions">
                 <span class="badge" :class="item.status.toLowerCase()">

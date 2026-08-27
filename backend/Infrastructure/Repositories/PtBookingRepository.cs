@@ -39,6 +39,17 @@ public sealed class PtBookingRepository : Repository<Ptbooking, int>, IPtBooking
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Ptbooking>> GetByCoachIdAsync(
+        int coachId,
+        CancellationToken cancellationToken = default)
+    {
+        return await BookingQuery()
+            .AsNoTracking()
+            .Where(x => x.CoachId == coachId)
+            .OrderByDescending(x => x.SessionTime)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Ptbooking?> GetWithPackageAsync(
         int bookingId,
         CancellationToken cancellationToken = default)

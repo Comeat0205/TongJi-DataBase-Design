@@ -39,6 +39,18 @@ public sealed class PtBookingsController : ControllerBase
             HttpContext.TraceIdentifier));
     }
 
+    [HttpGet("/api/coaches/{coachId:int}/pt-bookings")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PtBookingDto>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<PtBookingDto>>>> GetByCoachId(
+        int coachId,
+        CancellationToken cancellationToken)
+    {
+        var bookings = await _ptBookingAppService.GetByCoachIdAsync(coachId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<PtBookingDto>>.Success(
+            bookings,
+            HttpContext.TraceIdentifier));
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<PtBookingDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<PtBookingDto>>> Book(
@@ -74,7 +86,29 @@ public sealed class PtBookingsController : ControllerBase
         CancellationToken cancellationToken)
     {
         await _ptBookingAppService.ConfirmAsync(bookingId, request, cancellationToken);
-        var message = request.Accept ? "私教预约已确认并完成消课。" : "私教预约已拒绝。";
+        var message = request.Accept ? "私教预约已确认。" : "私教预约已拒绝。";
         return Ok(ApiResponse<object>.Success(null, HttpContext.TraceIdentifier, message));
+    }
+
+    [HttpPost("{bookingId:int}/consume")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<object>>> Consume(
+        int bookingId,
+        [FromBody] PtBookingCoachActionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await _ptBookingAppService.ConsumeAsync(bookingId, request, cancellationToken);
+        return Ok(ApiResponse<object>.Success(null, HttpContext.TraceIdentifier, "已完成消课并扣减课包次数。"));
+    }
+
+    [HttpPost("{bookingId:int}/undo-consume")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<object>>> UndoConsumption(
+        int bookingId,
+        [FromBody] PtBookingCoachActionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await _ptBookingAppService.UndoConsumptionAsync(bookingId, request, cancellationToken);
+        return Ok(ApiResponse<object>.Success(null, HttpContext.TraceIdentifier, "已撤销消课并恢复课包次数。"));
     }
 }
