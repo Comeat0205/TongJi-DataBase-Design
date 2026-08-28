@@ -1,5 +1,4 @@
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
+using Domain.Interfaces;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -57,13 +56,9 @@ public sealed class AutoCheckoutBackgroundService : BackgroundService
         try
         {
             using var scope = _services.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            // 调用 Oracle 存储过程 sp_auto_checkout
-            await context.Database.ExecuteSqlRawAsync(
-                "BEGIN sp_auto_checkout; END;", ct);
-
-            _logger.LogInformation("23:00 自动签退执行成功。");
+            var repo = scope.ServiceProvider.GetRequiredService<ICheckInOutRepository>();
+            var msg = await repo.ExecuteAutoCheckoutAsync(ct);
+            _logger.LogInformation("23:00 自动签退执行成功：{Message}", msg);
         }
         catch (Exception ex)
         {

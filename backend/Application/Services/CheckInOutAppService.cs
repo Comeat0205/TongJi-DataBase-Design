@@ -45,7 +45,7 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         {
             // 次卡 - 看剩余次数
             if (card.CountCardExtension is null || card.CountCardExtension.RemainingCount <= 0)
-                throw new InvalidOperationException("次卡次数不足");
+                throw new InvalidOperationException("会员卡次数为0");
             remaining = card.CountCardExtension.RemainingCount;
         }
         else
@@ -174,6 +174,31 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
             RecordedCount = l.RecordedCount,
             OccupancyRate = l.OccupancyRate
         }).ToList();
+    }
+
+    public async Task<DashboardStatsDto> GetDashboardStatsAsync(CancellationToken ct = default)
+    {
+        var todayCount = await _checkInOutRepo.GetTodayCheckInCountAsync(ct);
+        var activeCount = await _checkInOutRepo.GetTotalActiveCountAsync(ct);
+        var venues = await GetVenueStatusAsync(ct);
+
+        return new DashboardStatsDto
+        {
+            TodayCheckIns = todayCount,
+            ActiveMembers = activeCount,
+            Venues = venues
+        };
+    }
+
+    public async Task<string> TriggerAutoCheckoutAsync(CancellationToken ct = default)
+    {
+        return await _checkInOutRepo.ExecuteAutoCheckoutAsync(ct);
+    }
+
+    public async Task<CheckInOutDto?> GetMyActiveCheckInAsync(int cardId, CancellationToken ct = default)
+    {
+        var record = await _checkInOutRepo.GetActiveCheckInByCardAsync(cardId, ct);
+        return record is null ? null : MapDto(record);
     }
 
     static CheckInOutDto MapDto(Checkinout e) => new()

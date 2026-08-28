@@ -19,6 +19,13 @@ public sealed class CheckInOutRepository : Repository<Checkinout, int>, ICheckIn
                 && x.CheckOutTime == null, cancellationToken);
     }
 
+    public async Task<Checkinout?> GetActiveCheckInByCardAsync(int cardId, CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .Include(x => x.Venue)
+            .FirstOrDefaultAsync(x => x.CardId == cardId && x.CheckOutTime == null, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Checkinout>> GetActiveCheckInsByVenueAsync(int venueId, CancellationToken cancellationToken = default)
     {
         return await DbSet
@@ -75,5 +82,44 @@ public sealed class CheckInOutRepository : Repository<Checkinout, int>, ICheckIn
             .Include(c => c.TimeCardExtension)
             .Include(c => c.Member)
             .FirstOrDefaultAsync(c => c.CardId == cardId, cancellationToken);
+    }
+
+    public async Task<int> GetTodayCheckInCountAsync(CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.Today;
+        return await DbSet
+            .AsNoTracking()
+            .CountAsync(x => x.CheckInTime >= today && x.CheckInTime < today.AddDays(1), cancellationToken);
+    }
+
+    public async Task<int> GetTotalActiveCountAsync(CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .CountAsync(x => x.CheckOutTime == null, cancellationToken);
+    }
+
+    public async Task<string> ExecuteAutoCheckoutAsync(CancellationToken cancellationToken = default)
+    {
+        var conn = Context.Database.GetDbConnection();
+        await conn.OpenAsync(cancellationToken);
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "sp_auto_checkout";
+        cmd.CommandType = System.Data.CommandType.StoredProcedure;
+
+        var pResult = cmd.CreateParameter();
+        pResult.ParameterName = "p_result";
+        pResult.Direction = System.Data.ParameterDirection.Output;
+        cmd.Parameters.Add(pResult);
+
+        var pMessage = cmd.CreateParameter();
+        pMessage.ParameterName = "p_message";
+        pMessage.Direction = System.Data.ParameterDirection.Output;
+        pMessage.Size = 4000;
+        cmd.Parameters.Add(pMessage);
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+        return pMessage.Value?.ToString() ?? "自动签退完成";
     }
 }

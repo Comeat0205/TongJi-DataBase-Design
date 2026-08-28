@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import PlaceholderPanel from '@/components/ui/PlaceholderPanel.vue'
+import { getDashboardStats, triggerAutoCheckout, type DashboardStats, type VenueStatus } from '@/api/check-in-out'
 import {
   adminAtRiskMembersMock,
-  adminOpsSummaryMock,
-  adminVenueCapacityListMock,
   getCrowdHint,
   getCrowdLabel,
   type CrowdLevel,
@@ -19,9 +17,48 @@ const authStore = useAuthStore()
 const basePath = computed(() => (route.path.startsWith('/preview/admin') ? '/preview/admin' : '/admin'))
 const displayName = computed(() => authStore.session?.displayName ?? '员工')
 
-const venues = adminVenueCapacityListMock
+const stats = ref<DashboardStats>({ todayCheckIns: 0, activeMembers: 0, venues: [] })
 const atRiskMembers = adminAtRiskMembersMock
-const ops = adminOpsSummaryMock
+const loading = ref(false)
+const autoCheckoutMsg = ref('')
+let timer: ReturnType<typeof setInterval> | null = null
+
+onMounted(async () => {
+  await refresh()
+  timer = setInterval(refresh, 30000) // 每 30 秒刷新
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
+
+async function refresh() {
+  loading.value = true
+  try {
+    stats.value = await getDashboardStats()
+  } catch {
+    // 接口异常时保留上次数据
+  } finally {
+    loading.value = false
+  }
+}
+
+async function doAutoCheckout() {
+  autoCheckoutMsg.value = ''
+  try {
+    const res = await triggerAutoCheckout()
+    autoCheckoutMsg.value = res.message
+    await refresh()
+  } catch {
+    autoCheckoutMsg.value = '自动签退执行失败'
+  }
+}
+
+function getWarningLevel(v: VenueStatus): CrowdLevel {
+  if (v.capacityWarningLevel === 'full') return 'full'
+  if (v.capacityWarningLevel === 'warning') return 'warning'
+  return 'comfortable'
+}
 
 function crowdBarClass(level: CrowdLevel) {
   return `bar-${level}`
@@ -33,35 +70,33 @@ function crowdBarClass(level: CrowdLevel) {
     <PageHeader
       eyebrow="Staff Dashboard"
       :title="`${displayName}，运营工作台`"
-      subtitle="员工登录首页占位：监控场馆拥挤度、容量预警、流失风险会员与今日待办。联调后数据来自 VENUE、CAPACITYLOG、MEMBER 出勤统计等接口。"
+      subtitle="实时监控场馆拥挤度、容量预警、今日入场统计，支持一键自动签退。"
     >
       <template #actions>
         <RouterLink class="primary-link" :to="`${basePath}/check-in-desk`">前台入场</RouterLink>
       </template>
     </PageHeader>
 
-    <p class="demo-banner">演示数据 · 功能点占位 · 后续由 C/E/H/I 等模块接入真实 API</p>
-
     <section class="summary-grid">
       <article class="summary-card">
         <span>今日入场</span>
-        <strong>{{ ops.todayCheckIns }}</strong>
-        <small>{{ ops.featureRefs }}</small>
+        <strong>{{ stats.todayCheckIns }}</strong>
+        <small>人次</small>
       </article>
       <article class="summary-card">
-        <span>待处理报修</span>
-        <strong>{{ ops.pendingRepairs }}</strong>
-        <small>功能点 #15 · I</small>
+        <span>当前在场</span>
+        <strong>{{ stats.activeMembers }}</strong>
+        <small>人</small>
       </article>
       <article class="summary-card">
-        <span>待完成巡检</span>
-        <strong>{{ ops.inspectionTasksDue }}</strong>
-        <small>功能点 #16 · I</small>
+        <span>场馆数量</span>
+        <strong>{{ stats.venues.length }}</strong>
+        <small>个</small>
       </article>
       <article class="summary-card">
-        <span>候补中团课</span>
-        <strong>{{ ops.hotWaitlistCourses }}</strong>
-        <small>功能点 #9 · F</small>
+        <span>数据刷新</span>
+        <strong :class="{ spinning: loading }">&#x21bb;</strong>
+        <small>每 30 秒自动</small>
       </article>
     </section>
 
@@ -71,26 +106,29 @@ function crowdBarClass(level: CrowdLevel) {
           <p class="card-eyebrow">场馆容量监控 · 功能点 #7</p>
           <h2>实时拥挤度</h2>
         </div>
-        <RouterLink class="text-link" :to="`${basePath}/capacity-logs`">容量日志 →</RouterLink>
+        <div class="card-actions">
+          <button class="btn-outline" @click="doAutoCheckout">一键自动签退</button>
+          <RouterLink class="text-link" :to="`${basePath}/capacity-logs`">容量日志 →</RouterLink>
+        </div>
       </div>
+      <p v-if="autoCheckoutMsg" class="auto-msg">{{ autoCheckoutMsg }}</p>
       <div class="venue-list">
-        <article v-for="venue in venues" :key="venue.venueId" class="venue-item" :class="`crowd-${venue.crowdLevel}`">
+        <article v-for="venue in stats.venues" :key="venue.venueId" class="venue-item" :class="`crowd-${getWarningLevel(venue)}`">
           <div class="venue-top">
             <h3>{{ venue.venueName }}</h3>
-            <span class="status-pill" :class="`crowd-${venue.crowdLevel}`">{{ getCrowdLabel(venue.crowdLevel) }}</span>
+            <span class="status-pill" :class="`crowd-${getWarningLevel(venue)}`">{{ getCrowdLabel(getWarningLevel(venue)) }}</span>
           </div>
-          <p class="venue-meta">{{ venue.currentCount }} / {{ venue.maxCapacity }} 人 · 占用率 {{ venue.occupancyRate.toFixed(1) }}%</p>
+          <p class="venue-meta">{{ venue.currentCapacity }} / {{ venue.maxCapacity }} 人 · 占用率 {{ venue.occupancyRate.toFixed(1) }}%</p>
           <div class="capacity-bar-track">
             <div
               class="capacity-bar-fill"
-              :class="crowdBarClass(venue.crowdLevel)"
+              :class="crowdBarClass(getWarningLevel(venue))"
               :style="{ width: `${Math.min(venue.occupancyRate, 100)}%` }"
             />
           </div>
-          <p class="card-hint">{{ getCrowdHint(venue.crowdLevel) }}</p>
+          <p class="card-hint">{{ getCrowdHint(getWarningLevel(venue)) }}</p>
         </article>
       </div>
-      <p class="feature-note">需求 §1.1.3 · 设计文档 VENUE / CAPACITYLOG · 90% 黄灯、100% 禁入由 E 模块实现</p>
     </section>
 
     <section class="dashboard-grid">
@@ -121,19 +159,12 @@ function crowdBarClass(level: CrowdLevel) {
         <p class="card-eyebrow">快捷操作</p>
         <h2>前台常用</h2>
         <div class="quick-grid">
-          <RouterLink :to="`${basePath}/members`">会员管理 (#1 #2)</RouterLink>
-          <RouterLink :to="`${basePath}/check-in-desk`">入场 / 退场 (#5 #6)</RouterLink>
-          <RouterLink :to="`${basePath}/repairs`">器材报修 (#15)</RouterLink>
-          <RouterLink :to="`${basePath}/vouchers`">优惠券 (#18 #20)</RouterLink>
+          <RouterLink :to="`${basePath}/members`">会员管理</RouterLink>
+          <RouterLink :to="`${basePath}/check-in-desk`">入场 / 退场</RouterLink>
+          <RouterLink :to="`${basePath}/capacity-logs`">容量日志</RouterLink>
         </div>
       </article>
     </section>
-
-    <PlaceholderPanel
-      owner="C + E + H + I"
-      features="#7 #9 #15 #16 #17"
-      message="员工首页占位：E 负责容量与预警，H 负责流失会员与营销推荐，I 负责报修/巡检待办，C 负责会员/场馆基础信息维护入口。"
-    />
   </div>
 </template>
 
@@ -141,15 +172,6 @@ function crowdBarClass(level: CrowdLevel) {
 .admin-home {
   display: grid;
   gap: 20px;
-}
-
-.demo-banner {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #fff7e6;
-  color: #9a6700;
-  font-size: 13px;
 }
 
 .summary-grid {
@@ -179,6 +201,16 @@ function crowdBarClass(level: CrowdLevel) {
   color: var(--tj-text);
 }
 
+.spinning {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -202,6 +234,12 @@ function crowdBarClass(level: CrowdLevel) {
   gap: 12px;
   align-items: flex-start;
   margin-bottom: 16px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .card-eyebrow {
@@ -253,8 +291,7 @@ function crowdBarClass(level: CrowdLevel) {
 .venue-meta,
 .meta,
 .action,
-.card-hint,
-.feature-note {
+.card-hint {
   margin: 8px 0 0;
   color: var(--tj-text-muted);
   font-size: 13px;
@@ -340,6 +377,30 @@ function crowdBarClass(level: CrowdLevel) {
   border-radius: 10px;
   background: #285cff;
   color: #fff;
+}
+
+.btn-outline {
+  padding: 6px 14px;
+  border: 1px solid #4d77ff;
+  border-radius: 8px;
+  background: #fff;
+  color: #4d77ff;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-outline:hover {
+  background: #f0f5ff;
+}
+
+.auto-msg {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #e8f7ef;
+  color: #137333;
+  font-size: 13px;
 }
 
 @media (max-width: 960px) {

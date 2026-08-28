@@ -6,7 +6,7 @@ CREATE OR REPLACE PROCEDURE sp_auto_checkout(
     p_message OUT VARCHAR2
 ) AS
     v_count       NUMBER := 0;
-    v_now         DATE := SYSDATE;
+    v_now         DATE := CAST(CURRENT_TIMESTAMP AS DATE);
     v_venue_id    NUMBER;
 
     CURSOR c_open IS

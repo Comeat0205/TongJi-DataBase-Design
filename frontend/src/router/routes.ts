@@ -72,7 +72,7 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'check-in',
       name: `${p}-check-in`,
       component: CheckIn,
-      meta: { pageTitle: '入场签到', owner: 'E', features: '#5 #6 #7 #18', preview: mode === 'preview', userType: 'member' },
+      meta: { pageTitle: '签到签退', owner: 'E', features: '#5 #6 #7 #18', preview: mode === 'preview', userType: 'member' },
     },
     ...placeholderChildRoutes('member', mode, [
       {

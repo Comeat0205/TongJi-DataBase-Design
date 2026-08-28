@@ -85,4 +85,37 @@ public class CheckInOutController : ControllerBase
         var list = await _svc.GetCapacityLogsPagedAsync(venueId, pageNumber, pageSize, ct);
         return Ok(ApiResponse<IReadOnlyList<CapacityLogDto>>.Success(list, HttpContext.TraceIdentifier));
     }
+
+    // 员工首页统计（今日入场、在场人数、场馆实时容量）
+    [HttpGet("dashboard-stats")]
+    public async Task<ActionResult<ApiResponse<DashboardStatsDto>>> GetDashboardStats(CancellationToken ct)
+    {
+        var stats = await _svc.GetDashboardStatsAsync(ct);
+        return Ok(ApiResponse<DashboardStatsDto>.Success(stats, HttpContext.TraceIdentifier));
+    }
+
+    // 手动触发自动签退（演示/测试用）
+    [HttpPost("auto-checkout")]
+    public async Task<ActionResult<ApiResponse<object>>> TriggerAutoCheckout(CancellationToken ct)
+    {
+        try
+        {
+            var msg = await _svc.TriggerAutoCheckoutAsync(ct);
+            return Ok(ApiResponse<object>.Success(new { message = msg }, HttpContext.TraceIdentifier));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<object>.Failure("AUTO_CHECKOUT_FAILED", ex.Message, HttpContext.TraceIdentifier));
+        }
+    }
+
+    // 会员查询自己的在场记录
+    [HttpGet("my-checkin/{cardId:int}")]
+    public async Task<ActionResult<ApiResponse<CheckInOutDto>>> GetMyCheckIn(int cardId, CancellationToken ct)
+    {
+        var record = await _svc.GetMyActiveCheckInAsync(cardId, ct);
+        if (record is null)
+            return Ok(ApiResponse<CheckInOutDto>.Success(null!, HttpContext.TraceIdentifier));
+        return Ok(ApiResponse<CheckInOutDto>.Success(record, HttpContext.TraceIdentifier));
+    }
 }

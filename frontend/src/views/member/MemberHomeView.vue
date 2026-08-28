@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import PlaceholderPanel from '@/components/ui/PlaceholderPanel.vue'
+import { checkOut, getMyCheckIn, type CheckInOutRecord } from '@/api/check-in-out'
 import {
   getCrowdHint,
   getCrowdLabel,
@@ -29,6 +30,10 @@ const recommendations = memberCourseRecommendationsMock
 const reminders = memberUpcomingRemindersMock
 const birthdayBenefit = memberBirthdayBenefitMock
 
+const myCheckIn = ref<CheckInOutRecord | null>(null)
+const checkoutLoading = ref(false)
+const checkoutMsg = ref('')
+
 const crowdClass = computed(() => `crowd-${venue.crowdLevel}`)
 
 function crowdBarClass(level: CrowdLevel) {
@@ -38,6 +43,31 @@ function crowdBarClass(level: CrowdLevel) {
 function goProfile() {
   if (memberId.value) {
     router.push(`${basePath.value}/profile/${memberId.value}`)
+  }
+}
+
+onMounted(async () => {
+  if (memberId.value) {
+    try {
+      myCheckIn.value = await getMyCheckIn(memberId.value)
+    } catch {
+      // ignore
+    }
+  }
+})
+
+async function doCheckOut() {
+  if (!myCheckIn.value) return
+  checkoutLoading.value = true
+  checkoutMsg.value = ''
+  try {
+    await checkOut(myCheckIn.value.checkInOutId)
+    myCheckIn.value = null
+    checkoutMsg.value = '签退成功'
+  } catch {
+    checkoutMsg.value = '签退失败'
+  } finally {
+    checkoutLoading.value = false
   }
 }
 </script>
@@ -51,9 +81,18 @@ function goProfile() {
     >
       <template #actions>
         <button v-if="memberId" type="button" class="ghost-btn" @click="goProfile">我的档案</button>
-        <RouterLink class="primary-link" :to="`${basePath}/check-in`">入场签到</RouterLink>
+        <template v-if="myCheckIn">
+          <button class="checkout-btn" :disabled="checkoutLoading" @click="doCheckOut">
+            {{ checkoutLoading ? '签退中...' : '签退' }}
+          </button>
+        </template>
+        <template v-else>
+          <RouterLink class="primary-link" :to="`${basePath}/check-in`">签到签退</RouterLink>
+        </template>
       </template>
     </PageHeader>
+
+    <p v-if="checkoutMsg" class="checkout-toast">{{ checkoutMsg }}</p>
 
     <p class="demo-banner">演示数据 · 功能点占位 · 后续由 E/F/H/J 等模块接入真实 API</p>
 
@@ -428,6 +467,17 @@ function goProfile() {
   background: #fff;
   color: var(--tj-text);
   cursor: pointer;
+}
+
+.checkout-btn {
+  padding: 8px 16px; border: none; border-radius: 10px;
+  background: #cf1322; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.checkout-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.checkout-toast {
+  margin: 0; padding: 10px 16px; border-radius: 10px;
+  background: #e6fff4; color: #0a8a4a; font-size: 14px; font-weight: 600;
 }
 
 @media (max-width: 960px) {

@@ -99,7 +99,7 @@ function switchVenue(id: number) {
     <div class="card">
       <h2>办理入场</h2>
       <form class="inline" @submit.prevent="doCheckIn">
-        <input v-model.number="cardInput" type="number" min="1" placeholder="会员卡编号" :disabled="submitting" />
+        <input v-model.number="cardInput" type="number" min="1001" max="1999" placeholder="会员卡编号（1001-1999）" :disabled="submitting" />
         <button type="submit" class="btn-primary" :disabled="submitting">
           {{ submitting ? '...' : '入场' }}
         </button>

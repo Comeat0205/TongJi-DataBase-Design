@@ -1,16 +1,20 @@
 <script setup lang="ts">
-// E - 会员入场签到
+// E - 会员签到 & 签退
 import { onMounted, ref } from 'vue'
 import { ApiError } from '@/api/http'
-import { checkIn, getVenueStatus, type VenueStatus } from '@/api/check-in-out'
+import { checkIn, checkOut, getMyCheckIn, getVenueStatus, type CheckInOutRecord, type VenueStatus } from '@/api/check-in-out'
+import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/ui/PageHeader.vue'
 
-const cardId = ref<number | ''>('')
+const auth = useAuthStore()
+const myUserId = auth.session?.userId ?? 0
+
 const venueId = ref(1)
 const loading = ref(false)
 const errMsg = ref('')
-const result = ref<any>(null) // 入场成功后的返回
+const result = ref<any>(null)
 const venues = ref<VenueStatus[]>([])
+const myCheckIn = ref<CheckInOutRecord | null>(null)
 
 onMounted(async () => {
   try {
@@ -18,8 +22,10 @@ onMounted(async () => {
     if (venues.value.length > 0) {
       venueId.value = venues.value[0]!.venueId
     }
-  } catch {
-    // ignore, 场馆列表挂了不影响入场
+  } catch { /* ignore */ }
+  // 自动查询当前在场状态
+  if (myUserId) {
+    try { myCheckIn.value = await getMyCheckIn(myUserId) } catch { myCheckIn.value = null }
   }
 })
 
@@ -30,39 +36,38 @@ function fmtTime(v?: string) {
 }
 
 async function doCheckIn() {
-  if (!cardId.value) {
-    errMsg.value = '请输入卡编号'
-    return
-  }
-  loading.value = true
-  errMsg.value = ''
-  result.value = null
-
+  if (!myUserId) { errMsg.value = '未登录'; return }
+  loading.value = true; errMsg.value = ''; result.value = null
   try {
-    result.value = await checkIn({
-      cardId: Number(cardId.value),
-      venueId: venueId.value,
-    })
-    cardId.value = ''
-    // 刷一下容量
+    result.value = await checkIn({ cardId: myUserId, venueId: venueId.value })
+    venues.value = await getVenueStatus()
+    try { myCheckIn.value = await getMyCheckIn(myUserId) } catch { myCheckIn.value = null }
+  } catch (e) {
+    errMsg.value = e instanceof ApiError ? e.message : '签到失败'
+  } finally { loading.value = false }
+}
+
+async function doCheckOut() {
+  if (!myCheckIn.value) return
+  loading.value = true; errMsg.value = ''
+  try {
+    await checkOut(myCheckIn.value.checkInOutId)
+    myCheckIn.value = null; result.value = null
     venues.value = await getVenueStatus()
   } catch (e) {
-    errMsg.value = e instanceof ApiError ? e.message : '入场失败'
-  } finally {
-    loading.value = false
-  }
+    errMsg.value = e instanceof ApiError ? e.message : '退场失败'
+  } finally { loading.value = false }
 }
 </script>
 
 <template>
   <div class="check-in-page">
-    <PageHeader title="入场签到" subtitle="刷会员卡入场，自动校验有效期 / 次数" />
+    <PageHeader title="签到签退" subtitle="刷会员卡签到/签退，自动校验有效期 / 次数" />
 
     <!-- 场馆容量 -->
     <div v-if="venues.length" class="venue-bar">
       <div
-        v-for="v in venues"
-        :key="v.venueId"
+        v-for="v in venues" :key="v.venueId"
         class="venue-chip"
         :class="{ active: v.venueId === venueId, full: v.occupancyRate >= 90 }"
       >
@@ -72,33 +77,56 @@ async function doCheckIn() {
       </div>
     </div>
 
-    <!-- 入场表单 -->
-    <div class="card">
-      <h2>刷卡入场</h2>
-      <form @submit.prevent="doCheckIn">
-        <label class="field">
-          <span>会员卡编号</span>
-          <input v-model.number="cardId" type="number" min="1" placeholder="输入卡 ID" :disabled="loading" />
-        </label>
+    <!-- 两张主卡片：签到 + 签退 -->
+    <div class="two-cards">
+      <!-- 左：签到 -->
+      <div class="card checkin-card">
+        <h2>签到</h2>
+        <p class="card-desc">选择场馆后签到入场，卡号自动关联</p>
+        <div class="card-id-display">
+          <span class="label">会员卡编号</span>
+          <span class="value">{{ myUserId }}</span>
+        </div>
+        <form @submit.prevent="doCheckIn">
+          <label v-if="venues.length > 1" class="field">
+            <span>选择场馆</span>
+            <select v-model.number="venueId" :disabled="loading">
+              <option v-for="v in venues" :key="v.venueId" :value="v.venueId">{{ v.venueName }}</option>
+            </select>
+          </label>
+          <button type="submit" class="btn-primary" :disabled="loading || !!myCheckIn">
+            {{ loading ? '处理中...' : (myCheckIn ? '已在场中，无法重复签到' : '确认签到') }}
+          </button>
+        </form>
+        <p v-if="errMsg" class="err">{{ errMsg }}</p>
+      </div>
 
-        <label v-if="venues.length > 1" class="field">
-          <span>选择场馆</span>
-          <select v-model.number="venueId" :disabled="loading">
-            <option v-for="v in venues" :key="v.venueId" :value="v.venueId">{{ v.venueName }}</option>
-          </select>
-        </label>
-
-        <button type="submit" class="btn-primary" :disabled="loading">
-          {{ loading ? '处理中...' : '确认入场' }}
-        </button>
-      </form>
-
-      <p v-if="errMsg" class="err">{{ errMsg }}</p>
+      <!-- 右：签退 -->
+      <div class="card checkout-card" :class="{ 'is-active': !!myCheckIn }">
+        <h2>签退</h2>
+        <template v-if="myCheckIn">
+          <p class="card-desc in-field">你当前在场内</p>
+          <div class="kv">
+            <div class="row"><span>场馆</span><b>{{ myCheckIn.venueName }}</b></div>
+            <div class="row"><span>入场时间</span><b>{{ fmtTime(myCheckIn.checkInTime) }}</b></div>
+          </div>
+          <button class="btn-checkout" :disabled="loading" @click="doCheckOut">
+            {{ loading ? '处理中...' : '确认签退' }}
+          </button>
+        </template>
+        <template v-else>
+          <div class="not-in-field">
+            <div class="idle-icon">🚪</div>
+            <p>你目前不在场</p>
+            <span class="hint">签到后即可在此签退</span>
+          </div>
+        </template>
+      </div>
     </div>
 
-    <!-- 入场成功 -->
+    <!-- 入场成功详情 -->
     <div v-if="result" class="card result">
-      <p class="ok-badge">入场成功</p>
+      <p class="ok-badge">签到成功</p>
       <div class="kv">
         <div class="row"><span>会员</span><b>{{ result.memberName }}</b></div>
         <div class="row"><span>场馆</span><b>{{ result.venueName }}</b></div>
@@ -117,16 +145,9 @@ async function doCheckIn() {
     <div v-if="curVenue()" class="card">
       <h3>{{ curVenue()!.venueName }} 实时容量</h3>
       <div class="bar-bg">
-        <div
-          class="bar"
-          :style="{ width: Math.min(curVenue()!.occupancyRate, 100) + '%' }"
-          :class="{ warn: curVenue()!.occupancyRate >= 80 }"
-        />
+        <div class="bar" :style="{ width: Math.min(curVenue()!.occupancyRate, 100) + '%' }" :class="{ warn: curVenue()!.occupancyRate >= 80 }" />
       </div>
-      <p class="bar-text">
-        {{ curVenue()!.currentCapacity }} / {{ curVenue()!.maxCapacity }}
-        ({{ curVenue()!.occupancyRate }}%)
-      </p>
+      <p class="bar-text">{{ curVenue()!.currentCapacity }} / {{ curVenue()!.maxCapacity }} ({{ curVenue()!.occupancyRate }}%)</p>
     </div>
   </div>
 </template>
@@ -145,11 +166,26 @@ async function doCheckIn() {
 .venue-chip .cap { font-size: 13px; color: #7a88a0; }
 .venue-chip .rate { font-size: 12px; color: #2c57d2; font-weight: 600; }
 
+.two-cards {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+}
+@media (max-width: 720px) {
+  .two-cards { grid-template-columns: 1fr; }
+}
+
 .card {
   padding: 24px; border-radius: var(--tj-radius);
   background: var(--tj-card-bg); box-shadow: var(--tj-shadow);
 }
-.card h2, .card h3 { margin: 0 0 16px; font-size: 20px; }
+.card h2 { margin: 0 0 8px; font-size: 20px; }
+.card-desc { color: #7a88a0; font-size: 14px; margin: 0 0 16px; }
+.card-id-display {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; border-radius: 10px; background: #f5f7fa;
+  margin-bottom: 16px;
+}
+.card-id-display .label { color: #7a88a0; font-size: 14px; }
+.card-id-display .value { font-size: 16px; font-weight: 600; color: #1a2332; }
 .card form { display: grid; gap: 14px; max-width: 400px; }
 
 .field { display: grid; gap: 6px; }
@@ -158,9 +194,7 @@ async function doCheckIn() {
   padding: 10px 12px; border: 1px solid #d8e2f0; border-radius: 10px;
   font-size: 15px; background: #fff;
 }
-.field input:focus, .field select:focus {
-  outline: none; border-color: #4d77ff;
-}
+.field input:focus, .field select:focus { outline: none; border-color: #4d77ff; }
 
 .btn-primary {
   padding: 10px 20px; border: none; border-radius: 10px;
@@ -168,12 +202,30 @@ async function doCheckIn() {
 }
 .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 
+.checkout-card.is-active { border: 2px solid #91caff; }
+
+.btn-checkout {
+  margin-top: 16px; padding: 10px 20px; border: 2px solid #cf1322; border-radius: 10px;
+  background: #fff; color: #cf1322; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%;
+}
+.btn-checkout:hover { background: #fff1f0; }
+.btn-checkout:disabled { opacity: .5; cursor: not-allowed; }
+
+.not-in-field {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 32px 0; color: #7a88a0; text-align: center;
+}
+.idle-icon { font-size: 36px; margin-bottom: 12px; opacity: .6; }
+.not-in-field p { margin: 0; font-size: 16px; font-weight: 500; color: #5a6577; }
+.hint { font-size: 13px; margin-top: 6px; }
+
 .err { color: #cf1322; margin: 12px 0 0; font-size: 14px; }
 
 .ok-badge {
   display: inline-block; padding: 4px 12px; border-radius: 20px;
   background: #e6fff4; color: #0a8a4a; font-size: 13px; font-weight: 600; margin: 0 0 12px;
 }
+
 .kv { display: grid; gap: 10px; }
 .row { display: flex; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #eef2f7; }
 .row:last-child { border: none; padding-bottom: 0; }

@@ -35,6 +35,7 @@ export interface VenueStatus {
   currentCapacity: number
   occupancyRate: number
   venueStatus: string
+  capacityWarningLevel: string
 }
 
 // 入场
@@ -61,4 +62,26 @@ export function getActiveCheckIns(venueId: number) {
 export function getCheckInRecords(venueId = 0, page = 1, size = 20) {
   const p = new URLSearchParams({ venueId: String(venueId), pageNumber: String(page), pageSize: String(size) })
   return http.get<CheckInOutRecord[]>(`/checkinout/records?${p}`)
+}
+
+// ---- 员工首页统计 ----
+
+export interface DashboardStats {
+  todayCheckIns: number
+  activeMembers: number
+  venues: VenueStatus[]
+}
+
+export function getDashboardStats() {
+  return http.get<DashboardStats>('/checkinout/dashboard-stats')
+}
+
+// 手动触发自动签退（演示/测试用）
+export function triggerAutoCheckout() {
+  return http.post<{ message: string }>('/checkinout/auto-checkout')
+}
+
+// 会员查询自己的在场记录
+export function getMyCheckIn(cardId: number) {
+  return http.get<CheckInOutRecord | null>(`/checkinout/my-checkin/${cardId}`)
 }
