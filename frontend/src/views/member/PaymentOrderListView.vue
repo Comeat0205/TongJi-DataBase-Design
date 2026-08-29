@@ -144,7 +144,11 @@ function closeDialog() {
 
 async function applyVoucherChange() {
   if (!activeOrder.value) return
-  const updated = await updateOrderVoucher(activeOrder.value.orderId, selectedVoucherId.value)
+  const updated = await updateOrderVoucher(
+    activeOrder.value.orderId,
+    selectedVoucherId.value,
+    activeOrder.value.memberId ?? currentMemberId.value,
+  )
   replaceOrder(updated)
   activeOrder.value = updated
 }

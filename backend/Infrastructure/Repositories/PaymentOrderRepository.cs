@@ -23,11 +23,10 @@ public sealed class PaymentOrderRepository : Repository<PaymentOrder, int>, IPay
             .Include(x => x.PaymentDetails)
             .AsQueryable();
 
+        // 订单表无 MEMBER_ID：按关联优惠券归属会员筛选；无券订单在会员视角不展示。
         if (memberId is not null)
         {
-            query = query.Where(x =>
-                x.MemberId == memberId.Value
-                || (x.Voucher != null && x.Voucher.MemberId == memberId.Value));
+            query = query.Where(x => x.Voucher != null && x.Voucher.MemberId == memberId.Value);
         }
 
         return await query

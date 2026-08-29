@@ -9,8 +9,6 @@ public partial class PaymentOrder
 
     public int BusinessOrderId { get; set; }
 
-    public int? MemberId { get; set; }
-
     public decimal TotalAmount { get; set; }
 
     public string? PaymentStatus { get; set; }

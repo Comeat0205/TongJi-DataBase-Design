@@ -31,8 +31,15 @@ export function createPaymentOrder(payload: { memberId: number; totalAmount?: nu
   return http.post<PaymentOrder>('/paymentorders', payload)
 }
 
-export function updateOrderVoucher(orderId: number, voucherId: number | null) {
-  return http.put<PaymentOrder>(`/paymentorders/${orderId}/voucher`, { voucherId })
+export function updateOrderVoucher(
+  orderId: number,
+  voucherId: number | null,
+  memberId?: number,
+) {
+  return http.put<PaymentOrder>(`/paymentorders/${orderId}/voucher`, {
+    voucherId,
+    memberId: memberId ?? undefined,
+  })
 }
 
 export function payPaymentOrder(orderId: number) {

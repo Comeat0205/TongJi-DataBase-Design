@@ -134,7 +134,6 @@ public sealed class PaymentAppService : IPaymentAppService
         {
             OrderId = orderId,
             BusinessOrderId = businessOrderId,
-            MemberId = request.MemberId,
             TotalAmount = request.TotalAmount,
             PaymentStatus = StatusPending,
             CreateTime = DateTime.Now,
@@ -174,9 +173,9 @@ public sealed class PaymentAppService : IPaymentAppService
 
         EnsurePending(order);
 
-        var memberId = order.MemberId
-            ?? order.Voucher?.MemberId
-            ?? throw new DomainException("订单缺少会员信息，无法改券。");
+        var memberId = order.Voucher?.MemberId
+            ?? request.MemberId
+            ?? throw new DomainException("请提供会员 ID 后再改券。");
 
         if (request.VoucherId is null)
         {
@@ -359,7 +358,7 @@ public sealed class PaymentAppService : IPaymentAppService
             PaymentFinishTime = order.PaymentFinishTime,
             VoucherId = order.VoucherId,
             VoucherType = order.Voucher?.VoucherType,
-            MemberId = order.MemberId ?? order.Voucher?.MemberId,
+            MemberId = order.Voucher?.MemberId,
             DetailCount = order.PaymentDetails?.Count ?? 0
         };
     }
