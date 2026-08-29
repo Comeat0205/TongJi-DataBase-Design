@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 const Placeholder = () => import('@/views/shared/ModulePlaceholderView.vue')
 const MemberHome = () => import('@/views/member/MemberHomeView.vue')
 const MemberProfile = () => import('@/views/member/MemberProfileView.vue')
+const MembershipCardList = () => import('@/views/member/MembershipCardListView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 
@@ -65,14 +66,20 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       component: MemberProfile,
       meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
     },
-    ...placeholderChildRoutes('member', mode, [
-      {
-        path: 'cards',
-        name: `${p}-cards`,
+    {
+      path: 'cards',
+      name: `${p}-cards`,
+      component: MembershipCardList,
+      meta: {
+        requiresAuth: mode === 'auth',
+        userType: 'member',
+        preview: mode === 'preview',
         pageTitle: '我的会员卡',
         owner: 'D',
         features: '#1 #5 #6 #20',
       },
+    },
+    ...placeholderChildRoutes('member', mode, [
       {
         path: 'card-products',
         name: `${p}-card-products`,

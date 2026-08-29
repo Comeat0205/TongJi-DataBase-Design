@@ -1,6 +1,43 @@
 @Api_HostAddress = http://localhost:5078
 
-GET {{Api_HostAddress}}/weatherforecast/
+### 张三 · 正常时效卡（memberId=1001，期望 isValid=true）
+GET {{Api_HostAddress}}/api/membership-cards?memberId=1001
+Accept: application/json
+
+###
+
+### 李四 · 次卡次数为 0（memberId=1002，期望 isValid=false）
+GET {{Api_HostAddress}}/api/membership-cards?memberId=1002
+Accept: application/json
+
+###
+
+### 王五 · 时效卡过期（memberId=1003，期望 isValid=false）
+GET {{Api_HostAddress}}/api/membership-cards?memberId=1003
+Accept: application/json
+
+###
+
+### 旧会员无卡（memberId=1，期望空数组 []）
+GET {{Api_HostAddress}}/api/membership-cards?memberId=1
+Accept: application/json
+
+###
+
+### 单张卡详情 · 张三（cardId=1001）
+GET {{Api_HostAddress}}/api/membership-cards/1001
+Accept: application/json
+
+###
+
+### 单张卡详情 · 李四（cardId=1002，remainingCount=0）
+GET {{Api_HostAddress}}/api/membership-cards/1002
+Accept: application/json
+
+###
+
+### 不存在的卡（期望 404）
+GET {{Api_HostAddress}}/api/membership-cards/99999
 Accept: application/json
 
 ###

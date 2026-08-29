@@ -12,7 +12,7 @@ public partial class MemberBenefitCard
 
     public DateTime? IssueDate { get; set; }
 
-    // 卡状态：'0'/'1'/'2'（库 CHECK；默认 '1'）。是否有效以 fn_is_card_valid 及组内约定为准。
+    // 卡状态：'1'=有效（默认），'0'/'2'=无效；与 fn_is_card_valid 一致。
     public string? CardStatus { get; set; }
 
     // 卡类型：'0'/'1'（库 CHECK）。一般对应次卡或时效卡扩展表。
