@@ -6,12 +6,14 @@ public interface IPaymentAppService
 {
     Task<IReadOnlyList<PaymentOrderDto>> GetOrdersAsync(
         int? memberId,
+        int? businessOrderId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<VoucherDto>> GetVouchersAsync(
         int? memberId,
+        string? voucherType,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
@@ -20,6 +22,14 @@ public interface IPaymentAppService
         int memberId,
         int? forOrderId,
         CancellationToken cancellationToken = default);
+
+    Task<VoucherDto> IssueDiscountVoucherAsync(IssueDiscountVoucherRequestDto request, CancellationToken cancellationToken = default);
+
+    Task<int> IssueDiscountVouchersToAllAsync(CancellationToken cancellationToken = default);
+
+    Task<VoucherDto> IssueWelcomeVoucherAsync(int memberId, CancellationToken cancellationToken = default);
+
+    Task<int> IssueBirthdayVouchersForTodayAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<AtRiskMemberDto>> GetAtRiskMembersAsync(
         int inactiveDays,

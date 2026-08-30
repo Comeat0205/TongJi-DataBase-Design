@@ -36,7 +36,12 @@ public sealed class GlobalExceptionMiddleware
         {
             DomainException => (StatusCodes.Status400BadRequest, "DOMAIN_ERROR", exception.Message),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "NOT_FOUND", exception.Message),
-            _ => (StatusCodes.Status500InternalServerError, "INTERNAL_SERVER_ERROR", "服务器内部错误，请稍后重试。")
+            _ => (
+                StatusCodes.Status500InternalServerError,
+                "INTERNAL_SERVER_ERROR",
+                context.RequestServices.GetService<IHostEnvironment>()?.IsDevelopment() == true
+                    ? exception.GetBaseException().Message
+                    : "服务器内部错误，请稍后重试。")
         };
 
         context.Response.StatusCode = statusCode;

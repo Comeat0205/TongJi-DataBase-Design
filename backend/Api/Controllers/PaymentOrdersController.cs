@@ -19,11 +19,17 @@ public class PaymentOrdersController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<PaymentOrderDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<PaymentOrderDto>>>> GetList(
         [FromQuery] int? memberId,
+        [FromQuery] int? businessOrderId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        var orders = await _paymentAppService.GetOrdersAsync(memberId, pageNumber, pageSize, cancellationToken);
+        var orders = await _paymentAppService.GetOrdersAsync(
+            memberId,
+            businessOrderId,
+            pageNumber,
+            pageSize,
+            cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<PaymentOrderDto>>.Success(orders, HttpContext.TraceIdentifier));
     }
 

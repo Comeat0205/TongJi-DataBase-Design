@@ -13,6 +13,7 @@ public sealed class PaymentOrderRepository : Repository<PaymentOrder, int>, IPay
 
     public async Task<IReadOnlyList<PaymentOrder>> GetListAsync(
         int? memberId,
+        int? businessOrderId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -29,9 +30,13 @@ public sealed class PaymentOrderRepository : Repository<PaymentOrder, int>, IPay
             query = query.Where(x => x.Voucher != null && x.Voucher.MemberId == memberId.Value);
         }
 
+        if (businessOrderId is not null)
+        {
+            query = query.Where(x => x.BusinessOrderId == businessOrderId.Value);
+        }
+
         return await query
-            .OrderByDescending(x => x.CreateTime)
-            .ThenByDescending(x => x.OrderId)
+            .OrderByDescending(x => x.OrderId)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

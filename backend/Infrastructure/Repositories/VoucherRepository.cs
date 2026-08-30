@@ -1,3 +1,4 @@
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Data;
@@ -13,6 +14,7 @@ public sealed class VoucherRepository : Repository<Voucher, int>, IVoucherReposi
 
     public async Task<IReadOnlyList<Voucher>> GetListAsync(
         int? memberId,
+        string? voucherType,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -23,11 +25,19 @@ public sealed class VoucherRepository : Repository<Voucher, int>, IVoucherReposi
         var keepExpiredFrom = DateTime.Now.Date.AddDays(-1);
         query = query.Where(x =>
             (x.Status == null || x.Status != "1")
-            && x.ValidUntil.Date >= keepExpiredFrom);
+            && x.ValidUntil.Date >= keepExpiredFrom
+            && (x.VoucherType == VoucherTypes.Birthday
+                || x.VoucherType == VoucherTypes.Welcome
+                || x.VoucherType == VoucherTypes.StaffDiscount));
 
         if (memberId is not null)
         {
             query = query.Where(x => x.MemberId == memberId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(voucherType))
+        {
+            query = query.Where(x => x.VoucherType == voucherType);
         }
 
         return await query
@@ -44,8 +54,10 @@ public sealed class VoucherRepository : Repository<Voucher, int>, IVoucherReposi
         CancellationToken cancellationToken = default)
     {
         var today = DateTime.Now.Date;
+        var member = await Context.Members.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.MemberId == memberId, cancellationToken);
+        var birthdayStart = member?.Birthday is null ? (DateTime?)null : GetBirthdayInYear(member.Birthday.Value, today.Year);
 
-        // 被其他「待支付」订单占用的券不可再选；当前订单已选券可保留。
         var occupiedIds = await Context.PaymentOrders
             .AsNoTracking()
             .Where(o =>
@@ -55,22 +67,70 @@ public sealed class VoucherRepository : Repository<Voucher, int>, IVoucherReposi
             .Select(o => o.VoucherId!.Value)
             .ToListAsync(cancellationToken);
 
-        return await Context.Vouchers
+        var vouchers = await Context.Vouchers
             .AsNoTracking()
             .Where(v =>
                 v.MemberId == memberId
                 && v.Status == "0"
                 && v.ValidUntil.Date >= today
+                && (v.VoucherType == VoucherTypes.Birthday
+                    || v.VoucherType == VoucherTypes.Welcome
+                    || v.VoucherType == VoucherTypes.StaffDiscount)
                 && !occupiedIds.Contains(v.VoucherId))
             .OrderByDescending(v => v.DiscountValue)
             .ThenBy(v => v.ValidUntil)
             .ThenBy(v => v.VoucherId)
             .ToListAsync(cancellationToken);
+
+        return vouchers
+            .Where(v => IsEffectiveFromToday(v, member, birthdayStart, today))
+            .ToList();
     }
 
     public async Task<Voucher?> GetByIdTrackedAsync(int voucherId, CancellationToken cancellationToken = default)
     {
         return await Context.Vouchers.FirstOrDefaultAsync(x => x.VoucherId == voucherId, cancellationToken);
+    }
+
+    public async Task<int> GetNextVoucherIdAsync(CancellationToken cancellationToken = default)
+    {
+        var max = await Context.Vouchers.MaxAsync(x => (int?)x.VoucherId, cancellationToken) ?? 0;
+        return max + 1;
+    }
+
+    public async Task<bool> HasVoucherAsync(int memberId, string voucherType, CancellationToken cancellationToken = default)
+    {
+        // 先按会员取出类型再在内存比较，避免 Oracle VARCHAR2 与 NVARCHAR 参数比较报错。
+        var types = await Context.Vouchers
+            .AsNoTracking()
+            .Where(v => v.MemberId == memberId)
+            .Select(v => v.VoucherType)
+            .ToListAsync(cancellationToken);
+
+        return types.Any(t => string.Equals(t?.Trim(), voucherType.Trim(), StringComparison.Ordinal));
+    }
+
+    public async Task<bool> HasBirthdayVoucherForYearAsync(
+        int memberId,
+        int year,
+        CancellationToken cancellationToken = default)
+    {
+        var member = await Context.Members.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.MemberId == memberId, cancellationToken);
+        if (member?.Birthday is null)
+        {
+            return false;
+        }
+
+        var birthdayThisYear = GetBirthdayInYear(member.Birthday.Value, year);
+        var validUntil = birthdayThisYear.AddMonths(1).Date;
+
+        return await Context.Vouchers.AsNoTracking()
+            .AnyAsync(v =>
+                v.MemberId == memberId
+                && v.VoucherType == VoucherTypes.Birthday
+                && v.ValidUntil.Date == validUntil,
+                cancellationToken);
     }
 
     public async Task<IReadOnlyList<(Member Member, DateTime? LastCheckInTime, int UnusedVoucherCount)>> GetAtRiskMembersAsync(
@@ -92,7 +152,12 @@ public sealed class VoucherRepository : Repository<Voucher, int>, IVoucherReposi
                     .SelectMany(c => c.Checkinouts)
                     .Select(cio => (DateTime?)cio.CheckInTime)
                     .Max(),
-                UnusedVoucherCount = Context.Vouchers.Count(v => v.MemberId == m.MemberId && v.Status == "0")
+                UnusedVoucherCount = Context.Vouchers.Count(v =>
+                    v.MemberId == m.MemberId
+                    && v.Status == "0"
+                    && (v.VoucherType == VoucherTypes.Birthday
+                        || v.VoucherType == VoucherTypes.Welcome
+                        || v.VoucherType == VoucherTypes.StaffDiscount))
             })
             .Where(x => x.LastCheckInTime == null || x.LastCheckInTime < cutoff)
             .OrderBy(x => x.LastCheckInTime ?? DateTime.MinValue)
@@ -104,5 +169,30 @@ public sealed class VoucherRepository : Repository<Voucher, int>, IVoucherReposi
         return members
             .Select(x => (x.Member, x.LastCheckInTime, x.UnusedVoucherCount))
             .ToList();
+    }
+
+    private static bool IsEffectiveFromToday(
+        Voucher voucher,
+        Member? member,
+        DateTime? birthdayStart,
+        DateTime today)
+    {
+        if (voucher.VoucherType == VoucherTypes.Birthday)
+        {
+            return birthdayStart is not null && today >= birthdayStart.Value.Date;
+        }
+
+        if (voucher.VoucherType == VoucherTypes.Welcome)
+        {
+            return member?.RegisterDate is null || today >= member.RegisterDate.Value.Date;
+        }
+
+        return true;
+    }
+
+    private static DateTime GetBirthdayInYear(DateTime birthday, int year)
+    {
+        var day = Math.Min(birthday.Day, DateTime.DaysInMonth(year, birthday.Month));
+        return new DateTime(year, birthday.Month, day);
     }
 }

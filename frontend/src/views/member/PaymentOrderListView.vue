@@ -37,6 +37,9 @@ const selectedVoucherId = ref<number | null>(null)
 const busy = ref(false)
 const dialogError = ref('')
 
+const searchMemberId = ref('')
+const searchBusinessOrderId = ref('')
+
 const isAdmin = computed(() => props.mode === 'admin')
 
 const currentMemberId = computed(() => {
@@ -47,6 +50,24 @@ const currentMemberId = computed(() => {
 })
 
 const memberIdForQuery = computed(() => (isAdmin.value ? undefined : currentMemberId.value))
+
+/** 会员端展示用序号：按创建时间从早到晚编为 1、2、3…；接口仍用真实 orderId。 */
+const memberOrderNoMap = computed(() => {
+  const sorted = [...orders.value].sort((a, b) => {
+    const ta = a.createTime ? new Date(a.createTime).getTime() : 0
+    const tb = b.createTime ? new Date(b.createTime).getTime() : 0
+    if (ta !== tb) return ta - tb
+    return a.orderId - b.orderId
+  })
+  const map = new Map<number, number>()
+  sorted.forEach((order, index) => map.set(order.orderId, index + 1))
+  return map
+})
+
+function displayOrderNo(order: PaymentOrder) {
+  if (isAdmin.value) return order.orderId
+  return memberOrderNoMap.value.get(order.orderId) ?? order.orderId
+}
 
 const previewPayable = computed(() => {
   const total = activeOrder.value?.totalAmount ?? 0
@@ -104,8 +125,22 @@ async function loadOrders() {
   loading.value = true
   errorMessage.value = ''
   try {
+    let memberId = memberIdForQuery.value
+    let businessOrderId: number | undefined
+    if (isAdmin.value) {
+      const member = parseOptionalId(searchMemberId.value)
+      const business = parseOptionalId(searchBusinessOrderId.value)
+      if (!member.ok || !business.ok) {
+        errorMessage.value = '会员 ID 和业务单号须为正整数。'
+        orders.value = []
+        return
+      }
+      memberId = member.value
+      businessOrderId = business.value
+    }
     orders.value = await getPaymentOrders({
-      memberId: memberIdForQuery.value,
+      memberId,
+      businessOrderId,
       pageNumber: 1,
       pageSize: 50,
     })
@@ -114,6 +149,20 @@ async function loadOrders() {
   } finally {
     loading.value = false
   }
+}
+
+function parseOptionalId(value: string | number | null | undefined): { ok: true; value?: number } | { ok: false } {
+  const trimmed = String(value ?? '').trim()
+  if (!trimmed) return { ok: true }
+  const parsed = Number(trimmed)
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) return { ok: false }
+  return { ok: true, value: parsed }
+}
+
+function resetSearch() {
+  searchMemberId.value = ''
+  searchBusinessOrderId.value = ''
+  void loadOrders()
 }
 
 async function openPayDialog(order: PaymentOrder) {
@@ -163,7 +212,7 @@ async function confirmPay() {
     }
     const updated = await payPaymentOrder(activeOrder.value.orderId)
     replaceOrder(updated)
-    notice.value = `订单 #${updated.orderId} 支付成功，实付 ${formatMoney(updated.payableAmount)}。`
+    notice.value = `订单 #${displayOrderNo(updated)} 支付成功，实付 ${formatMoney(updated.payableAmount)}。`
     closeDialog()
   } catch (error) {
     dialogError.value = error instanceof ApiError ? error.message : '支付失败，请稍后重试。'
@@ -173,15 +222,16 @@ async function confirmPay() {
 }
 
 async function handleCancel(order: PaymentOrder) {
+  const no = displayOrderNo(order)
   const tip = isPaid(order)
-    ? `确认取消已支付订单 #${order.orderId}？将退回实付 ${formatMoney(order.payableAmount)}，优惠券不退。`
-    : `确认取消待支付订单 #${order.orderId}？`
+    ? `确认取消已支付订单 #${no}？将退回实付 ${formatMoney(order.payableAmount)}，优惠券不退。`
+    : `确认取消待支付订单 #${no}？`
   if (!window.confirm(tip)) return
 
   try {
     const updated = await cancelPaymentOrder(order.orderId)
     replaceOrder(updated)
-    notice.value = updated.actionMessage || `订单 #${updated.orderId} 已取消。`
+    notice.value = updated.actionMessage || `订单 #${displayOrderNo(updated)} 已取消。`
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : '取消订单失败。'
   }
@@ -197,7 +247,7 @@ onMounted(loadOrders)
       :title="isAdmin ? '订单管理' : '我的订单'"
       :subtitle="
         isAdmin
-          ? '员工端查看订单；待支付可支付/取消，已支付可取消（退实付不退券）。'
+          ? '员工端按订单号从新到旧排列；待支付可支付/取消，已支付可取消（退实付不退券）。'
           : '订单由团课/私教等业务页生成。待支付可改券后支付或取消；已支付可取消（退实付不退券）。'
       "
     >
@@ -208,16 +258,31 @@ onMounted(loadOrders)
 
     <p v-if="notice" class="success-banner">{{ notice }}</p>
 
+    <form v-if="isAdmin" class="search-panel" @submit.prevent="loadOrders">
+      <label>
+        会员 ID
+        <input v-model="searchMemberId" type="text" inputmode="numeric" placeholder="例如 1" />
+      </label>
+      <label>
+        业务单号
+        <input v-model="searchBusinessOrderId" type="text" inputmode="numeric" placeholder="例如 90018" />
+      </label>
+      <div class="search-actions">
+        <button type="submit" class="pay-btn" :disabled="loading">检索</button>
+        <button type="button" class="ghost-btn" :disabled="loading" @click="resetSearch">清空</button>
+      </div>
+    </form>
+
     <StateCard v-if="loading" message="订单加载中..." />
     <StateCard v-else-if="errorMessage" type="error" :message="errorMessage" />
-    <StateCard v-else-if="orders.length === 0" message="暂无订单。请从团课预约或私教课包等业务页完成下单后再来支付。" />
+    <StateCard v-else-if="orders.length === 0" :message="isAdmin ? '未找到匹配订单。' : '暂无订单。请从团课预约或私教课包等业务页完成下单后再来支付。'" />
 
     <div v-else class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>订单号</th>
-            <th>业务单号</th>
+            <th>{{ isAdmin ? '订单号' : '我的订单' }}</th>
+            <th v-if="isAdmin">业务单号</th>
             <th v-if="isAdmin">会员ID</th>
             <th>原价</th>
             <th>优惠券</th>
@@ -230,8 +295,8 @@ onMounted(loadOrders)
         </thead>
         <tbody>
           <tr v-for="order in orders" :key="order.orderId">
-            <td>{{ order.orderId }}</td>
-            <td>{{ order.businessOrderId }}</td>
+            <td>{{ displayOrderNo(order) }}</td>
+            <td v-if="isAdmin">{{ order.businessOrderId }}</td>
             <td v-if="isAdmin">{{ order.memberId ?? '—' }}</td>
             <td>{{ formatMoney(order.totalAmount) }}</td>
             <td>{{ order.voucherType || (order.voucherId ? `#${order.voucherId}` : '未用券') }}</td>
@@ -255,7 +320,7 @@ onMounted(loadOrders)
       <section class="pay-modal" role="dialog" aria-modal="true">
         <header>
           <p class="eyebrow">确认支付</p>
-          <h2>支付订单 #{{ activeOrder.orderId }}</h2>
+          <h2>支付订单 #{{ displayOrderNo(activeOrder) }}</h2>
         </header>
 
         <label class="field">
@@ -346,6 +411,38 @@ onMounted(loadOrders)
   border-radius: 12px;
   background: #e7f8ed;
   color: #1f8f4e;
+}
+
+.search-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: var(--tj-radius);
+  background: var(--tj-card-bg);
+  box-shadow: var(--tj-shadow);
+}
+
+.search-panel label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--tj-text-muted);
+}
+
+.search-panel input {
+  min-width: 160px;
+  padding: 10px 12px;
+  border: 1px solid #c9d6ef;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.search-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .table-wrap {

@@ -18,9 +18,15 @@ export interface PaymentOrder {
   actionMessage?: string
 }
 
-export function getPaymentOrders(params?: { memberId?: number; pageNumber?: number; pageSize?: number }) {
+export function getPaymentOrders(params?: {
+  memberId?: number
+  businessOrderId?: number
+  pageNumber?: number
+  pageSize?: number
+}) {
   const query = new URLSearchParams()
   if (params?.memberId != null) query.set('memberId', String(params.memberId))
+  if (params?.businessOrderId != null) query.set('businessOrderId', String(params.businessOrderId))
   if (params?.pageNumber != null) query.set('pageNumber', String(params.pageNumber))
   if (params?.pageSize != null) query.set('pageSize', String(params.pageSize))
   const qs = query.toString()

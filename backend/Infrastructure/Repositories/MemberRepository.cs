@@ -39,6 +39,29 @@ public sealed class MemberRepository : Repository<Member, int>, IMemberRepositor
             .Take(pageSize)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Member>> GetActiveMembersAsync(CancellationToken cancellationToken = default)
+    {
+        return await Context.Members
+            .AsNoTracking()
+            .Where(m => m.Status == null || m.Status != "3")
+            .OrderBy(m => m.MemberId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Member>> GetMembersWithBirthdayTodayAsync(CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.Now.Date;
+        var members = await Context.Members
+            .AsNoTracking()
+            .Where(m => m.Birthday != null && (m.Status == null || m.Status != "3"))
+            .ToListAsync(cancellationToken);
+
+        return members
+            .Where(m => m.Birthday!.Value.Month == today.Month && m.Birthday.Value.Day == today.Day)
+            .OrderBy(m => m.MemberId)
+            .ToList();
+    }
 }
 
 

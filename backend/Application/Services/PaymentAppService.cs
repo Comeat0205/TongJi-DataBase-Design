@@ -15,37 +15,59 @@ public sealed class PaymentAppService : IPaymentAppService
 
     private readonly IPaymentOrderRepository _paymentOrderRepository;
     private readonly IVoucherRepository _voucherRepository;
+    private readonly IMemberRepository _memberRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public PaymentAppService(
         IPaymentOrderRepository paymentOrderRepository,
         IVoucherRepository voucherRepository,
+        IMemberRepository memberRepository,
         IUnitOfWork unitOfWork)
     {
         _paymentOrderRepository = paymentOrderRepository;
         _voucherRepository = voucherRepository;
+        _memberRepository = memberRepository;
         _unitOfWork = unitOfWork;
     }
 
     public async Task<IReadOnlyList<PaymentOrderDto>> GetOrdersAsync(
         int? memberId,
+        int? businessOrderId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
     {
         (pageNumber, pageSize) = NormalizePaging(pageNumber, pageSize);
-        var orders = await _paymentOrderRepository.GetListAsync(memberId, pageNumber, pageSize, cancellationToken);
+        var orders = await _paymentOrderRepository.GetListAsync(
+            memberId,
+            businessOrderId,
+            pageNumber,
+            pageSize,
+            cancellationToken);
         return orders.Select(MapOrder).ToList();
     }
 
     public async Task<IReadOnlyList<VoucherDto>> GetVouchersAsync(
         int? memberId,
+        string? voucherType,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
     {
+        if (memberId is > 0 && string.IsNullOrWhiteSpace(voucherType))
+        {
+            try
+            {
+                await EnsureWelcomeVoucherAsync(memberId.Value, cancellationToken);
+            }
+            catch
+            {
+                // 补发失败不影响已有优惠券列表。
+            }
+        }
+
         (pageNumber, pageSize) = NormalizePaging(pageNumber, pageSize);
-        var vouchers = await _voucherRepository.GetListAsync(memberId, pageNumber, pageSize, cancellationToken);
+        var vouchers = await _voucherRepository.GetListAsync(memberId, voucherType, pageNumber, pageSize, cancellationToken);
         return vouchers.Select(MapVoucher).ToList();
     }
 
@@ -57,6 +79,15 @@ public sealed class PaymentAppService : IPaymentAppService
         if (memberId <= 0)
         {
             throw new DomainException("请提供有效的会员 ID。");
+        }
+
+        try
+        {
+            await EnsureWelcomeVoucherAsync(memberId, cancellationToken);
+        }
+        catch
+        {
+            // 补发失败不影响可用券查询。
         }
 
         var vouchers = await _voucherRepository.GetAvailableAsync(memberId, forOrderId, cancellationToken);
@@ -95,6 +126,152 @@ public sealed class PaymentAppService : IPaymentAppService
                     : $"超过 {inactive} 天未入场"
             };
         }).ToList();
+    }
+
+    public async Task<VoucherDto> IssueDiscountVoucherAsync(
+        IssueDiscountVoucherRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.MemberId <= 0)
+        {
+            throw new DomainException("请提供有效的会员 ID。");
+        }
+
+        var member = await _memberRepository.GetByIdAsync(request.MemberId, cancellationToken)
+            ?? throw new DomainException("会员不存在。");
+
+        var today = DateTime.Now.Date;
+        var voucher = new Voucher
+        {
+            VoucherId = await _voucherRepository.GetNextVoucherIdAsync(cancellationToken),
+            MemberId = member.MemberId,
+            VoucherType = VoucherTypes.StaffDiscount,
+            DiscountValue = VoucherTypes.StaffDiscountAmount,
+            ValidUntil = today.AddDays(7),
+            Status = "0"
+        };
+
+        await _voucherRepository.AddAsync(voucher, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return MapVoucher(voucher);
+    }
+
+    public async Task<int> IssueDiscountVouchersToAllAsync(CancellationToken cancellationToken = default)
+    {
+        var members = await _memberRepository.GetActiveMembersAsync(cancellationToken);
+        if (members.Count == 0)
+        {
+            return 0;
+        }
+
+        var nextId = await _voucherRepository.GetNextVoucherIdAsync(cancellationToken);
+        var today = DateTime.Now.Date;
+        var validUntil = today.AddDays(7);
+
+        foreach (var member in members)
+        {
+            await _voucherRepository.AddAsync(new Voucher
+            {
+                VoucherId = nextId++,
+                MemberId = member.MemberId,
+                VoucherType = VoucherTypes.StaffDiscount,
+                DiscountValue = VoucherTypes.StaffDiscountAmount,
+                ValidUntil = validUntil,
+                Status = "0"
+            }, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return members.Count;
+    }
+
+    public async Task<VoucherDto> IssueWelcomeVoucherAsync(int memberId, CancellationToken cancellationToken = default)
+    {
+        var voucher = await EnsureWelcomeVoucherAsync(memberId, cancellationToken);
+        if (voucher is null)
+        {
+            throw new DomainException("该会员已领取新客体验券。");
+        }
+
+        return MapVoucher(voucher);
+    }
+
+    public async Task<int> IssueBirthdayVouchersForTodayAsync(CancellationToken cancellationToken = default)
+    {
+        var members = await _memberRepository.GetMembersWithBirthdayTodayAsync(cancellationToken);
+        var year = DateTime.Now.Year;
+        var issued = 0;
+
+        foreach (var member in members)
+        {
+            if (member.Birthday is null)
+            {
+                continue;
+            }
+
+            if (await _voucherRepository.HasBirthdayVoucherForYearAsync(member.MemberId, year, cancellationToken))
+            {
+                continue;
+            }
+
+            var birthdayStart = GetBirthdayInYear(member.Birthday.Value, year);
+            var voucher = new Voucher
+            {
+                VoucherId = await _voucherRepository.GetNextVoucherIdAsync(cancellationToken),
+                MemberId = member.MemberId,
+                VoucherType = VoucherTypes.Birthday,
+                DiscountValue = VoucherTypes.BirthdayAmount,
+                ValidUntil = birthdayStart.AddMonths(1),
+                Status = "0"
+            };
+
+            await _voucherRepository.AddAsync(voucher, cancellationToken);
+            issued++;
+        }
+
+        if (issued > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return issued;
+    }
+
+    /// <summary>
+    /// 注册礼：若该会员尚无新客体验券则自动发放一张。
+    /// </summary>
+    private async Task<Voucher?> EnsureWelcomeVoucherAsync(int memberId, CancellationToken cancellationToken)
+    {
+        if (memberId <= 0)
+        {
+            return null;
+        }
+
+        if (await _voucherRepository.HasVoucherAsync(memberId, VoucherTypes.Welcome, cancellationToken))
+        {
+            return null;
+        }
+
+        var member = await _memberRepository.GetByIdAsync(memberId, cancellationToken);
+        if (member is null)
+        {
+            return null;
+        }
+
+        var registerDate = (member.RegisterDate ?? DateTime.Now).Date;
+        var voucher = new Voucher
+        {
+            VoucherId = await _voucherRepository.GetNextVoucherIdAsync(cancellationToken),
+            MemberId = member.MemberId,
+            VoucherType = VoucherTypes.Welcome,
+            DiscountValue = VoucherTypes.WelcomeAmount,
+            ValidUntil = registerDate.AddYears(1),
+            Status = "0"
+        };
+
+        await _voucherRepository.AddAsync(voucher, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return voucher;
     }
 
     public async Task<PaymentOrderDto> CreateOrderAsync(
@@ -327,6 +504,12 @@ public sealed class PaymentAppService : IPaymentAppService
     }
 
     private static bool IsExpired(Voucher voucher) => voucher.ValidUntil.Date < DateTime.Now.Date;
+
+    private static DateTime GetBirthdayInYear(DateTime birthday, int year)
+    {
+        var day = Math.Min(birthday.Day, DateTime.DaysInMonth(year, birthday.Month));
+        return new DateTime(year, birthday.Month, day);
+    }
 
     private static decimal CalcPayable(PaymentOrder order)
     {

@@ -258,7 +258,7 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       name: `${p}-vouchers`,
       component: AdminVouchers,
       meta: {
-        pageTitle: '优惠券管理',
+        pageTitle: '折扣券发放',
         owner: 'H',
         features: '#18 #20',
         preview: mode === 'preview',

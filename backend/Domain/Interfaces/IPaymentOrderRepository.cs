@@ -4,7 +4,12 @@ namespace Domain.Interfaces;
 
 public interface IPaymentOrderRepository : IRepository<PaymentOrder, int>
 {
-    Task<IReadOnlyList<PaymentOrder>> GetListAsync(int? memberId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PaymentOrder>> GetListAsync(
+        int? memberId,
+        int? businessOrderId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 
     Task<PaymentOrder?> GetByIdWithDetailsAsync(int orderId, CancellationToken cancellationToken = default);
 

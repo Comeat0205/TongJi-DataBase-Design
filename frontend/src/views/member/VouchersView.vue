@@ -45,8 +45,11 @@ function formatDate(value?: string) {
   return date.toLocaleDateString('zh-CN')
 }
 
-function isBirthdayType(type: string) {
-  return /生日|birthday/i.test(type)
+function voucherHint(type: string) {
+  if (type === '生日福利券') return '生日当天发放 · 生日起 1 个月内有效 · ¥66'
+  if (type === '新客体验券') return '注册即领 · 注册日起 1 年内有效 · ¥50'
+  if (type === '折扣券') return '员工发放 · 领取起 7 天内有效 · ¥33'
+  return ''
 }
 
 async function loadVouchers() {
@@ -75,10 +78,10 @@ onMounted(loadVouchers)
       :title="isAdmin ? '优惠券管理' : '我的优惠券'"
       :subtitle="
         isAdmin
-          ? '员工端查看会员福利券（功能点 #18 生日福利 / #20 续费折扣）。'
+          ? '员工端仅管理折扣券发放。'
           : isPreview
             ? `预览模式：演示会员 ID ${PREVIEW_MEMBER_ID} 的优惠券。`
-            : '生日券、续费折扣券等福利记录。'
+            : '生日福利券、新客体验券、员工折扣券。'
       "
     >
       <template #actions>
@@ -121,7 +124,7 @@ onMounted(loadVouchers)
             <dd>{{ formatDate(voucher.validUntil) }}</dd>
           </div>
         </dl>
-        <p v-if="isBirthdayType(voucher.voucherType)" class="hint">生日福利券 · 功能点 #18</p>
+        <p v-if="voucherHint(voucher.voucherType)" class="hint">{{ voucherHint(voucher.voucherType) }}</p>
       </article>
     </div>
   </div>
