@@ -38,7 +38,7 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
   }
 }
 
-async function request<T>(method: 'get' | 'post' | 'put' | 'delete', url: string, data?: unknown) {
+async function request<T>(method: 'get' | 'post' | 'put' | 'patch' | 'delete', url: string, data?: unknown) {
   try {
     const response = await httpClient.request<ApiResponse<T>>({
       method,
@@ -62,6 +62,9 @@ export const http = {
   },
   put<T>(url: string, data?: unknown) {
     return request<T>('put', url, data)
+  },
+  patch<T>(url: string, data?: unknown) {
+    return request<T>('patch', url, data)
   },
   delete<T>(url: string) {
     return request<T>('delete', url)

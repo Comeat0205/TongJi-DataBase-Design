@@ -5,6 +5,7 @@ const MemberHome = () => import('@/views/member/MemberHomeView.vue')
 const MemberProfile = () => import('@/views/member/MemberProfileView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
+const RepairRecords = () => import('@/views/admin/RepairRecordListView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
 type RouteMode = 'auth' | 'preview'
@@ -150,6 +151,12 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       component: AdminHome,
       meta: { userType: 'employee', preview: mode === 'preview' },
     },
+    {
+      path: 'repairs',
+      name: `${p}-repairs`,
+      component: RepairRecords,
+      meta: { pageTitle: '器材报修', owner: 'I', features: '#15', preview: mode === 'preview', userType: 'employee' },
+    },
     ...placeholderChildRoutes('admin', mode, [
     {
       path: 'check-in-desk',
@@ -224,13 +231,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       pageTitle: '优惠券管理',
       owner: 'H',
       features: '#18 #20',
-    },
-    {
-      path: 'repairs',
-      name: `${p}-repairs`,
-      pageTitle: '器材报修',
-      owner: 'I',
-      features: '#15',
     },
     {
       path: 'inspections',
