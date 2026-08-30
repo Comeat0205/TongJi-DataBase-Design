@@ -3,18 +3,26 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import PlaceholderPanel from '@/components/ui/PlaceholderPanel.vue'
-import { checkOut, getMyCheckIn, type CheckInOutRecord } from '@/api/check-in-out'
+import { checkOut, getMyCard, getMyCheckIn, getVenueStatus, type CheckInOutRecord, type MemberCard, type VenueStatus } from '@/api/check-in-out'
 import {
   getCrowdHint,
   getCrowdLabel,
   memberBirthdayBenefitMock,
   memberCourseRecommendationsMock,
-  memberMembershipMock,
   memberUpcomingRemindersMock,
-  memberVenueCapacityMock,
   type CrowdLevel,
 } from '@/data/home-dashboard-mock'
 import { useAuthStore } from '@/stores/auth'
+
+interface VenueDisplay {
+  venueId: number
+  venueName: string
+  currentCount: number
+  maxCapacity: number
+  occupancyRate: number
+  crowdLevel: CrowdLevel
+  featureRef: string
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -24,17 +32,37 @@ const basePath = computed(() => (route.path.startsWith('/preview/member') ? '/pr
 const memberId = computed(() => authStore.session?.userId)
 const displayName = computed(() => authStore.session?.displayName ?? '会员')
 
-const venue = memberVenueCapacityMock
-const membership = memberMembershipMock
+const venues = ref<VenueDisplay[]>([])
 const recommendations = memberCourseRecommendationsMock
 const reminders = memberUpcomingRemindersMock
 const birthdayBenefit = memberBirthdayBenefitMock
 
 const myCheckIn = ref<CheckInOutRecord | null>(null)
+const myCard = ref<MemberCard | null>(null)
 const checkoutLoading = ref(false)
 const checkoutMsg = ref('')
 
-const crowdClass = computed(() => `crowd-${venue.crowdLevel}`)
+function mapWarningLevel(level: string): CrowdLevel {
+  if (level === 'full') return 'full'
+  if (level === 'warning') return 'warning'
+  return 'comfortable'
+}
+
+function toDisplay(v: VenueStatus): VenueDisplay {
+  return {
+    venueId: v.venueId,
+    venueName: v.venueName,
+    currentCount: v.currentCapacity,
+    maxCapacity: v.maxCapacity,
+    occupancyRate: v.occupancyRate,
+    crowdLevel: mapWarningLevel(v.capacityWarningLevel),
+    featureRef: '#7',
+  }
+}
+
+function crowdClass(level: CrowdLevel) {
+  return `crowd-${level}`
+}
 
 function crowdBarClass(level: CrowdLevel) {
   return `bar-${level}`
@@ -46,13 +74,18 @@ function goProfile() {
   }
 }
 
+async function refreshVenues() {
+  try {
+    const list = await getVenueStatus()
+    venues.value = list.map(toDisplay)
+  } catch { /* ignore */ }
+}
+
 onMounted(async () => {
+  await refreshVenues()
   if (memberId.value) {
-    try {
-      myCheckIn.value = await getMyCheckIn(memberId.value)
-    } catch {
-      // ignore
-    }
+    try { myCheckIn.value = await getMyCheckIn(memberId.value) } catch { /* ignore */ }
+    try { myCard.value = await getMyCard(memberId.value) } catch { /* ignore */ }
   }
 })
 
@@ -64,6 +97,7 @@ async function doCheckOut() {
     await checkOut(myCheckIn.value.checkInOutId)
     myCheckIn.value = null
     checkoutMsg.value = '签退成功'
+    await refreshVenues()
   } catch {
     checkoutMsg.value = '签退失败'
   } finally {
@@ -96,59 +130,78 @@ async function doCheckOut() {
 
     <p class="demo-banner">演示数据 · 功能点占位 · 后续由 E/F/H/J 等模块接入真实 API</p>
 
-    <section class="dashboard-grid">
-      <article class="dashboard-card capacity-card" :class="crowdClass">
-        <div class="card-head">
-          <div>
-            <p class="card-eyebrow">场馆实时容量 · 功能点 {{ venue.featureRef }}</p>
-            <h2>{{ venue.venueName }}</h2>
+    <section class="top-grid">
+      <div class="venues-column">
+        <article v-for="v in venues" :key="v.venueId" class="dashboard-card capacity-card" :class="crowdClass(v.crowdLevel)">
+          <div class="card-head">
+            <div>
+              <p class="card-eyebrow">场馆实时容量 · 功能点 {{ v.featureRef }}</p>
+              <h2>{{ v.venueName }}</h2>
+            </div>
+            <span class="status-pill" :class="crowdClass(v.crowdLevel)">{{ getCrowdLabel(v.crowdLevel) }}</span>
           </div>
-          <span class="status-pill" :class="crowdClass">{{ getCrowdLabel(venue.crowdLevel) }}</span>
-        </div>
-        <div class="capacity-stats">
-          <div>
-            <strong class="stat-value">{{ venue.currentCount }}</strong>
-            <span class="stat-label">当前在馆</span>
+          <div class="capacity-stats">
+            <div>
+              <strong class="stat-value">{{ v.currentCount }}</strong>
+              <span class="stat-label">当前在馆</span>
+            </div>
+            <div>
+              <strong class="stat-value">{{ v.maxCapacity }}</strong>
+              <span class="stat-label">最大容量</span>
+            </div>
+            <div>
+              <strong class="stat-value">{{ v.occupancyRate.toFixed(1) }}%</strong>
+              <span class="stat-label">占用率</span>
+            </div>
           </div>
-          <div>
-            <strong class="stat-value">{{ venue.maxCapacity }}</strong>
-            <span class="stat-label">最大容量</span>
+          <div class="capacity-bar-track">
+            <div
+              class="capacity-bar-fill"
+              :class="crowdBarClass(v.crowdLevel)"
+              :style="{ width: `${Math.min(v.occupancyRate, 100)}%` }"
+            />
           </div>
-          <div>
-            <strong class="stat-value">{{ venue.occupancyRate.toFixed(1) }}%</strong>
-            <span class="stat-label">占用率</span>
+          <p class="card-hint">{{ getCrowdHint(v.crowdLevel) }}</p>
+        </article>
+      </div>
+      <div class="info-column">
+        <article class="dashboard-card membership-card">
+          <p class="card-eyebrow">我的会籍</p>
+          <template v-if="myCard">
+            <h2>{{ myCard.cardTypeName }} · {{ myCard.cardStatusName }}</h2>
+            <dl class="info-list">
+              <div v-if="myCard.expireDate">
+                <dt>有效期至</dt>
+                <dd>{{ myCard.expireDate }}</dd>
+              </div>
+              <div v-if="myCard.daysToExpire != null">
+                <dt>剩余天数</dt>
+                <dd :class="{ expired: myCard.daysToExpire < 0 }">{{ myCard.daysToExpire < 0 ? '已过期' : myCard.daysToExpire + ' 天' }}</dd>
+              </div>
+              <div v-if="myCard.remainingCount != null">
+                <dt>剩余次数</dt>
+                <dd>{{ myCard.remainingCount }} / {{ myCard.totalCounts }}</dd>
+              </div>
+            </dl>
+          </template>
+          <template v-else>
+            <h2>暂无会员卡</h2>
+            <p class="card-hint">请先购买会员卡</p>
+          </template>
+          <RouterLink class="text-link" :to="`${basePath}/cards`">查看会员卡详情 →</RouterLink>
+        </article>
+        <article class="dashboard-card promo-card">
+          <div class="promo-top">
+            <span class="promo-icon">🎁</span>
+            <div>
+              <p class="card-eyebrow">生日福利 · 功能点 {{ birthdayBenefit.featureRef }}</p>
+              <h2>会员关怀</h2>
+            </div>
           </div>
-        </div>
-        <div class="capacity-bar-track">
-          <div
-            class="capacity-bar-fill"
-            :class="crowdBarClass(venue.crowdLevel)"
-            :style="{ width: `${Math.min(venue.occupancyRate, 100)}%` }"
-          />
-        </div>
-        <p class="card-hint">{{ getCrowdHint(venue.crowdLevel) }}</p>
-        <p class="feature-note">需求 §1.1.3 · 超过 90% 黄灯预警，100% 禁止新入场（员工端前台同步展示）</p>
-      </article>
-
-      <article class="dashboard-card membership-card">
-        <p class="card-eyebrow">我的会籍 · 功能点 {{ membership.featureRef }}</p>
-        <h2>{{ membership.cardName }}</h2>
-        <dl class="info-list">
-          <div>
-            <dt>有效期至</dt>
-            <dd>{{ membership.expireDate }}</dd>
-          </div>
-          <div>
-            <dt>剩余天数</dt>
-            <dd>{{ membership.daysToExpire }} 天</dd>
-          </div>
-          <div>
-            <dt>续费优惠</dt>
-            <dd>{{ membership.renewalDiscountLabel }}</dd>
-          </div>
-        </dl>
-        <RouterLink class="text-link" :to="`${basePath}/cards`">查看会员卡详情 →</RouterLink>
-      </article>
+          <p class="promo-desc">{{ birthdayBenefit.message }}</p>
+          <RouterLink class="promo-btn" :to="`${basePath}/vouchers`">查看我的优惠券 →</RouterLink>
+        </article>
+      </div>
     </section>
 
     <section class="dashboard-grid">
@@ -191,14 +244,6 @@ async function doCheckOut() {
     </section>
 
     <section class="dashboard-grid">
-      <article class="dashboard-card promo-card">
-        <p class="card-eyebrow">生日福利 · 功能点 {{ birthdayBenefit.featureRef }}</p>
-        <h2>会员关怀</h2>
-        <p>{{ birthdayBenefit.message }}</p>
-        <p class="feature-note">生日当天入场时弹窗发放体验券（与 CHECKINOUT / VOUCHER 联动，H 模块实现）</p>
-        <RouterLink class="text-link" :to="`${basePath}/vouchers`">我的优惠券 →</RouterLink>
-      </article>
-
       <article class="dashboard-card quick-card span-2">
         <p class="card-eyebrow">快捷入口</p>
         <h2>常用功能</h2>
@@ -238,6 +283,69 @@ async function doCheckOut() {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.top-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.venues-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-column .membership-card,
+.info-column .promo-card {
+  flex: 1;
+}
+
+.venues-column .capacity-card {
+  flex: 1;
+  padding: 18px 20px;
+}
+
+.venues-column .capacity-card .card-head {
+  margin-bottom: 12px;
+}
+
+.venues-column .capacity-card h2 {
+  font-size: 20px;
+}
+
+.venues-column .capacity-card .stat-value {
+  font-size: 22px;
+}
+
+.venues-column .capacity-card .capacity-stats {
+  margin-bottom: 10px;
+}
+
+.venues-column .capacity-card .card-hint {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.venues-column .capacity-card .feature-note {
+  display: none;
+}
+
+.membership-card {
+  padding: 18px 20px;
+}
+
+.membership-card h2 {
+  font-size: 17px;
+  margin-top: 2px;
 }
 
 .dashboard-card {
@@ -339,7 +447,7 @@ async function doCheckOut() {
 .info-list {
   display: grid;
   gap: 10px;
-  margin: 16px 0;
+  margin: 14px 0;
 }
 
 .info-list div {
@@ -352,12 +460,18 @@ async function doCheckOut() {
 
 .info-list dt {
   color: var(--tj-text-muted);
+  font-size: 14px;
 }
 
 .info-list dd {
   margin: 0;
   font-weight: 600;
   color: var(--tj-text);
+  font-size: 15px;
+}
+
+.info-list dd.expired {
+  color: #cf1322;
 }
 
 .recommend-list {
@@ -427,7 +541,43 @@ async function doCheckOut() {
 }
 
 .promo-card {
+  padding: 18px 20px;
   background: linear-gradient(180deg, #ffffff 0%, #fff9f0 100%);
+}
+
+.promo-card h2 {
+  font-size: 17px;
+}
+
+.promo-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.promo-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.promo-desc {
+  color: var(--tj-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+
+.promo-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: #ff7a45;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .quick-grid {
@@ -482,6 +632,7 @@ async function doCheckOut() {
 
 @media (max-width: 960px) {
   .dashboard-grid,
+  .top-grid,
   .quick-grid {
     grid-template-columns: 1fr;
   }

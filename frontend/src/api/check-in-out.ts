@@ -85,3 +85,20 @@ export function triggerAutoCheckout() {
 export function getMyCheckIn(cardId: number) {
   return http.get<CheckInOutRecord | null>(`/checkinout/my-checkin/${cardId}`)
 }
+
+// 会员查询自己的会员卡信息
+export interface MemberCard {
+  cardId: number
+  cardType: string
+  cardStatus: string
+  cardTypeName: string
+  cardStatusName: string
+  remainingCount?: number
+  totalCounts?: number
+  expireDate?: string
+  daysToExpire?: number
+}
+
+export function getMyCard(cardId: number) {
+  return http.get<MemberCard>(`/checkinout/my-card/${cardId}`)
+}

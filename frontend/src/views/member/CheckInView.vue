@@ -31,6 +31,12 @@ onMounted(async () => {
 
 const curVenue = () => venues.value.find(v => v.venueId === venueId.value)
 
+function barClass(v: VenueStatus) {
+  if (v.occupancyRate >= 100) return 'full'
+  if (v.occupancyRate >= 80) return 'warn'
+  return ''
+}
+
 function fmtTime(v?: string) {
   return v ? new Date(v).toLocaleString('zh-CN') : '-'
 }
@@ -69,7 +75,8 @@ async function doCheckOut() {
       <div
         v-for="v in venues" :key="v.venueId"
         class="venue-chip"
-        :class="{ active: v.venueId === venueId, full: v.occupancyRate >= 90 }"
+        :class="{ active: v.venueId === venueId, warn: v.occupancyRate >= 90 && v.occupancyRate < 100, full: v.occupancyRate >= 100 }"
+        @click="venueId = v.venueId"
       >
         <b>{{ v.venueName }}</b>
         <span class="cap">{{ v.currentCapacity }}/{{ v.maxCapacity }}</span>
@@ -145,7 +152,7 @@ async function doCheckOut() {
     <div v-if="curVenue()" class="card">
       <h3>{{ curVenue()!.venueName }} 实时容量</h3>
       <div class="bar-bg">
-        <div class="bar" :style="{ width: Math.min(curVenue()!.occupancyRate, 100) + '%' }" :class="{ warn: curVenue()!.occupancyRate >= 80 }" />
+        <div class="bar" :style="{ width: Math.min(curVenue()!.occupancyRate, 100) + '%' }" :class="barClass(curVenue()!)" />
       </div>
       <p class="bar-text">{{ curVenue()!.currentCapacity }} / {{ curVenue()!.maxCapacity }} ({{ curVenue()!.occupancyRate }}%)</p>
     </div>
@@ -161,10 +168,13 @@ async function doCheckOut() {
   box-shadow: var(--tj-shadow); display: flex; flex-direction: column; gap: 2px; cursor: pointer;
 }
 .venue-chip.active { border: 2px solid #4d77ff; }
-.venue-chip.full { border-color: #ff4d4f; }
+.venue-chip.warn { border-color: #faad14; background: #fffbe6; }
+.venue-chip.full { border-color: #ff4d4f; background: #fff1f0; }
 .venue-chip b { font-size: 14px; }
 .venue-chip .cap { font-size: 13px; color: #7a88a0; }
 .venue-chip .rate { font-size: 12px; color: #2c57d2; font-weight: 600; }
+.venue-chip.warn .rate { color: #d48806; }
+.venue-chip.full .rate { color: #cf1322; }
 
 .two-cards {
   display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
@@ -234,5 +244,6 @@ async function doCheckOut() {
 .bar-bg { height: 10px; border-radius: 5px; background: #eef2f7; overflow: hidden; }
 .bar { height: 100%; border-radius: 5px; background: #285cff; transition: width .3s; }
 .bar.warn { background: #ff9c00; }
+.bar.full { background: #ff4d4f; }
 .bar-text { margin: 6px 0 0; font-size: 13px; color: #7a88a0; }
 </style>

@@ -74,15 +74,26 @@ export function getCrowdHint(level: CrowdLevel) {
 }
 
 /** 会员首页 · 场馆容量 #7 */
-export const memberVenueCapacityMock: VenueCapacitySnapshot = {
-  venueId: 1,
-  venueName: '主训练馆（一楼有氧区）',
-  currentCount: 378,
-  maxCapacity: 500,
-  occupancyRate: 75.6,
-  crowdLevel: 'comfortable',
-  featureRef: '#7',
-}
+export const memberVenueCapacityMock: VenueCapacitySnapshot[] = [
+  {
+    venueId: 1,
+    venueName: '主训练馆',
+    currentCount: 449,
+    maxCapacity: 500,
+    occupancyRate: 89.8,
+    crowdLevel: 'comfortable',
+    featureRef: '#7',
+  },
+  {
+    venueId: 160001,
+    venueName: '测试团课区',
+    currentCount: 49,
+    maxCapacity: 50,
+    occupancyRate: 98,
+    crowdLevel: 'warning',
+    featureRef: '#7',
+  },
+]
 
 /** 会员首页 · 会籍摘要 #5 #6 #20 */
 export const memberMembershipMock: MembershipSnapshot = {

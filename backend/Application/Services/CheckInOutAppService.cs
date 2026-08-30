@@ -201,6 +201,34 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         return record is null ? null : MapDto(record);
     }
 
+    public async Task<MemberCardDto?> GetMemberCardAsync(int cardId, CancellationToken ct = default)
+    {
+        var card = await _checkInOutRepo.GetCardWithDetailsAsync(cardId, ct);
+        if (card is null) return null;
+
+        var isCountCard = card.CardType?.Trim() == "0";
+        int? daysToExpire = null;
+        if (!isCountCard && card.TimeCardExtension?.ExpireDate != null)
+        {
+            daysToExpire = (int)(card.TimeCardExtension.ExpireDate.Date - DateTime.Now.Date).TotalDays;
+        }
+
+        return new MemberCardDto
+        {
+            CardId = card.CardId,
+            CardType = card.CardType?.Trim() ?? "",
+            CardStatus = card.CardStatus?.Trim() ?? "",
+            CardTypeName = isCountCard ? "次卡" : "时间卡",
+            CardStatusName = card.CardStatus?.Trim() == "1" ? "正常" : "已停用",
+            RemainingCount = isCountCard ? card.CountCardExtension?.RemainingCount : null,
+            TotalCounts = isCountCard ? card.CountCardExtension?.TotalCounts : null,
+            ExpireDate = !isCountCard && card.TimeCardExtension?.ExpireDate != null
+                ? card.TimeCardExtension.ExpireDate.ToString("yyyy-MM-dd")
+                : null,
+            DaysToExpire = daysToExpire,
+        };
+    }
+
     static CheckInOutDto MapDto(Checkinout e) => new()
     {
         CheckInOutId = e.CheckInOutId,

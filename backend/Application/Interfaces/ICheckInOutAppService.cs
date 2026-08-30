@@ -13,4 +13,5 @@ public interface ICheckInOutAppService
     Task<DashboardStatsDto> GetDashboardStatsAsync(CancellationToken ct = default);
     Task<string> TriggerAutoCheckoutAsync(CancellationToken ct = default);
     Task<CheckInOutDto?> GetMyActiveCheckInAsync(int cardId, CancellationToken ct = default);
+    Task<MemberCardDto?> GetMemberCardAsync(int cardId, CancellationToken ct = default);
 }

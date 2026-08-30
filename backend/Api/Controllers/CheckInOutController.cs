@@ -118,4 +118,14 @@ public class CheckInOutController : ControllerBase
             return Ok(ApiResponse<CheckInOutDto>.Success(null!, HttpContext.TraceIdentifier));
         return Ok(ApiResponse<CheckInOutDto>.Success(record, HttpContext.TraceIdentifier));
     }
+
+    // 会员查询自己的会员卡信息
+    [HttpGet("my-card/{cardId:int}")]
+    public async Task<ActionResult<ApiResponse<MemberCardDto>>> GetMyCard(int cardId, CancellationToken ct)
+    {
+        var card = await _svc.GetMemberCardAsync(cardId, ct);
+        if (card is null)
+            return NotFound(ApiResponse<object>.Failure("NOT_FOUND", "未找到会员卡", HttpContext.TraceIdentifier));
+        return Ok(ApiResponse<MemberCardDto>.Success(card, HttpContext.TraceIdentifier));
+    }
 }
