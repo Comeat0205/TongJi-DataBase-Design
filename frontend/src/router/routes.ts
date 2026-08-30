@@ -4,6 +4,8 @@ const Placeholder = () => import('@/views/shared/ModulePlaceholderView.vue')
 const MemberHome = () => import('@/views/member/MemberHomeView.vue')
 const MemberProfile = () => import('@/views/member/MemberProfileView.vue')
 const MembershipCardList = () => import('@/views/member/MembershipCardListView.vue')
+const CardProductList = () => import('@/views/member/CardProductListView.vue')
+const CardProductManage = () => import('@/views/admin/CardProductManageView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 
@@ -79,14 +81,20 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         features: '#1 #5 #6 #20',
       },
     },
-    ...placeholderChildRoutes('member', mode, [
-      {
-        path: 'card-products',
-        name: `${p}-card-products`,
+    {
+      path: 'card-products',
+      name: `${p}-card-products`,
+      component: CardProductList,
+      meta: {
+        requiresAuth: mode === 'auth',
+        userType: 'member',
+        preview: mode === 'preview',
         pageTitle: '购买会员卡',
         owner: 'D',
         features: '#20',
       },
+    },
+    ...placeholderChildRoutes('member', mode, [
       {
         path: 'check-in',
         name: `${p}-check-in`,
@@ -157,6 +165,17 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       component: AdminHome,
       meta: { userType: 'employee', preview: mode === 'preview' },
     },
+    {
+      path: 'card-products',
+      name: `${p}-card-products`,
+      component: CardProductManage,
+      meta: {
+        userType: 'employee',
+        preview: mode === 'preview',
+        pageTitle: '卡商品管理',
+        owner: 'D',
+      },
+    },
     ...placeholderChildRoutes('admin', mode, [
     {
       path: 'check-in-desk',
@@ -205,12 +224,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       pageTitle: '器材管理',
       owner: 'C',
       features: '#15',
-    },
-    {
-      path: 'card-products',
-      name: `${p}-card-products`,
-      pageTitle: '卡商品管理',
-      owner: 'D',
     },
     {
       path: 'group-courses',

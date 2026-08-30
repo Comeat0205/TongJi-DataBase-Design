@@ -21,4 +21,7 @@ public sealed class CardProductDto
 
     // 商品说明，可以从 productType 拼出来
     public string? Description { get; init; }
+
+    // 是否在售（由 PRODUCT_TYPE 是否带 INACTIVE_ 前缀决定，不是数据库列）
+    public bool IsActive { get; init; } = true;
 }

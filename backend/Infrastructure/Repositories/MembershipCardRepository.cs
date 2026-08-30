@@ -36,4 +36,40 @@ public sealed class MembershipCardRepository : Repository<MemberBenefitCard, int
             .Include(x => x.TimeCardExtension)
             .FirstOrDefaultAsync(x => x.CardId == cardId, cancellationToken);
     }
+
+    // 用 Oracle 序列表取新卡号（不能用 EF SqlQueryRaw，否则会 ORA-02287）
+    public async Task<int> GetNextCardIdAsync(CancellationToken cancellationToken = default)
+    {
+        await Context.Database.OpenConnectionAsync(cancellationToken);
+
+        try
+        {
+            await using var command = Context.Database.GetDbConnection().CreateCommand();
+            command.CommandText = "SELECT GYM_ADMIN.SEQ_MEMBER_BENEFIT_CARD.NEXTVAL FROM DUAL";
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt32(result);
+        }
+        finally
+        {
+            await Context.Database.CloseConnectionAsync();
+        }
+    }
+
+    // 写入会员卡主表
+    public async Task AddCardAsync(MemberBenefitCard card, CancellationToken cancellationToken = default)
+    {
+        await Context.MemberBenefitCards.AddAsync(card, cancellationToken);
+    }
+
+    // 写入次卡扩展表
+    public async Task AddCountExtensionAsync(CountCardExtension extension, CancellationToken cancellationToken = default)
+    {
+        await Context.CountCardExtensions.AddAsync(extension, cancellationToken);
+    }
+
+    // 写入时效卡扩展表
+    public async Task AddTimeExtensionAsync(TimeCardExtension extension, CancellationToken cancellationToken = default)
+    {
+        await Context.TimeCardExtensions.AddAsync(extension, cancellationToken);
+    }
 }

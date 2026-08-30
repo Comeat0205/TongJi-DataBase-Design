@@ -52,4 +52,28 @@ public class MembershipCardsController : ControllerBase
 
         return Ok(ApiResponse<MembershipCardDto>.Success(card, HttpContext.TraceIdentifier));
     }
+
+    // POST /api/membership-cards  直接发卡
+    [HttpPost]
+    [ProducesResponseType(typeof(ApiResponse<MembershipCardDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<MembershipCardDto>>> Create(
+        [FromBody] CreateMembershipCardRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var card = await _membershipCardAppService.CreateAsync(request, cancellationToken);
+        return Ok(ApiResponse<MembershipCardDto>.Success(card, HttpContext.TraceIdentifier, "发卡成功"));
+    }
+
+    // POST /api/membership-cards/purchase-mock  MVP 模拟支付购卡
+    [HttpPost("purchase-mock")]
+    [ProducesResponseType(typeof(ApiResponse<MembershipCardDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<MembershipCardDto>>> PurchaseMock(
+        [FromBody] PurchaseMembershipCardRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var card = await _membershipCardAppService.PurchaseMockAsync(request, cancellationToken);
+        return Ok(ApiResponse<MembershipCardDto>.Success(card, HttpContext.TraceIdentifier, "模拟购卡成功"));
+    }
 }

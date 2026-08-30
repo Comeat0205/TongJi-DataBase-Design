@@ -41,3 +41,47 @@ GET {{Api_HostAddress}}/api/membership-cards/99999
 Accept: application/json
 
 ###
+
+### 可购会员卡商品列表
+GET {{Api_HostAddress}}/api/card-products
+Accept: application/json
+
+###
+
+### 模拟支付购卡（memberId + priceId）
+POST {{Api_HostAddress}}/api/membership-cards/purchase-mock
+Content-Type: application/json
+
+{
+  "memberId": 1001,
+  "priceId": 3
+}
+
+###
+
+### 员工管理：商品列表（含下架）
+GET {{Api_HostAddress}}/api/card-products/manage
+Accept: application/json
+
+###
+
+### 员工管理：新增商品
+POST {{Api_HostAddress}}/api/card-products
+Content-Type: application/json
+
+{
+  "productType": "MEMBERSHIP_TIME_90",
+  "standardPrice": 599.00
+}
+
+###
+
+### 员工管理：下架商品（PATCH isActive=false）
+PATCH {{Api_HostAddress}}/api/card-products/1
+Content-Type: application/json
+
+{
+  "isActive": false
+}
+
+###

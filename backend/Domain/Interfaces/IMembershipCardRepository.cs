@@ -12,4 +12,16 @@ public interface IMembershipCardRepository : IRepository<MemberBenefitCard, int>
 
     // 查某一张卡的详情，会把扩展表一起查出来
     Task<MemberBenefitCard?> GetDetailByIdAsync(int cardId, CancellationToken cancellationToken = default);
+
+    // 从 Oracle 序列取下一个 CARD_ID
+    Task<int> GetNextCardIdAsync(CancellationToken cancellationToken = default);
+
+    // 插入主卡记录
+    Task AddCardAsync(MemberBenefitCard card, CancellationToken cancellationToken = default);
+
+    // 插入次卡扩展
+    Task AddCountExtensionAsync(CountCardExtension extension, CancellationToken cancellationToken = default);
+
+    // 插入时效卡扩展
+    Task AddTimeExtensionAsync(TimeCardExtension extension, CancellationToken cancellationToken = default);
 }

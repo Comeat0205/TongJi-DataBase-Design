@@ -105,4 +105,40 @@ public static class MembershipCardLabels
 
         return productType;
     }
+
+    // 判断商品是否在售（INACTIVE_ 前缀表示下架）
+    public static bool IsActiveProductType(string productType)
+    {
+        return productType.StartsWith("MEMBERSHIP_", StringComparison.OrdinalIgnoreCase)
+            && !productType.StartsWith("INACTIVE_", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // 下架：给 PRODUCT_TYPE 加 INACTIVE_ 前缀
+    public static string DeactivateProductType(string productType)
+    {
+        if (productType.StartsWith("INACTIVE_", StringComparison.OrdinalIgnoreCase))
+        {
+            return productType;
+        }
+
+        return "INACTIVE_" + productType;
+    }
+
+    // 上架：去掉 INACTIVE_ 前缀
+    public static string ActivateProductType(string productType)
+    {
+        const string prefix = "INACTIVE_";
+        if (productType.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return productType[prefix.Length..];
+        }
+
+        return productType;
+    }
+
+    // 取真实的 MEMBERSHIP 编码（展示和校验用）
+    public static string NormalizeProductType(string productType)
+    {
+        return ActivateProductType(productType);
+    }
 }
