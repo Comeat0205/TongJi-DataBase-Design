@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthAppService, AuthAppService>();
         services.AddScoped<IMemberAppService, MemberAppService>();
         services.AddScoped<IRepairRecordAppService, RepairRecordAppService>();
+        services.AddScoped<IInspectionTaskAppService, InspectionTaskAppService>();
         return services;
     }
 }
