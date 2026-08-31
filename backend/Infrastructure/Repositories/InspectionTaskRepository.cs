@@ -1,7 +1,10 @@
+using System.Data;
+using System.Globalization;
 using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.Repositories;
 
@@ -61,22 +64,49 @@ public sealed class InspectionTaskRepository : Repository<Inspectiontask, int>, 
             .ToDictionaryAsync(venue => venue.VenueId, venue => venue.VenueName, cancellationToken);
     }
 
-    public Task<bool> VenueExistsAsync(int venueId, CancellationToken cancellationToken = default)
+    public async Task<bool> VenueExistsAsync(int venueId, CancellationToken cancellationToken = default)
     {
-        return Context.Venues.AnyAsync(venue => venue.VenueId == venueId, cancellationToken);
+        return await Context.Venues
+            .AsNoTracking()
+            .Where(venue => venue.VenueId == venueId)
+            .Select(_ => 1)
+            .FirstOrDefaultAsync(cancellationToken) == 1;
     }
 
-    public Task<bool> EmployeeExistsAsync(int empId, CancellationToken cancellationToken = default)
+    public async Task<bool> EmployeeExistsAsync(int empId, CancellationToken cancellationToken = default)
     {
-        return Context.Employees.AnyAsync(employee => employee.EmpId == empId, cancellationToken);
+        return await Context.Employees
+            .AsNoTracking()
+            .Where(employee => employee.EmpId == empId)
+            .Select(_ => 1)
+            .FirstOrDefaultAsync(cancellationToken) == 1;
     }
 
     public async Task<int> GetNextIdAsync(CancellationToken cancellationToken = default)
     {
-        var nextValue = await Context.Database
-            .SqlQueryRaw<decimal>("SELECT SEQ_INSPECTIONTASK.NEXTVAL AS \"Value\" FROM DUAL")
-            .SingleAsync(cancellationToken);
+        var connection = Context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose)
+        {
+            await Context.Database.OpenConnectionAsync(cancellationToken);
+        }
 
-        return checked((int)nextValue);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT SEQ_INSPECTIONTASK.NEXTVAL FROM DUAL";
+            command.Transaction = Context.Database.CurrentTransaction?.GetDbTransaction();
+            var nextValue = await command.ExecuteScalarAsync(cancellationToken)
+                ?? throw new InvalidOperationException("未能获取巡检任务序列值。");
+
+            return checked(Convert.ToInt32(nextValue, CultureInfo.InvariantCulture));
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await Context.Database.CloseConnectionAsync();
+            }
+        }
     }
 }

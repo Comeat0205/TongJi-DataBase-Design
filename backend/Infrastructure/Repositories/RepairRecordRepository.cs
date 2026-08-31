@@ -1,7 +1,10 @@
+using System.Data;
+using System.Globalization;
 using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.Repositories;
 
@@ -47,22 +50,49 @@ public sealed class RepairRecordRepository : Repository<Repairrecord, int>, IRep
             .ToListAsync(cancellationToken);
     }
 
-    public Task<bool> EquipmentExistsAsync(int equipId, CancellationToken cancellationToken = default)
+    public async Task<bool> EquipmentExistsAsync(int equipId, CancellationToken cancellationToken = default)
     {
-        return Context.Equipment.AnyAsync(equipment => equipment.EquipId == equipId, cancellationToken);
+        return await Context.Equipment
+            .AsNoTracking()
+            .Where(equipment => equipment.EquipId == equipId)
+            .Select(_ => 1)
+            .FirstOrDefaultAsync(cancellationToken) == 1;
     }
 
-    public Task<bool> EmployeeExistsAsync(int empId, CancellationToken cancellationToken = default)
+    public async Task<bool> EmployeeExistsAsync(int empId, CancellationToken cancellationToken = default)
     {
-        return Context.Employees.AnyAsync(employee => employee.EmpId == empId, cancellationToken);
+        return await Context.Employees
+            .AsNoTracking()
+            .Where(employee => employee.EmpId == empId)
+            .Select(_ => 1)
+            .FirstOrDefaultAsync(cancellationToken) == 1;
     }
 
     public async Task<int> GetNextIdAsync(CancellationToken cancellationToken = default)
     {
-        var nextValue = await Context.Database
-            .SqlQueryRaw<decimal>("SELECT SEQ_REPAIRRECORD.NEXTVAL AS \"Value\" FROM DUAL")
-            .SingleAsync(cancellationToken);
+        var connection = Context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose)
+        {
+            await Context.Database.OpenConnectionAsync(cancellationToken);
+        }
 
-        return checked((int)nextValue);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT SEQ_REPAIRRECORD.NEXTVAL FROM DUAL";
+            command.Transaction = Context.Database.CurrentTransaction?.GetDbTransaction();
+            var nextValue = await command.ExecuteScalarAsync(cancellationToken)
+                ?? throw new InvalidOperationException("未能获取报修记录序列值。");
+
+            return checked(Convert.ToInt32(nextValue, CultureInfo.InvariantCulture));
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await Context.Database.CloseConnectionAsync();
+            }
+        }
     }
 }
