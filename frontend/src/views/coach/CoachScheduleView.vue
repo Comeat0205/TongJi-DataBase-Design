@@ -13,12 +13,17 @@ const schedules = ref<CoachScheduleItem[]>([])
 const loading = ref(true)
 const errorMessage = ref('')
 
+// 库内 DATE 为 UTC（dbtimezone=+00:00），按 UTC 解析后转本地展示。
+function toLocalDate(value: string) {
+  return new Date(value.endsWith('Z') ? value : value + 'Z')
+}
+
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('zh-CN')
+  return toLocalDate(value).toLocaleDateString('zh-CN')
 }
 
 function formatTime(value: string) {
-  return new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return toLocalDate(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 function formatType(type: string | null) {
@@ -62,7 +67,12 @@ onMounted(loadSchedules)
       <p v-if="schedules.length === 0" class="empty-tip">暂无日程安排。</p>
 
       <section v-else class="schedule-list">
-        <article v-for="item in schedules" :key="item.scheduleId" class="schedule-card">
+        <article
+          v-for="item in schedules"
+          :key="item.scheduleId"
+          class="schedule-card"
+          :class="{ 'is-conflict': item.isConflict }"
+        >
           <div class="schedule-main">
             <span class="schedule-type" :class="item.scheduleType === 'P' ? 'type-pt' : 'type-group'">
               {{ formatType(item.scheduleType) }}
@@ -70,6 +80,7 @@ onMounted(loadSchedules)
             <h3 class="schedule-time">
               {{ formatTime(item.scheduleStart) }} - {{ formatTime(item.scheduleEnd) }}
             </h3>
+            <span v-if="item.isConflict" class="conflict-badge">冲突</span>
             <span class="schedule-status">{{ formatStatus(item.status) }}</span>
           </div>
           <div class="schedule-meta">
@@ -111,6 +122,21 @@ onMounted(loadSchedules)
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  border: 1px solid transparent;
+}
+
+.schedule-card.is-conflict {
+  border-color: #f56c6c;
+  background: #fff5f5;
+}
+
+.conflict-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fde2e2;
+  color: #c0392b;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .schedule-main {

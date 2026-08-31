@@ -13,12 +13,17 @@ const schedules = ref<MemberScheduleItem[]>([])
 const loading = ref(true)
 const errorMessage = ref('')
 
+// 库内 DATE 为 UTC（dbtimezone=+00:00），按 UTC 解析后转本地展示。
+function toLocalDate(value: string) {
+  return new Date(value.endsWith('Z') ? value : value + 'Z')
+}
+
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('zh-CN')
+  return toLocalDate(value).toLocaleDateString('zh-CN')
 }
 
 function formatTime(value: string) {
-  return new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return toLocalDate(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 function formatType(type: string) {
@@ -73,6 +78,7 @@ onMounted(loadSchedules)
             <h3 class="schedule-time">
               {{ formatTime(item.scheduleStart) }} - {{ formatTime(item.scheduleEnd) }}
             </h3>
+            <span v-if="item.isUpcoming" class="upcoming-badge">即将开课</span>
             <span class="schedule-status">{{ formatStatus(item.status) }}</span>
           </div>
           <div class="schedule-meta">
@@ -152,6 +158,15 @@ onMounted(loadSchedules)
   background: #eef2f7;
   color: #5a6a82;
   font-size: 12px;
+}
+
+.upcoming-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff3cd;
+  color: #b3541e;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .schedule-meta {

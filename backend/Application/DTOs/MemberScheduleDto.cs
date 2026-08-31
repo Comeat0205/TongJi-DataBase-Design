@@ -10,4 +10,5 @@ public sealed class MemberScheduleDto
     public string ScheduleType { get; init; } = string.Empty;
     public int? SourceRecordId { get; init; }
     public string? Status { get; init; }
+    public bool IsUpcoming { get; init; }
 }

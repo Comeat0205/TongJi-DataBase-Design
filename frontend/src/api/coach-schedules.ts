@@ -9,6 +9,7 @@ export interface CoachScheduleItem {
   scheduleType: string | null
   sourceRecordId: number | null
   status: string | null
+  isConflict: boolean
 }
 
 export function getCoachSchedules(coachId: number) {

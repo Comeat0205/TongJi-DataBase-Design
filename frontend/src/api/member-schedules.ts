@@ -9,6 +9,7 @@ export interface MemberScheduleItem {
   scheduleType: string
   sourceRecordId: number | null
   status: string | null
+  isUpcoming: boolean
 }
 
 export function getMemberSchedules(memberId: number) {

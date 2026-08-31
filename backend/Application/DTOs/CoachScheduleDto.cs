@@ -10,4 +10,5 @@ public sealed class CoachScheduleDto
     public string? ScheduleType { get; init; }
     public int? SourceRecordId { get; init; }
     public string? Status { get; init; }
+    public bool IsConflict { get; init; }
 }
