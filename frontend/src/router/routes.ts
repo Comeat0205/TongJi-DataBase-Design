@@ -5,6 +5,8 @@ const MemberHome = () => import('@/views/member/MemberHomeView.vue')
 const MemberProfile = () => import('@/views/member/MemberProfileView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
+const MemberSchedule = () => import('@/views/member/MemberScheduleView.vue')
+const CoachSchedule = () => import('@/views/coach/CoachScheduleView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
 type RouteMode = 'auth' | 'preview'
@@ -65,6 +67,18 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       component: MemberProfile,
       meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
     },
+    {
+      path: 'schedule',
+      name: `${p}-schedule`,
+      component: MemberSchedule,
+      meta: {
+        pageTitle: '我的日程',
+        owner: 'J',
+        features: '#11 #13',
+        preview: mode === 'preview',
+        userType: 'member',
+      },
+    },
     ...placeholderChildRoutes('member', mode, [
       {
         path: 'cards',
@@ -114,13 +128,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '私教预约',
         owner: 'G',
         features: '#12 #13 #14',
-      },
-      {
-        path: 'schedule',
-        name: `${p}-schedule`,
-        pageTitle: '我的日程',
-        owner: 'J',
-        features: '#11 #13',
       },
       {
         path: 'orders',
@@ -260,14 +267,19 @@ function coachChildren(mode: RouteMode): RouteRecordRaw[] {
       component: CoachHome,
       meta: { userType: 'coach', preview: mode === 'preview' },
     },
-    ...placeholderChildRoutes('coach', mode, [
-      {
-        path: 'schedule',
-        name: `${p}-schedule`,
+    {
+      path: 'schedule',
+      name: `${p}-schedule`,
+      component: CoachSchedule,
+      meta: {
         pageTitle: '教练日程',
         owner: 'J',
         features: '#4 #11 #13',
+        preview: mode === 'preview',
+        userType: 'coach',
       },
+    },
+    ...placeholderChildRoutes('coach', mode, [
       {
         path: 'pt-confirm',
         name: `${p}-pt-confirm`,
