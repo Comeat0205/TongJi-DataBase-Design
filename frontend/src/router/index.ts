@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
 import MemberLayout from '@/layouts/MemberLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import CoachLayout from '@/layouts/CoachLayout.vue'
@@ -17,6 +18,12 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { guestOnly: true },
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView,
       meta: { guestOnly: true },
     },
     ...buildPortalRoutes({

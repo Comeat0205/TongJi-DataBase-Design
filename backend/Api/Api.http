@@ -1,6 +1,37 @@
 @Api_HostAddress = http://localhost:5078
 
-GET {{Api_HostAddress}}/weatherforecast/
+### 会员登录（USERS + BCrypt）
+POST {{Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "loginType": "member",
+  "loginName": "demo_member",
+  "password": "Demo@123456"
+}
+
+### 会员注册（当前仅开放会员自助注册；员工/教练只保留登录）
+POST {{Api_HostAddress}}/api/members
+Content-Type: application/json
+
+{
+  "loginName": "new_member",
+  "password": "Demo@123456",
+  "name": "新会员",
+  "phoneNumber": "13900000002",
+  "gender": "M"
+}
+
+### 查询会员
+GET {{Api_HostAddress}}/api/members/1
 Accept: application/json
 
-###
+### 更新会员档案
+PUT {{Api_HostAddress}}/api/members/1
+Content-Type: application/json
+
+{
+  "name": "演示会员",
+  "phoneNumber": "13800000001",
+  "gender": "M"
+}

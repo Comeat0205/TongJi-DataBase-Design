@@ -10,11 +10,12 @@ const authStore = useAuthStore()
 
 const selectedLoginType = ref<LoginType>('member')
 const form = reactive({
-  identifier: '',
-  phoneNumber: '',
+  loginName: '',
+  password: '',
 })
 const isSubmitting = ref(false)
 const errorMessage = ref('')
+const canSelfRegister = computed(() => selectedLoginType.value === 'member')
 
 const submitLabel = computed(() => {
   switch (selectedLoginType.value) {
@@ -27,22 +28,11 @@ const submitLabel = computed(() => {
   }
 })
 
-const identifierLabel = computed(() => {
-  switch (selectedLoginType.value) {
-    case 'member':
-      return '用户名 / 会员ID'
-    case 'employee':
-      return '姓名 / 员工ID'
-    case 'coach':
-      return '姓名 / 教练ID'
-  }
-})
-
 async function handleLogin() {
   errorMessage.value = ''
 
-  if (!form.identifier.trim() || !form.phoneNumber.trim()) {
-    errorMessage.value = '请输入账号标识和手机号。'
+  if (!form.loginName.trim() || !form.password) {
+    errorMessage.value = '请输入登录名和密码。'
     return
   }
 
@@ -51,15 +41,14 @@ async function handleLogin() {
   try {
     const result = await login({
       loginType: selectedLoginType.value,
-      identifier: form.identifier,
-      phoneNumber: form.phoneNumber,
+      loginName: form.loginName,
+      password: form.password,
     })
 
     authStore.setSession(result)
     await router.push(result.targetPath)
   } catch (error) {
-    errorMessage.value =
-      error instanceof ApiError ? error.message : '登录失败，请检查账号和手机号是否正确。'
+    errorMessage.value = error instanceof ApiError ? error.message : '账号或密码错误'
   } finally {
     isSubmitting.value = false
   }
@@ -72,7 +61,7 @@ async function handleLogin() {
       <div class="brand-panel">
         <p class="eyebrow">TJ-GYM</p>
         <h1>欢迎登录</h1>
-        <p class="intro">请输入账号信息以进入健身房管理系统。</p>
+        <p class="intro">使用登录名与密码进入对应工作台。会员可先注册账号。</p>
       </div>
 
       <section class="login-card">
@@ -105,31 +94,35 @@ async function handleLogin() {
 
         <form class="login-form" @submit.prevent="handleLogin">
           <label class="field">
-            <span>{{ identifierLabel }}</span>
+            <span>登录名</span>
             <input
-              v-model="form.identifier"
+              v-model="form.loginName"
               type="text"
-              placeholder="请输入用户名或用户ID"
+              placeholder="请输入登录名"
               autocomplete="username"
             />
           </label>
 
           <label class="field">
-            <span>手机号</span>
+            <span>密码</span>
             <input
-              v-model="form.phoneNumber"
-              type="text"
-              placeholder="请输入登记手机号"
-              autocomplete="tel"
+              v-model="form.password"
+              type="password"
+              placeholder="请输入密码"
+              autocomplete="current-password"
             />
           </label>
 
-          <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+          <p class="error-message" aria-live="polite">{{ errorMessage }}</p>
 
           <button class="submit-btn" type="submit" :disabled="isSubmitting">
             {{ isSubmitting ? '登录中...' : submitLabel }}
           </button>
         </form>
+
+        <div class="register-link">
+          <RouterLink v-if="canSelfRegister" to="/register">没有账号？会员注册</RouterLink>
+        </div>
 
         <div class="preview-links">
           <p>也可先预览三端页面骨架（无需登录，仅看 Layout 与占位页）：</p>
@@ -178,173 +171,152 @@ async function handleLogin() {
   flex-direction: column;
   justify-content: center;
   color: #f8fbff;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.06));
 }
 
 .eyebrow {
-  margin: 0 0 16px;
-  font-size: 13px;
-  letter-spacing: 0.28em;
+  margin: 0 0 12px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #89b3ff;
+  color: #8fb0ff;
+  font-size: 0.85rem;
 }
 
 .brand-panel h1 {
   margin: 0;
-  font-size: clamp(34px, 4vw, 48px);
+  font-size: clamp(2.4rem, 4vw, 3.6rem);
   line-height: 1.1;
 }
 
 .intro {
   margin: 18px 0 0;
-  max-width: 420px;
-  font-size: 17px;
-  line-height: 1.75;
-  color: rgba(232, 239, 255, 0.78);
+  max-width: 28rem;
+  color: rgba(248, 251, 255, 0.72);
+  line-height: 1.7;
 }
 
 .login-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  background: rgba(250, 252, 255, 0.96);
-}
-
-.login-card {
-  min-width: 0;
+  background: rgba(255, 255, 255, 0.96);
+  color: #182336;
 }
 
 .login-switch {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+  margin-bottom: 28px;
   padding: 6px;
   border-radius: 16px;
   background: #eef3fb;
 }
 
 .switch-btn {
-  border: none;
+  border: 0;
   border-radius: 12px;
+  padding: 12px 8px;
   background: transparent;
-  color: #4f5f7a;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 14px 16px;
+  color: #5b6b86;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-weight: 600;
 }
 
 .switch-btn.active {
   background: #16233b;
   color: #fff;
-  box-shadow: 0 10px 24px rgba(22, 35, 59, 0.18);
-}
-
-.switch-btn.ghost:not(.active) {
-  color: #7a889f;
 }
 
 .login-form {
   display: grid;
   gap: 18px;
-  margin-top: 28px;
 }
 
 .field {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .field span {
-  color: #27344b;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.92rem;
+  color: #4c5d78;
 }
 
 .field input {
   width: 100%;
-  border: 1px solid #d9e2f0;
-  border-radius: 16px;
-  padding: 15px 16px;
-  font-size: 15px;
+  border: 1px solid #d5deec;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font: inherit;
   background: #fff;
-  color: #182336;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.field input:focus {
-  outline: none;
-  border-color: #5f8bff;
-  box-shadow: 0 0 0 4px rgba(95, 139, 255, 0.14);
 }
 
 .error-message {
+  min-height: 1.4em;
   margin: 0;
-  color: #d73c4f;
-  font-size: 14px;
+  color: #c0392b;
+  font-size: 0.92rem;
+  line-height: 1.4;
 }
 
 .submit-btn {
-  margin-top: 4px;
-  border: none;
-  border-radius: 16px;
-  padding: 16px 18px;
-  background: linear-gradient(135deg, #285cff 0%, #5d8dff 100%);
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  background: #16233b;
   color: #fff;
-  font-size: 16px;
-  font-weight: 600;
+  font: inherit;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 16px 30px rgba(40, 92, 255, 0.24);
 }
 
 .submit-btn:disabled {
+  opacity: 0.65;
   cursor: not-allowed;
-  opacity: 0.75;
+}
+
+.register-link {
+  min-height: 1.4em;
+  margin-top: 18px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.register-link a {
+  color: #2c57d2;
+  text-decoration: none;
+  font-weight: 600;
 }
 
 .preview-links {
   margin-top: 28px;
   padding-top: 22px;
-  border-top: 1px solid #e6edf8;
+  border-top: 1px solid #e4ebf5;
 }
 
 .preview-links p {
   margin: 0 0 12px;
-  color: #5d6d88;
-  font-size: 14px;
-  line-height: 1.6;
+  color: #667892;
+  font-size: 0.9rem;
 }
 
 .preview-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
 .preview-actions a {
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #eef3fb;
-  color: #285cff;
-  font-size: 14px;
+  color: #16233b;
+  text-decoration: none;
   font-weight: 600;
 }
 
-@media (min-width: 1280px) {
-  .login-shell {
-    grid-template-columns: minmax(600px, 1.25fr) minmax(460px, 0.85fr);
-  }
-}
-
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .login-shell {
     grid-template-columns: 1fr;
   }
 
   .brand-panel,
   .login-card {
-    padding: 28px;
+    padding: 36px 28px;
   }
 }
 </style>

@@ -4,8 +4,8 @@ export type LoginType = 'member' | 'employee' | 'coach'
 
 export interface LoginRequest {
   loginType: LoginType
-  identifier: string
-  phoneNumber: string
+  loginName: string
+  password: string
 }
 
 export interface LoginResult {

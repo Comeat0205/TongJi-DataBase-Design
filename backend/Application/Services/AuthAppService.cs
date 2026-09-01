@@ -7,15 +7,20 @@ namespace Application.Services;
 
 public sealed class AuthAppService : IAuthAppService
 {
+    private const string InvalidCredentialsMessage = "账号或密码错误";
+
+    private readonly IAppUserRepository _appUserRepository;
     private readonly IMemberRepository _memberRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly ICoachRepository _coachRepository;
 
     public AuthAppService(
+        IAppUserRepository appUserRepository,
         IMemberRepository memberRepository,
         IEmployeeRepository employeeRepository,
         ICoachRepository coachRepository)
     {
+        _appUserRepository = appUserRepository;
         _memberRepository = memberRepository;
         _employeeRepository = employeeRepository;
         _coachRepository = coachRepository;
@@ -23,52 +28,67 @@ public sealed class AuthAppService : IAuthAppService
 
     public async Task<LoginResultDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Identifier) || string.IsNullOrWhiteSpace(request.PhoneNumber))
+        if (string.IsNullOrWhiteSpace(request.LoginName) || string.IsNullOrWhiteSpace(request.Password))
         {
-            throw new DomainException("请输入用户名/用户ID和手机号。");
+            throw new DomainException(InvalidCredentialsMessage);
         }
 
         var loginType = request.LoginType.Trim().ToLowerInvariant();
-        var identifier = request.Identifier.Trim();
-        var phoneNumber = request.PhoneNumber.Trim();
+        var loginName = request.LoginName.Trim();
+
+        var appUser = await _appUserRepository.GetByLoginNameAsync(loginName, cancellationToken);
+        if (appUser is null || string.IsNullOrWhiteSpace(appUser.PasswordHash))
+        {
+            throw new DomainException(InvalidCredentialsMessage);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, appUser.PasswordHash))
+        {
+            throw new DomainException(InvalidCredentialsMessage);
+        }
+
+        if (!string.Equals(appUser.Status?.Trim(), "1", StringComparison.Ordinal))
+        {
+            throw new DomainException("当前账号已停用，请联系管理员处理。");
+        }
 
         return loginType switch
         {
-            "member" => await LoginMemberAsync(identifier, phoneNumber, cancellationToken),
-            "employee" => await LoginEmployeeAsync(identifier, phoneNumber, cancellationToken),
-            "coach" => await LoginCoachAsync(identifier, phoneNumber, cancellationToken),
+            "member" => await LoginMemberAsync(appUser, cancellationToken),
+            "employee" => await LoginEmployeeAsync(appUser, cancellationToken),
+            "coach" => await LoginCoachAsync(appUser, cancellationToken),
             _ => throw new DomainException("不支持的登录类型。")
         };
     }
 
-    private async Task<LoginResultDto> LoginMemberAsync(string identifier, string phoneNumber, CancellationToken cancellationToken)
+    private async Task<LoginResultDto> LoginMemberAsync(Domain.Entities.AppUser appUser, CancellationToken cancellationToken)
     {
-        var member = await FindMemberAsync(identifier, phoneNumber, cancellationToken);
+        var member = await _memberRepository.GetByUserIdAsync(appUser.UserId, cancellationToken);
         if (member is null)
         {
-            throw new DomainException("登录失败，请检查用户名/用户ID和手机号是否匹配。");
+            throw new DomainException(InvalidCredentialsMessage);
         }
 
         if (member.GetStatus() == Domain.Enums.MemberStatus.Cancelled)
-        {
-            throw new DomainException("当前会员状态不可登录，请联系前台处理。");
-        }
+            {
+                throw new DomainException("当前会员状态已注销，无法登录。");
+            }
 
         return new LoginResultDto
         {
             UserType = "member",
             UserId = member.MemberId,
-            DisplayName = member.Name,
+            DisplayName = ResolveDisplayName(appUser),
             TargetPath = "/member/home"
         };
     }
 
-    private async Task<LoginResultDto> LoginEmployeeAsync(string identifier, string phoneNumber, CancellationToken cancellationToken)
+    private async Task<LoginResultDto> LoginEmployeeAsync(Domain.Entities.AppUser appUser, CancellationToken cancellationToken)
     {
-        var employee = await FindEmployeeAsync(identifier, phoneNumber, cancellationToken);
+        var employee = await _employeeRepository.GetByUserIdAsync(appUser.UserId, cancellationToken);
         if (employee is null)
         {
-            throw new DomainException("登录失败，请检查员工姓名/ID和手机号是否匹配。");
+            throw new DomainException(InvalidCredentialsMessage);
         }
 
         if (employee.Status != "1")
@@ -80,20 +100,21 @@ public sealed class AuthAppService : IAuthAppService
         {
             UserType = "employee",
             UserId = employee.EmpId,
-            DisplayName = employee.EmpName,
+            DisplayName = ResolveDisplayName(appUser),
             TargetPath = "/admin/home"
         };
     }
 
-    private async Task<LoginResultDto> LoginCoachAsync(string identifier, string phoneNumber, CancellationToken cancellationToken)
+    private async Task<LoginResultDto> LoginCoachAsync(Domain.Entities.AppUser appUser, CancellationToken cancellationToken)
     {
-        var coach = await FindCoachAsync(identifier, phoneNumber, cancellationToken);
+        var coach = await _coachRepository.GetByUserIdAsync(appUser.UserId, cancellationToken);
         if (coach is null)
         {
-            throw new DomainException("登录失败，请检查教练姓名/ID和手机号是否匹配。");
+            throw new DomainException(InvalidCredentialsMessage);
         }
 
-        if (coach.Status is "0")
+        var coachStatus = coach.Status?.Trim();
+        if (!string.IsNullOrWhiteSpace(coachStatus) && !string.Equals(coachStatus, "在职", StringComparison.Ordinal))
         {
             throw new DomainException("当前教练状态不可登录，请联系管理员处理。");
         }
@@ -102,50 +123,16 @@ public sealed class AuthAppService : IAuthAppService
         {
             UserType = "coach",
             UserId = coach.CoachId,
-            DisplayName = coach.CoachName,
+            DisplayName = ResolveDisplayName(appUser),
             TargetPath = "/coach/home"
         };
     }
 
-    private async Task<Domain.Entities.Member?> FindMemberAsync(string identifier, string phoneNumber, CancellationToken cancellationToken)
+    private static string ResolveDisplayName(Domain.Entities.AppUser appUser)
     {
-        if (int.TryParse(identifier, out var memberId))
-        {
-            var memberById = await _memberRepository.GetByIdAsync(memberId, cancellationToken);
-            if (memberById is not null && string.Equals(memberById.PhoneNumber, phoneNumber, StringComparison.Ordinal))
-            {
-                return memberById;
-            }
-        }
-
-        return await _memberRepository.GetByNameAndPhoneAsync(identifier, phoneNumber, cancellationToken);
-    }
-
-    private async Task<Domain.Entities.Employee?> FindEmployeeAsync(string identifier, string phoneNumber, CancellationToken cancellationToken)
-    {
-        if (int.TryParse(identifier, out var empId))
-        {
-            var employeeById = await _employeeRepository.GetByIdAsync(empId, cancellationToken);
-            if (employeeById is not null && string.Equals(employeeById.Phone, phoneNumber, StringComparison.Ordinal))
-            {
-                return employeeById;
-            }
-        }
-
-        return await _employeeRepository.GetByNameAndPhoneAsync(identifier, phoneNumber, cancellationToken);
-    }
-
-    private async Task<Domain.Entities.Coach?> FindCoachAsync(string identifier, string phoneNumber, CancellationToken cancellationToken)
-    {
-        if (int.TryParse(identifier, out var coachId))
-        {
-            var coachById = await _coachRepository.GetByIdAsync(coachId, cancellationToken);
-            if (coachById is not null && string.Equals(coachById.PhoneNumber, phoneNumber, StringComparison.Ordinal))
-            {
-                return coachById;
-            }
-        }
-
-        return await _coachRepository.GetByNameAndPhoneAsync(identifier, phoneNumber, cancellationToken);
+        // DisplayName 定位为“昵称”，初始取 LoginName；历史数据为空时兜底回 LoginName。
+        return string.IsNullOrWhiteSpace(appUser.DisplayName)
+            ? appUser.LoginName ?? "用户"
+            : appUser.DisplayName;
     }
 }
