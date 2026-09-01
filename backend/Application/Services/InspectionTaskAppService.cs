@@ -63,6 +63,10 @@ public sealed class InspectionTaskAppService : IInspectionTaskAppService
             ? PagingConstants.DefaultPageSize
             : Math.Min(pageSize, PagingConstants.MaxPageSize);
         status = string.IsNullOrWhiteSpace(status) ? null : status.Trim();
+        if (status is not null && !SupportedStatuses.Contains(status))
+        {
+            throw new DomainException($"不支持巡检状态“{status}”。");
+        }
 
         var tasks = await _inspectionTaskRepository.GetPagedAsync(
             pageNumber,

@@ -55,6 +55,10 @@ public sealed class RepairRecordAppService : IRepairRecordAppService
             : Math.Min(pageSize, PagingConstants.MaxPageSize);
 
         status = string.IsNullOrWhiteSpace(status) ? null : status.Trim();
+        if (status is not null && !SupportedStatuses.Contains(status))
+        {
+            throw new DomainException($"不支持报修状态“{status}”。");
+        }
 
         var records = await _repairRecordRepository.GetPagedAsync(
             pageNumber,
