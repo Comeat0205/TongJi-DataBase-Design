@@ -17,12 +17,18 @@ public sealed class AppUserRepository : Repository<AppUser, int>, IAppUserReposi
             .FirstOrDefaultAsync(x => x.LoginName == loginName, cancellationToken);
     }
 
+    public async Task<AppUser?> GetActiveByLoginNameAsync(string loginName, CancellationToken cancellationToken = default)
+    {
+        return await Context.AppUsers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.LoginName == loginName && x.Status != "0", cancellationToken);
+    }
+
     public async Task<bool> ExistsByLoginNameAsync(string loginName, CancellationToken cancellationToken = default)
     {
-        // 避免 EF 把 Any 翻译成 Oracle 不支持的 TRUE/FALSE（ORA-00904）。
         var existing = await Context.AppUsers
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.LoginName == loginName, cancellationToken);
+            .FirstOrDefaultAsync(x => x.LoginName == loginName && x.Status != "0", cancellationToken);
         return existing is not null;
     }
 

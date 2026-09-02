@@ -38,62 +38,69 @@ public sealed class MemberAppService : IMemberAppService
     public async Task<MemberDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var member = await _memberRepository.GetByIdAsync(id, cancellationToken);
-        return member is null ? null : MapToDto(member);
+        if (member is null)
+        {
+            return null;
+        }
+
+        var appUser = await GetAppUserAsync(member.UserId, cancellationToken);
+        return MapToDto(member, appUser);
     }
 
     public async Task<IReadOnlyList<MemberDto>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        // 统一在应用层兜底分页参数，避免控制器和仓储重复写同样的规则。
         pageNumber = pageNumber <= 0 ? PagingConstants.DefaultPageNumber : pageNumber;
         pageSize = pageSize <= 0 ? PagingConstants.DefaultPageSize : Math.Min(pageSize, PagingConstants.MaxPageSize);
 
         var members = await _memberRepository.GetPagedAsync(pageNumber, pageSize, cancellationToken);
-        return members.Select(MapToDto).ToList();
+        var result = new List<MemberDto>(members.Count);
+
+        foreach (var member in members)
+        {
+            var appUser = await GetAppUserAsync(member.UserId, cancellationToken);
+            result.Add(MapToDto(member, appUser));
+        }
+
+        return result;
+    }
+
+    public async Task<IReadOnlyList<MemberManagementListItemDto>> GetManagementListAsync(string? keyword, string? sortBy, string? sortDirection, CancellationToken cancellationToken = default)
+    {
+        var members = await _memberRepository.GetManagementListAsync(keyword, sortBy, sortDirection, cancellationToken);
+        return members.Select(item => new MemberManagementListItemDto
+        {
+            UserId = item.User.UserId,
+            MemberId = item.Member.MemberId,
+            DisplayName = ResolveDisplayName(item.User, item.Member),
+            RealName = item.Member.Name,
+            PhoneNumber = item.Member.PhoneNumber,
+            MemberLevel = item.Member.MemberLevel,
+            RegisterDate = item.Member.RegisterDate,
+            Status = item.Member.Status
+        }).ToList();
     }
 
     public async Task<MemberDto> UpdateAsync(int id, UpdateMemberRequestDto request, CancellationToken cancellationToken = default)
     {
         var member = await _memberRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new KeyNotFoundException($"未找到编号为 {id} 的会员。");
+        var appUser = await RequireAppUserAsync(member, cancellationToken);
 
-        var name = NormalizeRequired(request.Name, "姓名不能为空。");
+        var normalizedName = NormalizeOptional(request.Name);
+        var normalizedPhone = NormalizeOptional(request.PhoneNumber);
+        var normalizedIdCard = NormalizeOptional(request.IdCard)?.ToUpperInvariant();
+        var normalizedGender = NormalizeGender(request.Gender);
+        var birthday = request.Birthday;
 
-        var phone = NormalizeOptional(request.PhoneNumber);
-        if (phone is not null)
+        await UpdateBasicProfileAsync(member, appUser, normalizedName, normalizedPhone, cancellationToken);
+
+        if (normalizedIdCard is not null || normalizedGender is not null || birthday is not null)
         {
-            EnsureValidPhoneNumber(phone);
-
-            var existingByPhone = await _memberRepository.GetByPhoneAsync(phone, cancellationToken);
-            if (existingByPhone is not null && existingByPhone.MemberId != id)
-            {
-                throw new DomainException("该手机号已被其他会员使用。");
-            }
+            await UpdateIdentityAsync(member, normalizedName, normalizedIdCard, normalizedGender, birthday, cancellationToken);
         }
 
-        var idCard = NormalizeOptional(request.IdCard);
-        if (idCard is not null)
-        {
-            EnsureValidIdCard(idCard);
-
-            if (await _memberRepository.ExistsByIdCardAsync(idCard, cancellationToken))
-            {
-                var current = member.IdCard;
-                if (!string.Equals(current, idCard, StringComparison.Ordinal))
-                {
-                    throw new DomainException("该身份证号已被其他会员使用。");
-                }
-            }
-        }
-
-        member.Name = name;
-        member.PhoneNumber = phone;
-        member.Gender = NormalizeGender(request.Gender);
-        member.Birthday = request.Birthday;
-        member.IdCard = idCard;
-
-        _memberRepository.Update(member);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapToDto(member);
+        return MapToDto(member, appUser);
     }
 
     public async Task ValidateRegistrationAccountAsync(
@@ -118,10 +125,6 @@ public sealed class MemberAppService : IMemberAppService
         var idCard = NormalizeRequired(request.IdCard, "实名认证阶段必须填写身份证号。").ToUpperInvariant();
         EnsureValidIdCard(idCard);
 
-        if (await _memberRepository.ExistsByIdCardAsync(idCard, cancellationToken))
-        {
-            throw new DomainException("该身份证号已被注册。");
-        }
 
         var (birthday, gender) = ParseIdentityCard(idCard);
         var now = DateTime.Now;
@@ -134,7 +137,7 @@ public sealed class MemberAppService : IMemberAppService
             LoginName = loginName,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             DisplayName = loginName,
-            Status = "0",
+            Status = "1",
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -153,15 +156,11 @@ public sealed class MemberAppService : IMemberAppService
             MemberLevel = "普通"
         };
 
-        // 样板约定：必须先落库 USERS，再写 MEMBER.USER_ID（库有 FK_MEMBER_USERS）。
-        // 若同一次 SaveChanges 同时插入，EF 可能先插 MEMBER，触发 ORA-02291。
         await _appUserRepository.AddAsync(appUser, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
         await _memberRepository.AddAsync(member, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(member);
+        return MapToDto(member, appUser);
     }
 
     public async Task<MemberDto> CancelAsync(int id, CancellationToken cancellationToken = default)
@@ -172,9 +171,10 @@ public sealed class MemberAppService : IMemberAppService
         member.Cancel();
         _memberRepository.Update(member);
 
+        AppUser? appUser = null;
         if (member.UserId is not null)
         {
-            var appUser = await _appUserRepository.GetByIdAsync(member.UserId.Value, cancellationToken);
+            appUser = await _appUserRepository.GetByIdAsync(member.UserId.Value, cancellationToken);
             if (appUser is not null)
             {
                 appUser.Status = "0";
@@ -185,7 +185,7 @@ public sealed class MemberAppService : IMemberAppService
         try
         {
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return MapToDto(member);
+            return MapToDto(member, appUser);
         }
         catch (Exception ex)
         {
@@ -193,6 +193,96 @@ public sealed class MemberAppService : IMemberAppService
             _logger.LogError(ex, "会员注销失败，MemberId={MemberId}, UserId={UserId}, OracleDetail={OracleDetail}", id, member.UserId, detail);
             throw new DomainException($"注销失败：{detail}");
         }
+    }
+
+    private async Task UpdateBasicProfileAsync(
+        Member member,
+        AppUser appUser,
+        string? displayName,
+        string? phoneNumber,
+        CancellationToken cancellationToken)
+    {
+        if (displayName is not null)
+        {
+            appUser.DisplayName = displayName;
+            appUser.UpdatedAt = DateTime.Now;
+            _appUserRepository.Update(appUser);
+        }
+
+        if (phoneNumber is not null)
+        {
+            EnsureValidPhoneNumber(phoneNumber);
+
+            var existingByPhone = await _memberRepository.GetByPhoneAsync(phoneNumber, cancellationToken);
+            if (existingByPhone is not null && existingByPhone.MemberId != member.MemberId)
+            {
+                throw new DomainException("该手机号已被其他会员使用。");
+            }
+
+            member.PhoneNumber = phoneNumber;
+            _memberRepository.Update(member);
+        }
+    }
+
+    private async Task UpdateIdentityAsync(
+        Member member,
+        string? realName,
+        string? idCard,
+        string? gender,
+        DateTime? birthday,
+        CancellationToken cancellationToken)
+    {
+        if (realName is not null)
+        {
+            member.Name = NormalizeRequired(realName, "真实姓名不能为空。");
+        }
+
+        if (idCard is not null)
+        {
+            var normalizedIdCard = NormalizeRequired(idCard, "身份证号不能为空。");
+            EnsureValidIdCard(normalizedIdCard);
+
+            if (await _memberRepository.ExistsByIdCardAsync(normalizedIdCard, cancellationToken)
+                && !string.Equals(member.IdCard, normalizedIdCard, StringComparison.Ordinal))
+            {
+                throw new DomainException("该身份证号已被其他会员使用。");
+            }
+
+            var (parsedBirthday, parsedGender) = ParseIdentityCard(normalizedIdCard);
+            member.IdCard = normalizedIdCard;
+            member.Gender = gender ?? parsedGender;
+            member.Birthday = birthday ?? parsedBirthday;
+        }
+        else
+        {
+            if (gender is not null)
+            {
+                member.Gender = gender;
+            }
+
+            if (birthday is not null)
+            {
+                member.Birthday = birthday;
+            }
+        }
+
+        _memberRepository.Update(member);
+    }
+
+    private async Task<AppUser> RequireAppUserAsync(Member member, CancellationToken cancellationToken)
+    {
+        var appUser = await GetAppUserAsync(member.UserId, cancellationToken);
+        return appUser ?? throw new DomainException("当前会员账号未关联有效的登录账户。");
+    }
+
+    private async Task<AppUser?> GetAppUserAsync(int? userId, CancellationToken cancellationToken)
+    {
+        if (userId is null)
+        {
+            return null;
+        }
+
+        return await _appUserRepository.GetByIdAsync(userId.Value, cancellationToken);
     }
 
     private static string? NormalizeOptional(string? value)
@@ -379,13 +469,13 @@ public sealed class MemberAppService : IMemberAppService
         };
     }
 
-    private static MemberDto MapToDto(Member member)
+    private static MemberDto MapToDto(Member member, AppUser? appUser)
     {
-        // DTO 用来隔离实体本身，避免把导航属性和持久化细节直接暴露给接口层。
         return new MemberDto
         {
             MemberId = member.MemberId,
-            Name = member.Name,
+            Name = ResolveDisplayName(appUser, member),
+            RealName = member.Name,
             PhoneNumber = member.PhoneNumber,
             IdCard = member.IdCard,
             MemberLevel = member.MemberLevel,
@@ -394,5 +484,20 @@ public sealed class MemberAppService : IMemberAppService
             RegisterDate = member.RegisterDate,
             Status = member.Status
         };
+    }
+
+    private static string ResolveDisplayName(AppUser? appUser, Member member)
+    {
+        if (!string.IsNullOrWhiteSpace(appUser?.DisplayName))
+        {
+            return appUser.DisplayName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(appUser?.LoginName))
+        {
+            return appUser.LoginName;
+        }
+
+        return member.Name;
     }
 }

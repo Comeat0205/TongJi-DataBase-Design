@@ -12,6 +12,17 @@ export interface MemberProfile {
   status?: string
 }
 
+export interface MemberManagementListItem {
+  userId: number
+  memberId: number
+  displayName: string
+  realName: string
+  phoneNumber?: string
+  memberLevel?: string
+  registerDate?: string
+  status?: string
+}
+
 export interface UpdateMemberRequest {
   name: string
   phoneNumber?: string
@@ -34,8 +45,31 @@ export interface ValidateMemberRegistrationAccountRequest {
   phoneNumber: string
 }
 
+export interface GetMemberManagementListParams {
+  keyword?: string
+  sortBy?: 'userId' | 'memberId' | 'displayName' | 'registerDate'
+  sortDirection?: 'asc' | 'desc'
+}
+
 export function getMemberProfile(memberId: number) {
   return http.get<MemberProfile>(`/members/${memberId}`)
+}
+
+export function getMemberManagementList(params: GetMemberManagementListParams = {}) {
+  const searchParams = new URLSearchParams()
+
+  if (params.keyword) {
+    searchParams.set('keyword', params.keyword)
+  }
+  if (params.sortBy) {
+    searchParams.set('sortBy', params.sortBy)
+  }
+  if (params.sortDirection) {
+    searchParams.set('sortDirection', params.sortDirection)
+  }
+
+  const query = searchParams.toString()
+  return http.get<MemberManagementListItem[]>(`/members${query ? `?${query}` : ''}`)
 }
 
 export function updateMember(memberId: number, payload: UpdateMemberRequest) {

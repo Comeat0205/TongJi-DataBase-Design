@@ -20,7 +20,6 @@ public class MembersController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<MemberDto>>> GetById(int id, CancellationToken cancellationToken)
     {
-        // 控制器只负责处理 HTTP 请求，不直接操作仓储或 DbContext。
         var member = await _memberAppService.GetByIdAsync(id, cancellationToken);
         if (member is null)
         {
@@ -31,13 +30,24 @@ public class MembersController : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<MemberManagementListItemDto>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<MemberManagementListItemDto>>>> GetList(
+        [FromQuery] string? keyword,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDirection,
+        CancellationToken cancellationToken = default)
+    {
+        var members = await _memberAppService.GetManagementListAsync(keyword, sortBy, sortDirection, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<MemberManagementListItemDto>>.Success(members, HttpContext.TraceIdentifier));
+    }
+
+    [HttpGet("paged")]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<MemberDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<MemberDto>>>> GetPaged(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
-        // 分页参数的纠正逻辑放在 Application 层，Controller 保持尽量轻薄。
         var members = await _memberAppService.GetPagedAsync(pageNumber, pageSize, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<MemberDto>>.Success(members, HttpContext.TraceIdentifier));
     }
@@ -70,7 +80,6 @@ public class MembersController : ControllerBase
         [FromBody] RegisterMemberRequestDto request,
         CancellationToken cancellationToken)
     {
-        // 当前仅开放会员自助注册；员工/教练账号只保留登录，不提供公开注册入口。
         var member = await _memberAppService.RegisterAsync(request, cancellationToken);
         return CreatedAtAction(
             nameof(GetById),
