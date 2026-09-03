@@ -25,6 +25,8 @@ public partial class Groupcourse
 
     public virtual ICollection<GroupCourseBooking> GroupCourseBookings { get; set; } = new List<GroupCourseBooking>();
 
+    public virtual ICollection<WaitingQueue> WaitingQueues { get; set; } = new List<WaitingQueue>();
+
     public virtual TimeSlotTemplate TimeSlot { get; set; } = null!;
 
     public virtual CourseType Type { get; set; } = null!;

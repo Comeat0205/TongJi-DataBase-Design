@@ -38,6 +38,10 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Groupcourse> Groupcourses { get; set; }
 
+    public virtual DbSet<WaitingQueue> WaitingQueues { get; set; }
+
+    public virtual DbSet<AbsenceRecord> AbsenceRecords { get; set; }
+
     public virtual DbSet<Inspectiontask> Inspectiontasks { get; set; }
 
     public virtual DbSet<Member> Members { get; set; }
@@ -383,6 +387,100 @@ public partial class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_BOOKING_MEMBER");
         });
+
+        modelBuilder.Entity<WaitingQueue>(entity =>
+{
+    entity.HasKey(e => e.QueueId)
+        .HasName("SYS_C008675");
+
+    entity.ToTable("WAITINGQUEUE");
+
+    entity.Property(e => e.QueueId)
+        .HasPrecision(10)
+        .ValueGeneratedNever()
+        .HasColumnName("QUEUE_ID");
+
+    entity.Property(e => e.MemberId)
+        .HasPrecision(10)
+        .HasColumnName("MEMBER_ID");
+
+    entity.Property(e => e.CourseId)
+        .HasPrecision(10)
+        .HasColumnName("COURSE_ID");
+
+    entity.Property(e => e.EnqueueTime)
+        .HasDefaultValueSql("SYSDATE")
+        .HasColumnType("DATE")
+        .HasColumnName("ENQUEUE_TIME");
+
+    entity.Property(e => e.QueueStatus)
+        .HasMaxLength(1)
+        .IsUnicode(false)
+        .HasDefaultValueSql("'0'")
+        .IsFixedLength()
+        .HasColumnName("QUEUE_STATUS");
+
+    entity.Property(e => e.Notified)
+        .HasMaxLength(1)
+        .IsUnicode(false)
+        .HasDefaultValueSql("'0'")
+        .IsFixedLength()
+        .HasColumnName("NOTIFIED");
+
+    entity.HasOne(d => d.Course)
+        .WithMany(p => p.WaitingQueues)
+        .HasForeignKey(d => d.CourseId)
+        .OnDelete(DeleteBehavior.ClientSetNull)
+        .HasConstraintName("FK_WQ_COURSE");
+
+    entity.HasOne(d => d.Member)
+        .WithMany(p => p.WaitingQueues)
+        .HasForeignKey(d => d.MemberId)
+        .OnDelete(DeleteBehavior.ClientSetNull)
+        .HasConstraintName("FK_WQ_MEMBER");
+});
+
+modelBuilder.Entity<AbsenceRecord>(entity =>
+{
+    entity.HasKey(e => e.AbsenceId)
+        .HasName("SYS_C008681");
+
+    entity.ToTable("ABSENCERECORD");
+
+    entity.Property(e => e.AbsenceId)
+        .HasPrecision(10)
+        .ValueGeneratedNever()
+        .HasColumnName("ABSENCE_ID");
+
+    entity.Property(e => e.MemberId)
+        .HasPrecision(10)
+        .HasColumnName("MEMBER_ID");
+
+    entity.Property(e => e.BookingId)
+        .HasPrecision(10)
+        .HasColumnName("BOOKING_ID");
+
+    entity.Property(e => e.CourseDate)
+        .HasColumnType("DATE")
+        .HasColumnName("COURSE_DATE");
+
+    entity.Property(e => e.AbsenceTime)
+        .HasDefaultValueSql("SYSDATE")
+        .HasColumnType("DATE")
+        .HasColumnName("ABSENCE_TIME");
+
+    entity.HasOne(d => d.Booking)
+        .WithMany(p => p.AbsenceRecords)
+        .HasForeignKey(d => d.BookingId)
+        .OnDelete(DeleteBehavior.ClientSetNull)
+        .HasConstraintName("FK_AR_BOOKING");
+
+    entity.HasOne(d => d.Member)
+        .WithMany(p => p.AbsenceRecords)
+        .HasForeignKey(d => d.MemberId)
+        .OnDelete(DeleteBehavior.ClientSetNull)
+        .HasConstraintName("FK_AR_MEMBER");
+});
 
         modelBuilder.Entity<Groupcourse>(entity =>
         {

@@ -28,6 +28,10 @@ public partial class Member
     public virtual ICollection<MemberBenefitCard> MemberBenefitCards { get; set; } = new List<MemberBenefitCard>();
 
     public virtual ICollection<MemberSchedule> MemberSchedules { get; set; } = new List<MemberSchedule>();
+
+    public virtual ICollection<WaitingQueue> WaitingQueues { get; set; } = new List<WaitingQueue>();
+
+    public virtual ICollection<AbsenceRecord> AbsenceRecords { get; set; } = new List<AbsenceRecord>();
 }
 
 
