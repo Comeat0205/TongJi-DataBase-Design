@@ -8,6 +8,8 @@ const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const AdminMembers = () => import('@/views/admin/MembersView.vue')
 const AdminCoachList = () => import('@/views/admin/CoachListView.vue')
 const AdminMemberDetail = () => import('@/views/admin/MemberDetailView.vue')
+const AdminVenues = () => import('@/views/admin/VenuesView.vue')
+const AdminEquipment = () => import('@/views/admin/EquipmentView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
@@ -169,6 +171,18 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       component: AdminCoachList,
       meta: { requiresAuth: mode === 'auth', userType: 'employee', preview: mode === 'preview' },
     },
+    {
+      path: 'venues',
+      name: `${p}-venues`,
+      component: AdminVenues,
+      meta: { requiresAuth: mode === 'auth', userType: 'employee', preview: mode === 'preview' },
+    },
+    {
+      path: 'equipment',
+      name: `${p}-equipment`,
+      component: AdminEquipment,
+      meta: { requiresAuth: mode === 'auth', userType: 'employee', preview: mode === 'preview' },
+    },
     ...placeholderChildRoutes('admin', mode, [
       {
         path: 'check-in-desk',
@@ -190,19 +204,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '课程类型维护',
         owner: 'C / F',
         features: '#3 #4',
-      },
-      {
-        path: 'venues',
-        name: `${p}-venues`,
-        pageTitle: '场馆管理',
-        owner: 'C',
-      },
-      {
-        path: 'equipment',
-        name: `${p}-equipment`,
-        pageTitle: '器材管理',
-        owner: 'C',
-        features: '#15',
       },
       {
         path: 'card-products',

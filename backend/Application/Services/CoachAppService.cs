@@ -33,19 +33,7 @@ public sealed class CoachAppService : ICoachAppService
         CancellationToken cancellationToken = default)
     {
         var coaches = await _coachRepository.GetManagementListAsync(keyword, sortBy, sortDirection, cancellationToken);
-        return coaches.Select(item => new CoachDto
-        {
-            CoachId = item.Coach.CoachId,
-            UserId = item.User.UserId,
-            DisplayName = ResolveDisplayName(item.User),
-            CoachName = item.Coach.CoachName,
-            PhoneNumber = item.Coach.PhoneNumber,
-            Sex = item.Coach.Sex,
-            Specialty = item.Coach.Specialty,
-            HireDate = item.Coach.HireDate,
-            CoachSummary = item.Coach.CoachSummary,
-            Status = item.Coach.Status
-        }).ToList();
+        return coaches.Select(item => MapToDto(item.Coach, item.User)).ToList();
     }
 
     public async Task<CoachDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -62,19 +50,7 @@ public sealed class CoachAppService : ICoachAppService
             return null;
         }
 
-        return new CoachDto
-        {
-            CoachId = coach.CoachId,
-            UserId = user.UserId,
-            DisplayName = ResolveDisplayName(user),
-            CoachName = coach.CoachName,
-            PhoneNumber = coach.PhoneNumber,
-            Sex = coach.Sex,
-            Specialty = coach.Specialty,
-            HireDate = coach.HireDate,
-            CoachSummary = coach.CoachSummary,
-            Status = coach.Status
-        };
+        return MapToDto(coach, user);
     }
 
     public async Task<CoachDto> CreateAsync(CreateCoachRequestDto request, CancellationToken cancellationToken = default)
@@ -84,26 +60,17 @@ public sealed class CoachAppService : ICoachAppService
         var displayName = NormalizeRequired(request.DisplayName, "昵称不能为空。");
         var coachName = NormalizeRequired(request.CoachName, "教练姓名不能为空。");
         var phoneNumber = NormalizeOptional(request.PhoneNumber);
-        var sex = NormalizeOptional(request.Sex);
+        var sex = NormalizeSex(request.Sex);
+        if (sex is null)
+        {
+            throw new DomainException("请选择性别。");
+        }
         var specialty = NormalizeOptional(request.Specialty);
         var coachSummary = NormalizeOptional(request.CoachSummary);
-        var hireDate = request.HireDate ?? DateTime.Today;
+        const string userStatus = "1";
+        const string coachStatus = "在职";
 
-        if (loginName.Length > 50)
-        {
-            throw new DomainException("登录名长度不能超过 50 个字符。");
-        }
-
-        if (displayName.Length > 50)
-        {
-            throw new DomainException("昵称长度不能超过 50 个字符。");
-        }
-
-        if (coachName.Length > 50)
-        {
-            throw new DomainException("教练姓名长度不能超过 50 个字符。");
-        }
-
+        ValidateLengths(loginName, displayName, coachName);
         EnsureValidPassword(password);
 
         if (phoneNumber is not null)
@@ -118,7 +85,7 @@ public sealed class CoachAppService : ICoachAppService
 
         if (phoneNumber is not null)
         {
-            var existingCoach = await _coachRepository.GetByPhoneNumberAsync(phoneNumber, cancellationToken);
+            var existingCoach = await _coachRepository.GetByActivePhoneNumberAsync(phoneNumber, cancellationToken);
             if (existingCoach is not null)
             {
                 throw new DomainException("该手机号已被其他教练使用。");
@@ -135,7 +102,7 @@ public sealed class CoachAppService : ICoachAppService
             LoginName = loginName,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
             DisplayName = displayName,
-            Status = "1",
+            Status = userStatus,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -148,27 +115,110 @@ public sealed class CoachAppService : ICoachAppService
             PhoneNumber = phoneNumber,
             Sex = NormalizeSex(sex),
             Specialty = specialty,
-            HireDate = hireDate,
+            HireDate = now,
             CoachSummary = coachSummary,
-            Status = "在职"
+            Status = coachStatus
         };
+
 
         await _appUserRepository.AddAsync(appUser, cancellationToken);
         await _coachRepository.AddAsync(coach, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        return MapToDto(coach, appUser);
+    }
+
+    public async Task<CoachDto> UpdateAsync(int id, UpdateCoachRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var coach = await _coachRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new KeyNotFoundException($"未找到编号为 {id} 的教练。");
+
+        if (coach.UserId is null)
+        {
+            throw new DomainException("当前教练未关联有效的登录账户。");
+        }
+
+        var appUser = await _appUserRepository.GetByIdAsync(coach.UserId.Value, cancellationToken)
+            ?? throw new DomainException("当前教练未关联有效的登录账户。");
+
+        var displayName = NormalizeRequired(request.DisplayName, "昵称不能为空。");
+        var coachName = NormalizeRequired(request.CoachName, "教练姓名不能为空。");
+        var phoneNumber = NormalizeOptional(request.PhoneNumber);
+        var sex = NormalizeOptional(request.Sex);
+        var specialty = NormalizeOptional(request.Specialty);
+        var coachSummary = NormalizeOptional(request.CoachSummary);
+
+        ValidateLengths(appUser.LoginName ?? string.Empty, displayName, coachName);
+
+        if (phoneNumber is not null)
+        {
+            EnsureValidPhoneNumber(phoneNumber);
+            var existingCoach = await _coachRepository.GetByActivePhoneNumberAsync(phoneNumber, cancellationToken);
+            if (existingCoach is not null && existingCoach.CoachId != coach.CoachId)
+            {
+                throw new DomainException("该手机号已被其他教练使用。");
+            }
+        }
+
+        appUser.DisplayName = displayName;
+        appUser.UpdatedAt = DateTime.Now;
+        coach.CoachName = coachName;
+        coach.PhoneNumber = phoneNumber;
+        coach.Sex = NormalizeSex(sex);
+        coach.Specialty = specialty;
+        coach.CoachSummary = coachSummary;
+
+        _appUserRepository.Update(appUser);
+        _coachRepository.Update(coach);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return MapToDto(coach, appUser);
+    }
+
+    public async Task<CoachDto> DeactivateAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var coach = await _coachRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new KeyNotFoundException($"未找到编号为 {id} 的教练。");
+
+        if (coach.UserId is null)
+        {
+            throw new DomainException("当前教练未关联有效的登录账户。");
+        }
+
+        var appUser = await _appUserRepository.GetByIdAsync(coach.UserId.Value, cancellationToken)
+            ?? throw new DomainException("当前教练未关联有效的登录账户。");
+
+        if (appUser.Status == "0" && NormalizeCoachStatus(coach.Status, "在职") == "离职")
+        {
+            return MapToDto(coach, appUser);
+        }
+
+        appUser.Status = "0";
+        appUser.UpdatedAt = DateTime.Now;
+        coach.Status = "离职";
+
+        _appUserRepository.Update(appUser);
+        _coachRepository.Update(coach);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return MapToDto(coach, appUser);
+    }
+
+    private static CoachDto MapToDto(Coach coach, AppUser user)
+    {
         return new CoachDto
         {
             CoachId = coach.CoachId,
-            UserId = appUser.UserId,
-            DisplayName = ResolveDisplayName(appUser),
+            UserId = user.UserId,
+            DisplayName = ResolveDisplayName(user),
+            LoginName = user.LoginName,
             CoachName = coach.CoachName,
             PhoneNumber = coach.PhoneNumber,
             Sex = coach.Sex,
             Specialty = coach.Specialty,
             HireDate = coach.HireDate,
             CoachSummary = coach.CoachSummary,
-            Status = coach.Status
+            Status = NormalizeCoachStatus(coach.Status, "在职")
         };
     }
 
@@ -184,10 +234,28 @@ public sealed class CoachAppService : ICoachAppService
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
-    private static string NormalizeRequired(string? value, string message)
+    private static string? NormalizeSex(string? value)
     {
         var normalized = NormalizeOptional(value);
-        return normalized ?? throw new DomainException(message);
+        return normalized is "男" or "女" ? normalized : null;
+    }
+
+    private static void ValidateLengths(string loginName, string displayName, string coachName)
+    {
+        if (loginName.Length > 50)
+        {
+            throw new DomainException("登录名长度不能超过 50 个字符。");
+        }
+
+        if (displayName.Length > 50)
+        {
+            throw new DomainException("昵称长度不能超过 50 个字符。");
+        }
+
+        if (coachName.Length > 50)
+        {
+            throw new DomainException("教练姓名长度不能超过 50 个字符。");
+        }
     }
 
     private static void EnsureValidPassword(string password)
@@ -206,18 +274,24 @@ public sealed class CoachAppService : ICoachAppService
         }
     }
 
-    private static string? NormalizeSex(string? sex)
+    private static string NormalizeRequired(string? value, string message)
     {
-        if (string.IsNullOrWhiteSpace(sex))
+        var normalized = NormalizeOptional(value);
+        return normalized ?? throw new DomainException(message);
+    }
+
+    private static string NormalizeCoachStatus(string? status, string? fallback)
+    {
+        if (string.IsNullOrWhiteSpace(status))
         {
-            return null;
+            return string.IsNullOrWhiteSpace(fallback) ? "在职" : fallback.Trim();
         }
 
-        return sex.Trim().ToUpperInvariant() switch
+        return status.Trim() switch
         {
-            "M" or "男" or "MALE" => "男",
-            "F" or "女" or "FEMALE" => "女",
-            _ => sex.Trim()
+            "在职" => "在职",
+            "离职" => "离职",
+            _ => throw new DomainException("教练状态只允许为“在职”或“离职”。")
         };
     }
 }

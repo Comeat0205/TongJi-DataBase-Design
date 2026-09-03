@@ -8,4 +8,5 @@ public interface IAppUserRepository : IRepository<AppUser, int>
     Task<AppUser?> GetActiveByLoginNameAsync(string loginName, CancellationToken cancellationToken = default);
     Task<bool> ExistsByLoginNameAsync(string loginName, CancellationToken cancellationToken = default);
     Task<int> GetNextUserIdAsync(CancellationToken cancellationToken = default);
+    Task<bool> ExistsByUserIdAsync(int userId, CancellationToken cancellationToken = default);
 }

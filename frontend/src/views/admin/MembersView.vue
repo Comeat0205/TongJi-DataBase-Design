@@ -176,8 +176,8 @@ onMounted(loadMembers)
             <span>#{{ member.memberId }}</span>
           </div>
           <div class="row-actions">
-            <button type="button" class="btn-ghost" @click="openDetail(member.memberId)">详情</button>
             <span class="status-pill" :class="resolveBadgeTone(member.status)">{{ resolveStatusLabel(member.status) }}</span>
+            <button type="button" class="btn-ghost" @click="openDetail(member.memberId)">详情</button>
             <button type="button" class="btn-danger" :disabled="savingId === member.memberId || member.status === '0'" @click="handleCancel(member)">
               {{ savingId === member.memberId ? '注销中...' : '注销' }}
             </button>
@@ -252,7 +252,6 @@ onMounted(loadMembers)
 }
 
 .eyebrow,
-.subtext,
 .main-info span,
 .meta-info span {
   color: #6b7280;
@@ -279,11 +278,13 @@ onMounted(loadMembers)
 .search-group {
   display: flex;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .control-group {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   justify-content: flex-end;
 }
 
@@ -298,10 +299,11 @@ onMounted(loadMembers)
 
 .search-input {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .compact-select {
-  width: 128px;
+  width: 144px;
 }
 
 .search-btn {
@@ -311,15 +313,15 @@ onMounted(loadMembers)
 .member-list {
   display: grid;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .member-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 18px;
   align-items: center;
-  padding: 10px 12px;
+  padding: 14px 16px;
   border: 1px solid #eef2f7;
   border-radius: 12px;
 }
@@ -404,8 +406,8 @@ onMounted(loadMembers)
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   display: grid;
   place-items: center;

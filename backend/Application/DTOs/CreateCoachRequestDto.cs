@@ -9,6 +9,5 @@ public sealed class CreateCoachRequestDto
     public string? PhoneNumber { get; init; }
     public string? Sex { get; init; }
     public string? Specialty { get; init; }
-    public DateTime? HireDate { get; init; }
     public string? CoachSummary { get; init; }
 }

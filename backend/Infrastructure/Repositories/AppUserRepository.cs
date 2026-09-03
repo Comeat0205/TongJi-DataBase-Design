@@ -34,8 +34,14 @@ public sealed class AppUserRepository : Repository<AppUser, int>, IAppUserReposi
 
     public async Task<int> GetNextUserIdAsync(CancellationToken cancellationToken = default)
     {
-        // 云库当前无序列时用 MAX+1；有序列后可改为 NEXTVAL。
         var maxId = await Context.AppUsers.MaxAsync(x => (int?)x.UserId, cancellationToken) ?? 0;
         return maxId + 1;
+    }
+
+    public async Task<bool> ExistsByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await Context.AppUsers
+            .AsNoTracking()
+            .AnyAsync(x => x.UserId == userId, cancellationToken);
     }
 }

@@ -23,11 +23,15 @@ public sealed class CoachRepository : Repository<Coach, int>, ICoachRepository
             .FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
     }
 
-    public async Task<Coach?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default)
+    public async Task<Coach?> GetByActivePhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default)
     {
-        return await Context.Coaches
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.PhoneNumber == phoneNumber, cancellationToken);
+        return await (from coach in Context.Coaches.AsNoTracking()
+                      join user in Context.AppUsers.AsNoTracking() on coach.UserId equals user.UserId
+                      where coach.PhoneNumber == phoneNumber
+                            && user.Status != "0"
+                            && (coach.Status == null || coach.Status != "离职")
+                      select coach)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<int> GetNextCoachIdAsync(CancellationToken cancellationToken = default)

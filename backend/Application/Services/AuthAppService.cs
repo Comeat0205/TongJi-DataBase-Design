@@ -36,7 +36,7 @@ public sealed class AuthAppService : IAuthAppService
         var loginType = request.LoginType.Trim().ToLowerInvariant();
         var loginName = request.LoginName.Trim();
 
-        var appUser = await _appUserRepository.GetByLoginNameAsync(loginName, cancellationToken);
+        var appUser = await _appUserRepository.GetActiveByLoginNameAsync(loginName, cancellationToken);
         if (appUser is null || string.IsNullOrWhiteSpace(appUser.PasswordHash))
         {
             throw new DomainException(InvalidCredentialsMessage);
@@ -45,11 +45,6 @@ public sealed class AuthAppService : IAuthAppService
         if (!BCrypt.Net.BCrypt.Verify(request.Password, appUser.PasswordHash))
         {
             throw new DomainException(InvalidCredentialsMessage);
-        }
-
-        if (!string.Equals(appUser.Status?.Trim(), "1", StringComparison.Ordinal))
-        {
-            throw new DomainException("当前账号已停用，请联系管理员处理。");
         }
 
         return loginType switch

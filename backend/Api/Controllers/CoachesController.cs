@@ -50,4 +50,25 @@ public class CoachesController : ControllerBase
         var coach = await _coachAppService.CreateAsync(request, cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = coach.CoachId }, ApiResponse<CoachDto>.Success(coach, HttpContext.TraceIdentifier, "教练创建成功"));
     }
+
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(typeof(ApiResponse<CoachDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<CoachDto>>> Update(
+        int id,
+        [FromBody] UpdateCoachRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var coach = await _coachAppService.UpdateAsync(id, request, cancellationToken);
+        return Ok(ApiResponse<CoachDto>.Success(coach, HttpContext.TraceIdentifier, "教练信息已更新"));
+    }
+
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(typeof(ApiResponse<CoachDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<CoachDto>>> Deactivate(int id, CancellationToken cancellationToken)
+    {
+        var coach = await _coachAppService.DeactivateAsync(id, cancellationToken);
+        return Ok(ApiResponse<CoachDto>.Success(coach, HttpContext.TraceIdentifier, "教练账号已注销"));
+    }
 }

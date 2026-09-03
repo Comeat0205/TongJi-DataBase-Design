@@ -393,17 +393,20 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false)
                 .HasColumnName("EQUIP_NAME");
+            entity.Property(e => e.ImageUrl)
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .HasColumnName("IMAGE_URL");
             entity.Property(e => e.PurchaseDate)
                 .HasColumnType("DATE")
                 .HasColumnName("PURCHASE_DATE");
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .IsUnicode(false)
-                .HasDefaultValueSql("'正常'")
+                .HasDefaultValueSql("'1'")
                 .HasColumnName("STATUS");
             entity.Property(e => e.VenueId)
-                .HasMaxLength(50)
-                .IsUnicode(false)
+                .HasPrecision(10)
                 .HasColumnName("VENUE_ID");
         });
 
@@ -1003,6 +1006,10 @@ public partial class AppDbContext : DbContext
                 .HasPrecision(5)
                 .HasDefaultValueSql("0 ")
                 .HasColumnName("CURRENT_CAPACITY");
+            entity.Property(e => e.ImageUrl)
+                .HasMaxLength(500)
+                .IsUnicode(false)
+                .HasColumnName("IMAGE_URL");
             entity.Property(e => e.MaxCapacity)
                 .HasPrecision(5)
                 .HasColumnName("MAX_CAPACITY");
