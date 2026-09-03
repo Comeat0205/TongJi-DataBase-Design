@@ -23,6 +23,8 @@ public partial class Member
 
     public string? Status { get; set; }
 
+    public int? UserId { get; set; }
+
     public virtual ICollection<GroupCourseBooking> GroupCourseBookings { get; set; } = new List<GroupCourseBooking>();
 
     public virtual ICollection<MemberBenefitCard> MemberBenefitCards { get; set; } = new List<MemberBenefitCard>();

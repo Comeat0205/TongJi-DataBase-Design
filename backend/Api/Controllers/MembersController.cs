@@ -41,4 +41,29 @@ public class MembersController : ControllerBase
         var members = await _memberAppService.GetPagedAsync(pageNumber, pageSize, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<MemberDto>>.Success(members, HttpContext.TraceIdentifier));
     }
+
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(typeof(ApiResponse<MemberDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<MemberDto>>> Update(
+        int id,
+        [FromBody] UpdateMemberRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var member = await _memberAppService.UpdateAsync(id, request, cancellationToken);
+        return Ok(ApiResponse<MemberDto>.Success(member, HttpContext.TraceIdentifier, "档案已更新"));
+    }
+
+    [HttpPost]
+    [ProducesResponseType(typeof(ApiResponse<MemberDto>), StatusCodes.Status201Created)]
+    public async Task<ActionResult<ApiResponse<MemberDto>>> Register(
+        [FromBody] RegisterMemberRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var member = await _memberAppService.RegisterAsync(request, cancellationToken);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = member.MemberId },
+            ApiResponse<MemberDto>.Success(member, HttpContext.TraceIdentifier, "注册成功"));
+    }
 }

@@ -16,4 +16,10 @@ public sealed class EmployeeRepository : Repository<Employee, int>, IEmployeeRep
         return await Context.Employees
             .FirstOrDefaultAsync(x => x.EmpName == name && x.Phone == phone, cancellationToken);
     }
+
+    public async Task<Employee?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await Context.Employees
+            .FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+    }
 }

@@ -12,6 +12,32 @@ export interface MemberProfile {
   status?: string
 }
 
+export interface UpdateMemberRequest {
+  name: string
+  phoneNumber?: string
+  gender?: string
+  birthday?: string
+  idCard?: string
+}
+
+export interface RegisterMemberRequest {
+  loginName: string
+  password: string
+  name: string
+  phoneNumber?: string
+  gender?: string
+  birthday?: string
+  idCard?: string
+}
+
 export function getMemberProfile(memberId: number) {
   return http.get<MemberProfile>(`/members/${memberId}`)
+}
+
+export function updateMember(memberId: number, payload: UpdateMemberRequest) {
+  return http.put<MemberProfile>(`/members/${memberId}`, payload)
+}
+
+export function registerMember(payload: RegisterMemberRequest) {
+  return http.post<MemberProfile>('/members', payload)
 }

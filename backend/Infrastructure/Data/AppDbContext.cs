@@ -16,6 +16,8 @@ public partial class AppDbContext : DbContext
     {
     }
 
+    public virtual DbSet<AppUser> AppUsers { get; set; }
+
     public virtual DbSet<Capacitylog> Capacitylogs { get; set; }
 
     public virtual DbSet<Cardproduct> Cardproducts { get; set; }
@@ -76,6 +78,47 @@ public partial class AppDbContext : DbContext
     {
         modelBuilder
             .UseCollation("USING_NLS_COMP");
+
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.HasKey(e => e.UserId);
+
+            entity.ToTable("USERS");
+
+            entity.HasIndex(e => e.LoginName).IsUnique();
+
+            entity.Property(e => e.UserId)
+                .HasPrecision(10)
+                .ValueGeneratedNever()
+                .HasColumnName("USER_ID");
+            entity.Property(e => e.LoginName)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("LOGIN_NAME");
+            entity.Property(e => e.PasswordHash)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("PASSWORD_HASH");
+            entity.Property(e => e.DisplayName)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("DISPLAY_NAME");
+            entity.Property(e => e.AvatarUrl)
+                .HasMaxLength(500)
+                .IsUnicode(false)
+                .HasColumnName("AVATAR_URL");
+            entity.Property(e => e.Status)
+                .HasMaxLength(1)
+                .IsUnicode(false)
+                .IsFixedLength()
+                .HasColumnName("STATUS");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("DATE")
+                .HasColumnName("CREATED_AT");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("DATE")
+                .HasColumnName("UPDATED_AT");
+        });
 
         modelBuilder.Entity<Capacitylog>(entity =>
         {
@@ -204,6 +247,9 @@ public partial class AppDbContext : DbContext
                 .IsUnicode(false)
                 .HasDefaultValueSql("'在职' ")
                 .HasColumnName("STATUS");
+            entity.Property(e => e.UserId)
+                .HasPrecision(10)
+                .HasColumnName("USER_ID");
         });
 
         modelBuilder.Entity<CoachSchedule>(entity =>
@@ -314,6 +360,9 @@ public partial class AppDbContext : DbContext
                 .IsFixedLength()
                 .HasComment("1-在职，0-离职")
                 .HasColumnName("STATUS");
+            entity.Property(e => e.UserId)
+                .HasPrecision(10)
+                .HasColumnName("USER_ID");
         });
 
         modelBuilder.Entity<Equipment>(entity =>
@@ -518,6 +567,14 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("'1' ")
                 .IsFixedLength()
                 .HasColumnName("STATUS");
+            entity.Property(e => e.UserId)
+                .HasPrecision(10)
+                .HasColumnName("USER_ID");
+
+            entity.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .HasConstraintName("FK_MEMBER_USERS");
         });
 
         modelBuilder.Entity<MemberBenefitCard>(entity =>

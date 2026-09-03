@@ -25,6 +25,7 @@ database/oracle/
 | `functions/fn_is_card_valid.sql` | 函数 | D |
 | `triggers/trg_checkin_update_venue.sql` | 触发器 | E |
 | `procedures/sp_book_group_course.sql` | 存储过程 | F |
+| `SEED_USER_DEMO.sql` | 演示账号种子（USERS 登录） | B |
 
 C、G、H、I 在对应子目录 **新建** 自己的 `.sql`，不要覆盖他人文件。
 

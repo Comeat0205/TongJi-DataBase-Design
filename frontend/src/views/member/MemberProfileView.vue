@@ -2,9 +2,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/http'
-import { getMemberProfile, type MemberProfile } from '@/api/members'
+import { getMemberProfile, updateMember, type MemberProfile } from '@/api/members'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import PlaceholderPanel from '@/components/ui/PlaceholderPanel.vue'
 import StateCard from '@/components/ui/StateCard.vue'
 
 const route = useRoute()
@@ -13,6 +12,7 @@ const profile = ref<MemberProfile | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
 const isEditing = ref(false)
+const isSaving = ref(false)
 const saveNotice = ref('')
 
 const draft = reactive({
@@ -88,8 +88,36 @@ function cancelEditing() {
   isEditing.value = false
 }
 
-function savePlaceholder() {
-  saveNotice.value = '保存功能尚未接入：后续在此调用 PUT /api/members/{id}，并刷新档案展示。'
+async function saveProfile() {
+  if (!profile.value) {
+    return
+  }
+
+  if (!draft.name.trim()) {
+    saveNotice.value = '姓名不能为空。'
+    return
+  }
+
+  isSaving.value = true
+  saveNotice.value = ''
+  errorMessage.value = ''
+
+  try {
+    profile.value = await updateMember(memberId.value, {
+      name: draft.name.trim(),
+      phoneNumber: draft.phoneNumber.trim() || undefined,
+      gender: draft.gender || undefined,
+      birthday: draft.birthday || undefined,
+      idCard: draft.idCard.trim() || undefined,
+    })
+    fillDraft(profile.value)
+    isEditing.value = false
+    saveNotice.value = '档案已保存。'
+  } catch (error) {
+    saveNotice.value = error instanceof ApiError ? error.message : '保存失败，请稍后重试。'
+  } finally {
+    isSaving.value = false
+  }
 }
 
 onMounted(loadProfile)
@@ -102,8 +130,8 @@ onMounted(loadProfile)
       :title="isEditing ? '编辑会员资料' : '我的档案'"
       :subtitle="
         isEditing
-          ? '编辑表单占位：字段可填写，保存不会写入数据库。'
-          : '查看资料来自真实 GET API；编辑与保存由 B 模块后续接入。'
+          ? '修改后点击保存，将写入 MEMBER 表并刷新展示。'
+          : '查看与编辑个人资料（功能点 #1 #2）。'
       "
     >
       <template #actions>
@@ -111,8 +139,10 @@ onMounted(loadProfile)
           编辑资料
         </button>
         <template v-else-if="isEditing">
-          <button type="button" class="ghost-btn" @click="cancelEditing">取消</button>
-          <button type="button" class="primary-btn" @click="savePlaceholder">保存</button>
+          <button type="button" class="ghost-btn" @click="cancelEditing" :disabled="isSaving">取消</button>
+          <button type="button" class="primary-btn" @click="saveProfile" :disabled="isSaving">
+            {{ isSaving ? '保存中...' : '保存' }}
+          </button>
         </template>
       </template>
     </PageHeader>
@@ -182,7 +212,7 @@ onMounted(loadProfile)
           </div>
         </article>
 
-        <form class="profile-card edit-form" @submit.prevent="savePlaceholder">
+        <form class="profile-card edit-form" @submit.prevent="saveProfile">
           <p class="form-eyebrow">可编辑字段 · 功能点 #1</p>
           <h2>基本资料</h2>
 
@@ -200,9 +230,8 @@ onMounted(loadProfile)
             <span>性别</span>
             <select v-model="draft.gender">
               <option value="">请选择</option>
-              <option value="男">男</option>
-              <option value="女">女</option>
-              <option value="其他">其他</option>
+              <option value="M">男</option>
+              <option value="F">女</option>
             </select>
           </label>
 
@@ -216,16 +245,9 @@ onMounted(loadProfile)
             <input v-model="draft.idCard" type="text" placeholder="请输入身份证号" />
           </label>
 
-          <p class="form-hint">以上为编辑占位：可修改表单内容，点击「保存」不会调用后端接口。</p>
+          <p class="form-hint">保存将调用 PUT /api/members/{id}，成功后刷新档案。</p>
         </form>
       </section>
-
-      <PlaceholderPanel
-        v-if="isEditing"
-        owner="B"
-        features="#1"
-        message="编辑保存占位：待实现 UpdateMember API、表单校验，以及保存成功后刷新 GET /members/{id}。"
-      />
     </template>
   </div>
 </template>

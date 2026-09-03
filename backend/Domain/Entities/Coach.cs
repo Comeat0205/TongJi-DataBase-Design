@@ -21,6 +21,8 @@ public partial class Coach
 
     public string? Status { get; set; }
 
+    public int? UserId { get; set; }
+
     public virtual ICollection<CoachSchedule> CoachSchedules { get; set; } = new List<CoachSchedule>();
 
     public virtual ICollection<Groupcourse> Groupcourses { get; set; } = new List<Groupcourse>();
