@@ -46,6 +46,11 @@ public static class DependencyInjection
         // feature/payment-marketing  支付与营销模块
         services.AddScoped<IPaymentOrderRepository, PaymentOrderRepository>();
         services.AddScoped<IVoucherRepository, VoucherRepository>();
+        
+        // feature/maintenance   运维与巡检模块
+        services.AddScoped<IRepairRecordRepository, RepairRecordRepository>();
+        services.AddScoped<IInspectionTaskRepository, InspectionTaskRepository>();
+        
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

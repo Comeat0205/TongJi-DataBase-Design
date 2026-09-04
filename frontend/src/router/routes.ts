@@ -25,6 +25,8 @@ const CheckIn = () => import('@/views/member/CheckInView.vue')
 const CheckInDesk = () => import('@/views/admin/CheckInDeskView.vue')
 const CapacityLogs = () => import('@/views/admin/CapacityLogsView.vue')
 const PtConfirm = () => import('@/views/coach/PtConfirmView.vue')
+const RepairRecords = () => import('@/views/admin/RepairRecordListView.vue')
+const InspectionTasks = () => import('@/views/admin/InspectionTaskListView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
 type RouteMode = 'auth' | 'preview'
@@ -263,9 +265,9 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       name: `${p}-card-products`,
       component: CardProductManage,
       meta: {
-        userType: 'employee',
-        preview: mode === 'preview',
-        pageTitle: '卡商品管理',
+         userType: 'employee',
+         preview: mode === 'preview',
+         pageTitle: '卡商品管理',
         owner: 'D',
       },
     },
@@ -310,7 +312,23 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
     },
 
 
+    
+    // feature/maintenance   运维与巡检模块
+    {
+      path: 'repairs',
+      name: `${p}-repairs`,
+      component: RepairRecords,
+      meta: { pageTitle: '器材报修', owner: 'I', features: '#15', preview: mode === 'preview', userType: 'employee' },
+    },
+    {
+      path: 'inspections',
+      name: `${p}-inspections`,
+      component: InspectionTasks,
+      meta: { pageTitle: '巡检任务', owner: 'I', features: '#16', preview: mode === 'preview', userType: 'employee' },
+    },
 
+
+    
     ...placeholderChildRoutes('admin', mode, [
       {
         path: 'course-types',
@@ -325,20 +343,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '团课排期管理',
         owner: 'F',
         features: '#3 #4',
-      },
-      {
-        path: 'repairs',
-        name: `${p}-repairs`,
-        pageTitle: '器材报修',
-        owner: 'I',
-        features: '#15',
-      },
-      {
-        path: 'inspections',
-        name: `${p}-inspections`,
-        pageTitle: '巡检任务',
-        owner: 'I',
-        features: '#16',
       },
     ]),
   ]

@@ -22,7 +22,7 @@ public sealed class MembershipCardRepository : Repository<MemberBenefitCard, int
             .Include(x => x.CountCardExtension)
             .Include(x => x.TimeCardExtension)
             .Where(x => x.MemberId == memberId)
-            .OrderByDescending(x => x.IssueDate) 
+            .OrderByDescending(x => x.IssueDate)
             .ThenByDescending(x => x.CardId)
             .ToListAsync(cancellationToken);
     }

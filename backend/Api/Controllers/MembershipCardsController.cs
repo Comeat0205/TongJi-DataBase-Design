@@ -22,7 +22,7 @@ public class MembershipCardsController : ControllerBase
     // GET /api/membership-cards?memberId=1  我的卡列表
     [HttpGet]
     [ProducesResponseType(
-        typeof(ApiResponse<IReadOnlyList<MembershipCardDto>>), 
+        typeof(ApiResponse<IReadOnlyList<MembershipCardDto>>),
         StatusCodes.Status200OK)]
     // 异步执行一个 API 请求，最终返回 HTTP 响应，响应里面包含会员卡 DTO 列表
     public async Task<ActionResult<ApiResponse<IReadOnlyList<MembershipCardDto>>>> GetByMemberId(

@@ -30,6 +30,11 @@ public static class DependencyInjection
         
         // feature/payment-marketing  支付与营销模块
         services.AddScoped<IPaymentAppService, PaymentAppService>();
+
+        // feature/maintenance   运维与巡检模块
+        services.AddScoped<IRepairRecordAppService, RepairRecordAppService>();
+        services.AddScoped<IInspectionTaskAppService, InspectionTaskAppService>();
+        
         return services;
     }
 }

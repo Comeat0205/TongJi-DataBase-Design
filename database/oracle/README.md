@@ -1,14 +1,16 @@
 # Oracle 脚本目录
 
-课程要求视图、存储过程、函数、触发器在 **Oracle 库中创建**，脚本保存在此目录并提交 Git。
+课程要求使用的序列、视图、存储过程、函数和触发器在 **Oracle 库中创建**，脚本保存在此目录并提交 Git。
 
 ```text
 database/oracle/
+├── sequences/      ← 序列，文件名 seq_*.sql
 ├── views/          ← 视图，文件名 v_*.sql
 ├── procedures/     ← 存储过程，文件名 sp_*.sql
 ├── functions/      ← 函数，文件名 fn_*.sql
 ├── triggers/       ← 触发器，文件名 trg_*.sql
 └── seed_*.sql      ← 各模块演示数据（可重复执行）
+└── tests/          ← 数据库对象验证脚本，执行前先确认是否包含写操作
 ```
 
 ## 怎么执行
@@ -45,3 +47,5 @@ ORDER BY object_name;
 
 SELECT trigger_name, table_name, status FROM user_triggers ORDER BY trigger_name;
 ```
+
+`tests/` 中的验证脚本可能会临时写入并回滚测试数据，不能当作只读查询直接执行；应先阅读脚本说明，并按共享数据库写操作流程获得确认。

@@ -26,6 +26,8 @@ const submitLabel = computed(() => {
     case 'coach':
       return '教练登录'
   }
+
+  return '登录'
 })
 
 async function handleLogin() {
