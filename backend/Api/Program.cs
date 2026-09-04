@@ -1,4 +1,5 @@
 using Api.Middleware;
+using Api.Services;
 using Application.Extensions;
 using Infrastructure.Extensions;
 
@@ -13,6 +14,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddControllers();
 // 当前保留 OpenAPI，便于课程设计阶段联调接口。
 builder.Services.AddOpenApi();
+
+// 功能点 #21：每天 23:00 自动签退后台服务
+builder.Services.AddHostedService<AutoCheckoutBackgroundService>();
 
 var app = builder.Build();
 
