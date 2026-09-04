@@ -16,4 +16,10 @@ public sealed class CoachRepository : Repository<Coach, int>, ICoachRepository
         return await Context.Coaches
             .FirstOrDefaultAsync(x => x.CoachName == name && x.PhoneNumber == phoneNumber, cancellationToken);
     }
+
+    public async Task<Coach?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await Context.Coaches
+            .FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+    }
 }

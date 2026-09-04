@@ -1,3 +1,4 @@
+// EF Core 数据库上下文：注册 DbSet，并将实体映射到 Oracle 表（含会籍卡相关表）。
 using System;
 using System.Collections.Generic;
 using Domain.Entities;
@@ -16,9 +17,9 @@ public partial class AppDbContext : DbContext
     {
     }
 
-    public virtual DbSet<Capacitylog> Capacitylogs { get; set; }
+    public virtual DbSet<AppUser> AppUsers { get; set; }
 
-    public virtual DbSet<Cardproduct> Cardproducts { get; set; }
+    public virtual DbSet<Capacitylog> Capacitylogs { get; set; }
 
     public virtual DbSet<Checkinout> Checkinouts { get; set; }
 
@@ -77,6 +78,47 @@ public partial class AppDbContext : DbContext
         modelBuilder
             .UseCollation("USING_NLS_COMP");
 
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.HasKey(e => e.UserId);
+
+            entity.ToTable("USERS");
+
+            entity.HasIndex(e => e.LoginName).IsUnique();
+
+            entity.Property(e => e.UserId)
+                .HasPrecision(10)
+                .ValueGeneratedNever()
+                .HasColumnName("USER_ID");
+            entity.Property(e => e.LoginName)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("LOGIN_NAME");
+            entity.Property(e => e.PasswordHash)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("PASSWORD_HASH");
+            entity.Property(e => e.DisplayName)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("DISPLAY_NAME");
+            entity.Property(e => e.AvatarUrl)
+                .HasMaxLength(500)
+                .IsUnicode(false)
+                .HasColumnName("AVATAR_URL");
+            entity.Property(e => e.Status)
+                .HasMaxLength(1)
+                .IsUnicode(false)
+                .IsFixedLength()
+                .HasColumnName("STATUS");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("DATE")
+                .HasColumnName("CREATED_AT");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("DATE")
+                .HasColumnName("UPDATED_AT");
+        });
+
         modelBuilder.Entity<Capacitylog>(entity =>
         {
             entity.HasKey(e => e.CapacityLogId).HasName("SYS_C008523");
@@ -108,23 +150,6 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.VenueId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_CAPACITY_VENUE");
-        });
-
-        modelBuilder.Entity<Cardproduct>(entity =>
-        {
-            entity.HasKey(e => e.ProductId).HasName("SYS_C008606");
-
-            entity.ToTable("CARDPRODUCT");
-
-            entity.Property(e => e.ProductId)
-                .HasPrecision(10)
-                .ValueGeneratedNever()
-                .HasColumnName("PRODUCT_ID");
-            entity.Property(e => e.CardType)
-                .HasMaxLength(1)
-                .IsUnicode(false)
-                .IsFixedLength()
-                .HasColumnName("CARD_TYPE");
         });
 
         modelBuilder.Entity<Checkinout>(entity =>
@@ -204,6 +229,9 @@ public partial class AppDbContext : DbContext
                 .IsUnicode(false)
                 .HasDefaultValueSql("'在职' ")
                 .HasColumnName("STATUS");
+            entity.Property(e => e.UserId)
+                .HasPrecision(10)
+                .HasColumnName("USER_ID");
         });
 
         modelBuilder.Entity<CoachSchedule>(entity =>
@@ -266,6 +294,7 @@ public partial class AppDbContext : DbContext
 
             entity.HasOne(d => d.Card).WithOne(p => p.CountCardExtension)
                 .HasForeignKey<CountCardExtension>(d => d.CardId)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_COUNT_CARD");
         });
 
@@ -314,6 +343,9 @@ public partial class AppDbContext : DbContext
                 .IsFixedLength()
                 .HasComment("1-在职，0-离职")
                 .HasColumnName("STATUS");
+            entity.Property(e => e.UserId)
+                .HasPrecision(10)
+                .HasColumnName("USER_ID");
         });
 
         modelBuilder.Entity<Equipment>(entity =>
@@ -518,6 +550,14 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("'1' ")
                 .IsFixedLength()
                 .HasColumnName("STATUS");
+            entity.Property(e => e.UserId)
+                .HasPrecision(10)
+                .HasColumnName("USER_ID");
+
+            entity.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .HasConstraintName("FK_MEMBER_USERS");
         });
 
         modelBuilder.Entity<MemberBenefitCard>(entity =>
@@ -533,9 +573,14 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.CardStatus)
                 .HasMaxLength(1)
                 .IsUnicode(false)
-                .HasDefaultValueSql("'1' ")
+                .HasDefaultValueSql("'1'")
                 .IsFixedLength()
                 .HasColumnName("CARD_STATUS");
+            entity.Property(e => e.CardType)
+                .HasMaxLength(1)
+                .IsUnicode(false)
+                .IsFixedLength()
+                .HasColumnName("CARD_TYPE");
             entity.Property(e => e.IssueDate)
                 .HasDefaultValueSql("SYSDATE")
                 .HasColumnType("DATE")
@@ -543,18 +588,11 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.MemberId)
                 .HasPrecision(10)
                 .HasColumnName("MEMBER_ID");
-            entity.Property(e => e.ProductId)
-                .HasPrecision(10)
-                .HasColumnName("PRODUCT_ID");
 
             entity.HasOne(d => d.Member).WithMany(p => p.MemberBenefitCards)
                 .HasForeignKey(d => d.MemberId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_CARD_MEMBER");
-
-            entity.HasOne(d => d.Product).WithMany(p => p.MemberBenefitCards)
-                .HasForeignKey(d => d.ProductId)
-                .HasConstraintName("FK_CARD_PRODUCT");
         });
 
         modelBuilder.Entity<MemberSchedule>(entity =>
@@ -875,6 +913,7 @@ public partial class AppDbContext : DbContext
 
             entity.HasOne(d => d.Card).WithOne(p => p.TimeCardExtension)
                 .HasForeignKey<TimeCardExtension>(d => d.CardId)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_TIME_CARD");
         });
 

@@ -1,5 +1,6 @@
 import axios from 'axios'
 
+// 统一返回格式
 export interface ApiResponse<T> {
   code: string
   message: string
