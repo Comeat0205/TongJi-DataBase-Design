@@ -11,6 +11,14 @@ public sealed class VenueRepository : Repository<Venue, int>, IVenueRepository
     {
     }
 
+    public async Task<IReadOnlyList<Venue>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await Context.Venues
+            .AsNoTracking()
+            .OrderBy(x => x.VenueId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Venue>> GetManagementListAsync(string? keyword, string? status, CancellationToken cancellationToken = default)
     {
         var query = Context.Venues.AsNoTracking().AsQueryable();
