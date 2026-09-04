@@ -87,3 +87,11 @@ export function cancelMember(memberId: number) {
 export function validateMemberRegistrationAccount(payload: ValidateMemberRegistrationAccountRequest) {
   return http.post<null>('/members/registration/account-validation', payload)
 }
+
+export function getMembers(params?: { pageNumber?: number; pageSize?: number }) {
+  const query = new URLSearchParams()
+  if (params?.pageNumber != null) query.set('pageNumber', String(params.pageNumber))
+  if (params?.pageSize != null) query.set('pageSize', String(params.pageSize))
+  const qs = query.toString()
+  return http.get<MemberProfile[]>(`/members${qs ? `?${qs}` : ''}`)
+}

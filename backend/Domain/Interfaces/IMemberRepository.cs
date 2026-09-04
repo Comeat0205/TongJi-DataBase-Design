@@ -16,4 +16,8 @@ public interface IMemberRepository : IRepository<Member, int>
     // feature/basic-info  基本信息模块
     Task<bool> HasBlockingRelationsAsync(int memberId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<(Member Member, AppUser User)>> GetManagementListAsync(string? keyword, string? sortBy, string? sortDirection, CancellationToken cancellationToken = default); 
+
+    // feature/payment-marketing  支付与营销模块
+    Task<IReadOnlyList<Member>> GetActiveMembersAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Member>> GetMembersWithBirthdayTodayAsync(CancellationToken cancellationToken = default);
 }

@@ -2,7 +2,7 @@
 
 
 
-### feature/membership-card
+### feature/member-template
 ### 会员登录（USERS + BCrypt）
 POST {{Api_HostAddress}}/api/auth/login
 Content-Type: application/json
@@ -128,3 +128,47 @@ Content-Type: application/json
 {
   "isActive": false
 }
+
+
+
+### feature/payment-marketing
+### H · 订单列表（员工全部）
+GET {{Api_HostAddress}}/api/paymentorders
+Accept: application/json
+
+### H · 会员订单
+GET {{Api_HostAddress}}/api/paymentorders?memberId=1
+Accept: application/json
+
+### H · 优惠券
+GET {{Api_HostAddress}}/api/vouchers?memberId=1
+Accept: application/json
+
+### H · 确认支付（待支付 → 已支付）
+POST {{Api_HostAddress}}/api/paymentorders/2/pay
+Accept: application/json
+
+### H · 下单（自动选最优券）
+POST {{Api_HostAddress}}/api/paymentorders
+Content-Type: application/json
+
+{
+  "memberId": 1,
+  "totalAmount": 199
+}
+
+### H · 可用优惠券
+GET {{Api_HostAddress}}/api/vouchers/available?memberId=1
+Accept: application/json
+
+### H · 改券
+PUT {{Api_HostAddress}}/api/paymentorders/1/voucher
+Content-Type: application/json
+
+{
+  "voucherId": null
+}
+
+### H · 取消订单（已支付退实付不退券）
+POST {{Api_HostAddress}}/api/paymentorders/1/cancel
+Accept: application/json

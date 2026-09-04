@@ -15,6 +15,11 @@ const AdminCoachList = () => import('@/views/admin/CoachListView.vue')
 const AdminMemberDetail = () => import('@/views/admin/MemberDetailView.vue')
 const AdminVenues = () => import('@/views/admin/VenuesView.vue')
 const AdminEquipment = () => import('@/views/admin/EquipmentView.vue')
+const PaymentOrderList = () => import('@/views/member/PaymentOrderListView.vue')
+const Vouchers = () => import('@/views/member/VouchersView.vue')
+const AdminPaymentOrderList = () => import('@/views/admin/AdminPaymentOrderListView.vue')
+const AdminVouchers = () => import('@/views/admin/AdminVouchersView.vue')
+const AtRiskMembers = () => import('@/views/admin/AtRiskMembersView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 const CheckIn = () => import('@/views/member/CheckInView.vue')
 const CheckInDesk = () => import('@/views/admin/CheckInDeskView.vue')
@@ -135,6 +140,33 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
     },
 
 
+
+    // feature/payment-marketing  支付与营销模块
+    {
+      path: 'orders',
+      name: `${p}-orders`,
+      component: PaymentOrderList,
+      meta: {
+        pageTitle: '我的订单',
+        owner: 'H',
+        features: '#20',
+        preview: mode === 'preview',
+        userType: 'member',
+      },
+    },
+    {
+      path: 'vouchers',
+      name: `${p}-vouchers`,
+      component: Vouchers,
+      meta: {
+        pageTitle: '我的优惠券',
+        owner: 'H',
+        features: '#18',
+        preview: mode === 'preview',
+        userType: 'member',
+      },
+    },
+
     
     ...placeholderChildRoutes('member', mode, [
       {
@@ -157,20 +189,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '我的日程',
         owner: 'J',
         features: '#11 #13',
-      },
-      {
-        path: 'orders',
-        name: `${p}-orders`,
-        pageTitle: '我的订单',
-        owner: 'H',
-        features: '#20',
-      },
-      {
-        path: 'vouchers',
-        name: `${p}-vouchers`,
-        pageTitle: '我的优惠券',
-        owner: 'H',
-        features: '#18',
       },
     ]),
   ]
@@ -254,6 +272,45 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
    
 
 
+    // feature/payment-marketing  支付与营销模块
+    {
+      path: 'orders',
+      name: `${p}-orders`,
+      component: AdminPaymentOrderList,
+      meta: {
+        pageTitle: '订单管理',
+        owner: 'H',
+        preview: mode === 'preview',
+        userType: 'employee',
+      },
+    },
+    {
+      path: 'vouchers',
+      name: `${p}-vouchers`,
+      component: AdminVouchers,
+      meta: {
+        pageTitle: '折扣券发放',
+        owner: 'H',
+        features: '#18 #20',
+        preview: mode === 'preview',
+        userType: 'employee',
+      },
+    },
+    {
+      path: 'at-risk-members',
+      name: `${p}-at-risk-members`,
+      component: AtRiskMembers,
+      meta: {
+        pageTitle: '流失预警会员',
+        owner: 'H',
+        features: '#17',
+        preview: mode === 'preview',
+        userType: 'employee',
+      },
+    },
+
+
+
     ...placeholderChildRoutes('admin', mode, [
       {
         path: 'course-types',
@@ -270,19 +327,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         features: '#3 #4',
       },
       {
-        path: 'orders',
-        name: `${p}-orders`,
-        pageTitle: '订单管理',
-        owner: 'H',
-      },
-      {
-        path: 'vouchers',
-        name: `${p}-vouchers`,
-        pageTitle: '优惠券管理',
-        owner: 'H',
-        features: '#18 #20',
-      },
-      {
         path: 'repairs',
         name: `${p}-repairs`,
         pageTitle: '器材报修',
@@ -295,13 +339,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '巡检任务',
         owner: 'I',
         features: '#16',
-      },
-      {
-        path: 'at-risk-members',
-        name: `${p}-at-risk-members`,
-        pageTitle: '流失预警会员',
-        owner: 'H',
-        features: '#17',
       },
     ]),
   ]

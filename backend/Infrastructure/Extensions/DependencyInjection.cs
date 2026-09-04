@@ -42,6 +42,10 @@ public static class DependencyInjection
         services.AddScoped<IPersonalPackageRepository, PersonalPackageRepository>();
         services.AddScoped<IPtBookingRepository, PtBookingRepository>();
         
+        
+        // feature/payment-marketing  支付与营销模块
+        services.AddScoped<IPaymentOrderRepository, PaymentOrderRepository>();
+        services.AddScoped<IVoucherRepository, VoucherRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

@@ -27,6 +27,9 @@ public static class DependencyInjection
         // feature/personal-training  私教课包与预约模块
         services.AddScoped<IPersonalPackageAppService, PersonalPackageAppService>();
         services.AddScoped<IPtBookingAppService, PtBookingAppService>();
+        
+        // feature/payment-marketing  支付与营销模块
+        services.AddScoped<IPaymentAppService, PaymentAppService>();
         return services;
     }
 }
