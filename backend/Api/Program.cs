@@ -29,6 +29,7 @@ if (app.Environment.IsDevelopment())
 // 全局异常处理要尽量靠前，统一拦截后续请求链中的异常。
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 app.UseAuthorization();
 

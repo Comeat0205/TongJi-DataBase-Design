@@ -20,7 +20,6 @@ public class MembersController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<MemberDto>>> GetById(int id, CancellationToken cancellationToken)
     {
-        // 控制器只负责处理 HTTP 请求，不直接操作仓储或 DbContext。
         var member = await _memberAppService.GetByIdAsync(id, cancellationToken);
         if (member is null)
         {
@@ -31,13 +30,24 @@ public class MembersController : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<MemberManagementListItemDto>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<MemberManagementListItemDto>>>> GetList(
+        [FromQuery] string? keyword,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDirection,
+        CancellationToken cancellationToken = default)
+    {
+        var members = await _memberAppService.GetManagementListAsync(keyword, sortBy, sortDirection, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<MemberManagementListItemDto>>.Success(members, HttpContext.TraceIdentifier));
+    }
+
+    [HttpGet("paged")]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<MemberDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<MemberDto>>>> GetPaged(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
-        // 分页参数的纠正逻辑放在 Application 层，Controller 保持尽量轻薄。
         var members = await _memberAppService.GetPagedAsync(pageNumber, pageSize, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<MemberDto>>.Success(members, HttpContext.TraceIdentifier));
     }
@@ -54,6 +64,18 @@ public class MembersController : ControllerBase
         return Ok(ApiResponse<MemberDto>.Success(member, HttpContext.TraceIdentifier, "档案已更新"));
     }
 
+
+    // feature/basic-info
+    [HttpPost("registration/account-validation")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<object>>> ValidateRegistrationAccount(
+        [FromBody] ValidateMemberRegistrationAccountRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        await _memberAppService.ValidateRegistrationAccountAsync(request, cancellationToken);
+        return Ok(ApiResponse<object>.Success(null, HttpContext.TraceIdentifier, "账号信息校验通过"));
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<MemberDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<ApiResponse<MemberDto>>> Register(
@@ -64,6 +86,16 @@ public class MembersController : ControllerBase
         return CreatedAtAction(
             nameof(GetById),
             new { id = member.MemberId },
-            ApiResponse<MemberDto>.Success(member, HttpContext.TraceIdentifier, "注册成功"));
+            ApiResponse<MemberDto>.Success(member, HttpContext.TraceIdentifier, "会员注册成功"));
+    }
+
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(typeof(ApiResponse<MemberDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<MemberDto>>> Cancel(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var member = await _memberAppService.CancelAsync(id, cancellationToken);
+        return Ok(ApiResponse<MemberDto>.Success(member, HttpContext.TraceIdentifier, "会员已注销"));
     }
 }

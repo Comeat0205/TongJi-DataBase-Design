@@ -1,5 +1,7 @@
 @Api_HostAddress = http://localhost:5078
 
+
+
 ### feature/membership-card
 ### 会员登录（USERS + BCrypt）
 POST {{Api_HostAddress}}/api/auth/login
@@ -11,7 +13,10 @@ Content-Type: application/json
   "password": "Demo@123456"
 }
 
-### 会员注册（先 USERS 后 MEMBER）
+
+
+### feature/basic-info
+### 会员注册（当前仅开放会员自助注册；员工/教练只保留登录）
 POST {{Api_HostAddress}}/api/members
 Content-Type: application/json
 
@@ -36,6 +41,8 @@ Content-Type: application/json
   "phoneNumber": "13800000001",
   "gender": "M"
 }
+
+
 
 ### feature/membership-card
 ### 张三 · 正常时效卡（memberId=1001，期望 isValid=true）

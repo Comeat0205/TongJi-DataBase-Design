@@ -36,7 +36,7 @@ public sealed class AuthAppService : IAuthAppService
         var loginType = request.LoginType.Trim().ToLowerInvariant();
         var loginName = request.LoginName.Trim();
 
-        var appUser = await _appUserRepository.GetByLoginNameAsync(loginName, cancellationToken);
+        var appUser = await _appUserRepository.GetActiveByLoginNameAsync(loginName, cancellationToken);
         if (appUser is null || string.IsNullOrWhiteSpace(appUser.PasswordHash))
         {
             throw new DomainException(InvalidCredentialsMessage);
@@ -45,11 +45,6 @@ public sealed class AuthAppService : IAuthAppService
         if (!BCrypt.Net.BCrypt.Verify(request.Password, appUser.PasswordHash))
         {
             throw new DomainException(InvalidCredentialsMessage);
-        }
-
-        if (!string.Equals(appUser.Status?.Trim(), "1", StringComparison.Ordinal))
-        {
-            throw new DomainException("当前账号已停用，请联系管理员处理。");
         }
 
         return loginType switch
@@ -70,15 +65,15 @@ public sealed class AuthAppService : IAuthAppService
         }
 
         if (member.GetStatus() == Domain.Enums.MemberStatus.Cancelled)
-        {
-            throw new DomainException("当前会员状态不可登录，请联系前台处理。");
-        }
+            {
+                throw new DomainException("当前会员状态已注销，无法登录。");
+            }
 
         return new LoginResultDto
         {
             UserType = "member",
             UserId = member.MemberId,
-            DisplayName = member.Name,
+            DisplayName = ResolveDisplayName(appUser),
             TargetPath = "/member/home"
         };
     }
@@ -100,7 +95,7 @@ public sealed class AuthAppService : IAuthAppService
         {
             UserType = "employee",
             UserId = employee.EmpId,
-            DisplayName = employee.EmpName,
+            DisplayName = ResolveDisplayName(appUser),
             TargetPath = "/admin/home"
         };
     }
@@ -113,7 +108,8 @@ public sealed class AuthAppService : IAuthAppService
             throw new DomainException(InvalidCredentialsMessage);
         }
 
-        if (coach.Status is "0")
+        var coachStatus = coach.Status?.Trim();
+        if (!string.IsNullOrWhiteSpace(coachStatus) && !string.Equals(coachStatus, "在职", StringComparison.Ordinal))
         {
             throw new DomainException("当前教练状态不可登录，请联系管理员处理。");
         }
@@ -122,8 +118,16 @@ public sealed class AuthAppService : IAuthAppService
         {
             UserType = "coach",
             UserId = coach.CoachId,
-            DisplayName = coach.CoachName,
+            DisplayName = ResolveDisplayName(appUser),
             TargetPath = "/coach/home"
         };
+    }
+
+    private static string ResolveDisplayName(Domain.Entities.AppUser appUser)
+    {
+        // DisplayName 定位为“昵称”，初始取 LoginName；历史数据为空时兜底回 LoginName。
+        return string.IsNullOrWhiteSpace(appUser.DisplayName)
+            ? appUser.LoginName ?? "用户"
+            : appUser.DisplayName;
     }
 }

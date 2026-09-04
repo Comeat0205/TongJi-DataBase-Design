@@ -4,6 +4,7 @@ public sealed class MemberDto
 {
     public int MemberId { get; init; }
     public string Name { get; init; } = string.Empty;
+    public string? RealName { get; init; }
     public string? PhoneNumber { get; init; }
     public string? IdCard { get; init; }
     public string? MemberLevel { get; init; }
@@ -12,5 +13,3 @@ public sealed class MemberDto
     public DateTime? RegisterDate { get; init; }
     public string? Status { get; init; }
 }
-
-

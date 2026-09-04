@@ -17,8 +17,11 @@ public static class DependencyInjection
 
         // feature/venue-checkin  入场与容量模块
         services.AddScoped<ICheckInOutAppService, CheckInOutAppService>();
+
+        // feature/basic-info  基本信息模块
+        services.AddScoped<ICoachAppService, CoachAppService>();
+        services.AddScoped<IVenueAppService, VenueAppService>();
+        services.AddScoped<IEquipmentAppService, EquipmentAppService>();
         return services;
     }
 }
-
-

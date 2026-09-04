@@ -30,10 +30,9 @@ public static class DependencyInjection
         services.AddScoped<ICheckInOutRepository, CheckInOutRepository>();
         services.AddScoped<IVenueRepository, VenueRepository>();
         services.AddScoped<ICapacityLogRepository, CapacityLogRepository>();
+        services.AddScoped<IEquipmentRepository, EquipmentRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
     }
 }
-
-

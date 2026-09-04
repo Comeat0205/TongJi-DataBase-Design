@@ -10,16 +10,20 @@ public partial class Member
         // 当前数据库中的状态仍然是字符串，这里集中转换成领域枚举。
         return Status switch
         {
+            "0" => MemberStatus.Cancelled,
             "1" => MemberStatus.Active,
-            "2" => MemberStatus.Frozen,
-            "3" => MemberStatus.Cancelled,
             _ => MemberStatus.Inactive
         };
     }
 
     public void SetStatus(MemberStatus status)
     {
-        Status = ((int)status).ToString();
+        Status = status switch
+        {
+            MemberStatus.Cancelled => "0",
+            MemberStatus.Active => "1",
+            _ => throw new DomainException("会员状态值不合法。")
+        };
     }
 
     public void Activate()
@@ -40,7 +44,7 @@ public partial class Member
             throw new DomainException("已注销会员不能冻结。");
         }
 
-        SetStatus(MemberStatus.Frozen);
+        SetStatus(MemberStatus.Active);
     }
 
     public void Cancel()
@@ -71,6 +75,6 @@ public partial class Member
 
     public bool IsActive()
     {
-        return GetStatus() == MemberStatus.Active;
+        return GetStatus() != MemberStatus.Cancelled;
     }
 }

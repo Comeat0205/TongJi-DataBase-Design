@@ -198,6 +198,8 @@ public partial class AppDbContext : DbContext
 
             entity.ToTable("COACH");
 
+            entity.HasIndex(e => e.UserId, "UK_COACH_USER_ID").IsUnique();
+
             entity.Property(e => e.CoachId)
                 .HasPrecision(10)
                 .ValueGeneratedNever()
@@ -232,6 +234,11 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.UserId)
                 .HasPrecision(10)
                 .HasColumnName("USER_ID");
+            
+            entity.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .HasConstraintName("FK_COACH_USERS");
         });
 
         modelBuilder.Entity<CoachSchedule>(entity =>
@@ -320,6 +327,8 @@ public partial class AppDbContext : DbContext
 
             entity.ToTable("EMPLOYEE", tb => tb.HasComment("员工信息"));
 
+            entity.HasIndex(e => e.UserId, "UK_EMPLOYEE_USER_ID").IsUnique();
+
             entity.Property(e => e.EmpId)
                 .HasPrecision(10)
                 .ValueGeneratedNever()
@@ -346,6 +355,11 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.UserId)
                 .HasPrecision(10)
                 .HasColumnName("USER_ID");
+            
+            entity.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .HasConstraintName("FK_EMPLOYEE_USERS");
         });
 
         modelBuilder.Entity<Equipment>(entity =>
@@ -362,17 +376,20 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false)
                 .HasColumnName("EQUIP_NAME");
+            entity.Property(e => e.ImageUrl)
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .HasColumnName("IMAGE_URL");
             entity.Property(e => e.PurchaseDate)
                 .HasColumnType("DATE")
                 .HasColumnName("PURCHASE_DATE");
             entity.Property(e => e.Status)
                 .HasMaxLength(50)
                 .IsUnicode(false)
-                .HasDefaultValueSql("'正常'")
+                .HasDefaultValueSql("'1'")
                 .HasColumnName("STATUS");
             entity.Property(e => e.VenueId)
-                .HasMaxLength(50)
-                .IsUnicode(false)
+                .HasPrecision(10)
                 .HasColumnName("VENUE_ID");
         });
 
@@ -511,6 +528,8 @@ public partial class AppDbContext : DbContext
             entity.HasIndex(e => e.PhoneNumber, "SYS_C008488").IsUnique();
 
             entity.HasIndex(e => e.IdCard, "SYS_C008489").IsUnique();
+
+            entity.HasIndex(e => e.UserId, "UK_MEMBER_USER_ID").IsUnique();
 
             entity.Property(e => e.MemberId)
                 .HasPrecision(10)
@@ -969,6 +988,10 @@ public partial class AppDbContext : DbContext
                 .HasPrecision(5)
                 .HasDefaultValueSql("0 ")
                 .HasColumnName("CURRENT_CAPACITY");
+            entity.Property(e => e.ImageUrl)
+                .HasMaxLength(500)
+                .IsUnicode(false)
+                .HasColumnName("IMAGE_URL");
             entity.Property(e => e.MaxCapacity)
                 .HasPrecision(5)
                 .HasColumnName("MAX_CAPACITY");
@@ -1021,5 +1044,4 @@ public partial class AppDbContext : DbContext
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }
-
 

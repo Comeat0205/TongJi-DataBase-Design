@@ -17,12 +17,18 @@ public sealed class AppUserRepository : Repository<AppUser, int>, IAppUserReposi
             .FirstOrDefaultAsync(x => x.LoginName == loginName, cancellationToken);
     }
 
+    public async Task<AppUser?> GetActiveByLoginNameAsync(string loginName, CancellationToken cancellationToken = default)
+    {
+        return await Context.AppUsers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.LoginName == loginName && x.Status != "0", cancellationToken);
+    }
+
     public async Task<bool> ExistsByLoginNameAsync(string loginName, CancellationToken cancellationToken = default)
     {
-        // 避免 EF 把 Any 翻译成 Oracle 不支持的 TRUE/FALSE（ORA-00904）。
         var existing = await Context.AppUsers
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.LoginName == loginName, cancellationToken);
+            .FirstOrDefaultAsync(x => x.LoginName == loginName && x.Status != "0", cancellationToken);
         return existing is not null;
     }
 
@@ -31,5 +37,12 @@ public sealed class AppUserRepository : Repository<AppUser, int>, IAppUserReposi
         // 云库当前无序列时用 MAX+1；有序列后可改为 NEXTVAL。
         var maxId = await Context.AppUsers.MaxAsync(x => (int?)x.UserId, cancellationToken) ?? 0;
         return maxId + 1;
+    }
+
+    public async Task<bool> ExistsByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await Context.AppUsers
+            .AsNoTracking()
+            .AnyAsync(x => x.UserId == userId, cancellationToken);
     }
 }

@@ -13,6 +13,8 @@ public partial class Venue
 
     public short? CurrentCapacity { get; set; }
 
+    public string? ImageUrl { get; set; }
+
     public string? VenueStatus { get; set; }
 
     public virtual ICollection<Capacitylog> Capacitylogs { get; set; } = new List<Capacitylog>();

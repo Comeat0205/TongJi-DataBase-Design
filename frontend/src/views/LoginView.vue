@@ -15,6 +15,7 @@ const form = reactive({
 })
 const isSubmitting = ref(false)
 const errorMessage = ref('')
+const canSelfRegister = computed(() => selectedLoginType.value === 'member')
 
 const submitLabel = computed(() => {
   switch (selectedLoginType.value) {
@@ -112,7 +113,7 @@ async function handleLogin() {
             />
           </label>
 
-          <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+          <p class="error-message" aria-live="polite">{{ errorMessage }}</p>
 
           <button class="submit-btn" type="submit" :disabled="isSubmitting">
             {{ isSubmitting ? '登录中...' : submitLabel }}
@@ -120,7 +121,7 @@ async function handleLogin() {
         </form>
 
         <div class="register-link">
-          <RouterLink to="/register">没有账号？会员注册</RouterLink>
+          <RouterLink v-if="canSelfRegister" to="/register">没有账号？会员注册</RouterLink>
         </div>
 
         <div class="preview-links">
@@ -248,9 +249,11 @@ async function handleLogin() {
 }
 
 .error-message {
+  min-height: 1.4em;
   margin: 0;
   color: #c0392b;
   font-size: 0.92rem;
+  line-height: 1.4;
 }
 
 .submit-btn {
@@ -270,8 +273,10 @@ async function handleLogin() {
 }
 
 .register-link {
+  min-height: 1.4em;
   margin-top: 18px;
   text-align: center;
+  line-height: 1.4;
 }
 
 .register-link a {
