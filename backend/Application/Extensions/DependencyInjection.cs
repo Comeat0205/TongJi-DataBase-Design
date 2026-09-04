@@ -8,6 +8,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        // feature/member-template  会员样板模块
         services.AddScoped<IAuthAppService, AuthAppService>();
         services.AddScoped<IMemberAppService, MemberAppService>();
 
@@ -22,6 +23,10 @@ public static class DependencyInjection
         services.AddScoped<ICoachAppService, CoachAppService>();
         services.AddScoped<IVenueAppService, VenueAppService>();
         services.AddScoped<IEquipmentAppService, EquipmentAppService>();
+        
+        // feature/personal-training  私教课包与预约模块
+        services.AddScoped<IPersonalPackageAppService, PersonalPackageAppService>();
+        services.AddScoped<IPtBookingAppService, PtBookingAppService>();
         return services;
     }
 }

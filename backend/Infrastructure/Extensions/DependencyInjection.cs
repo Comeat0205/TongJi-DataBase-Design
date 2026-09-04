@@ -20,17 +20,28 @@ public static class DependencyInjection
             options.UseOracle(connectionString);
         });
 
-        // 先注册最小可用的会员仓储和工作单元，后续新模块按同样模式扩展。
+        // feature/member-template  会员样板模块
         services.AddScoped<IAppUserRepository, AppUserRepository>();
         services.AddScoped<IMemberRepository, MemberRepository>();
+        
+        // feature/membership-card  会员卡与会籍模块
         services.AddScoped<IMembershipCardRepository, MembershipCardRepository>();
         services.AddScoped<IPriceListRepository, PriceListRepository>();
+        
+        // feature/venue-checkin  入场与容量模块
+        services.AddScoped<ICheckInOutRepository, CheckInOutRepository>();
+        services.AddScoped<ICapacityLogRepository, CapacityLogRepository>();
+
+        // feature/basic-info  基本信息模块
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<ICoachRepository, CoachRepository>();
-        services.AddScoped<ICheckInOutRepository, CheckInOutRepository>();
         services.AddScoped<IVenueRepository, VenueRepository>();
-        services.AddScoped<ICapacityLogRepository, CapacityLogRepository>();
         services.AddScoped<IEquipmentRepository, EquipmentRepository>();
+        
+        // feature/personal-training  私教课包与预约模块
+        services.AddScoped<IPersonalPackageRepository, PersonalPackageRepository>();
+        services.AddScoped<IPtBookingRepository, PtBookingRepository>();
+        
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

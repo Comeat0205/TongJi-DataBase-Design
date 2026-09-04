@@ -845,6 +845,15 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.CoachId)
                 .HasPrecision(10)
                 .HasColumnName("COACH_ID");
+            entity.Property(e => e.ConsumeStatus)
+                .HasMaxLength(1)
+                .IsUnicode(false)
+                .HasDefaultValueSql("'0' ")
+                .IsFixedLength()
+                .HasColumnName("CONSUME_STATUS");
+            entity.Property(e => e.ConsumedTime)
+                .HasColumnType("DATE")
+                .HasColumnName("CONSUMED_TIME");
             entity.Property(e => e.MemberConfirmed)
                 .HasMaxLength(1)
                 .IsUnicode(false)

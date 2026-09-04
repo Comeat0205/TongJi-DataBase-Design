@@ -21,6 +21,10 @@ public partial class Ptbooking
 
     public string MemberConfirmed { get; set; } = null!;
 
+    public string ConsumeStatus { get; set; } = null!;
+
+    public DateTime? ConsumedTime { get; set; }
+
     public virtual Coach Coach { get; set; } = null!;
 
     public virtual Personalpackage Package { get; set; } = null!;
