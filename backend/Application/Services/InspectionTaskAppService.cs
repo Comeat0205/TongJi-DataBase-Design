@@ -35,6 +35,19 @@ public sealed class InspectionTaskAppService : IInspectionTaskAppService
         _unitOfWork = unitOfWork;
     }
 
+    public async Task<InspectionTaskOptionsDto> GetOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var venues = await _inspectionTaskRepository.GetVenueOptionsAsync(cancellationToken);
+        var employees = await _inspectionTaskRepository.GetEmployeeOptionsAsync(cancellationToken);
+
+        return new InspectionTaskOptionsDto
+        {
+            Venues = MapOptions(venues),
+            Employees = MapOptions(employees)
+        };
+    }
+
     public async Task<InspectionTaskDto?> GetByIdAsync(
         int id,
         CancellationToken cancellationToken = default)
@@ -188,5 +201,18 @@ public sealed class InspectionTaskAppService : IInspectionTaskAppService
             Status = task.Status ?? "待执行",
             Remark = task.Remark
         };
+    }
+
+    private static IReadOnlyList<MaintenanceOptionDto> MapOptions(
+        IReadOnlyDictionary<int, string> options)
+    {
+        return options
+            .OrderBy(option => option.Key)
+            .Select(option => new MaintenanceOptionDto
+            {
+                Id = option.Key,
+                Name = option.Value
+            })
+            .ToList();
     }
 }

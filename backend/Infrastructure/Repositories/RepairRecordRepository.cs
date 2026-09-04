@@ -50,6 +50,31 @@ public sealed class RepairRecordRepository : Repository<Repairrecord, int>, IRep
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<int, string>> GetEquipmentOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.Equipment
+            .AsNoTracking()
+            .OrderBy(equipment => equipment.EquipId)
+            .ToDictionaryAsync(
+                equipment => equipment.EquipId,
+                equipment => equipment.EquipName,
+                cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<int, string>> GetEmployeeOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.Employees
+            .AsNoTracking()
+            .Where(employee => employee.Status == null || employee.Status != "0")
+            .OrderBy(employee => employee.EmpId)
+            .ToDictionaryAsync(
+                employee => employee.EmpId,
+                employee => employee.EmpName,
+                cancellationToken);
+    }
+
     public async Task<bool> EquipmentExistsAsync(int equipId, CancellationToken cancellationToken = default)
     {
         return await Context.Equipment

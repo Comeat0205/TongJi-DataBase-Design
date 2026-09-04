@@ -4,12 +4,15 @@ import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/http'
 import {
   createRepairRecord,
+  getRepairRecordOptions,
   getRepairRecords,
   updateRepairRecordStatus,
   type RepairRecord,
+  type RepairRecordOptions,
   type RepairStatus,
 } from '@/api/repair-records'
 import PageHeader from '@/components/ui/PageHeader.vue'
+import SearchableEntitySelect from '@/components/ui/SearchableEntitySelect.vue'
 import StateCard from '@/components/ui/StateCard.vue'
 
 const route = useRoute()
@@ -20,6 +23,9 @@ const saving = ref(false)
 const errorMessage = ref('')
 const noticeMessage = ref('')
 const selectedStatus = ref<RepairStatus | ''>('')
+const options = ref<RepairRecordOptions>({ equipment: [], employees: [] })
+const optionsLoading = ref(true)
+const optionsErrorMessage = ref('')
 
 const createForm = reactive({
   equipId: undefined as number | undefined,
@@ -60,6 +66,20 @@ async function loadRecords() {
     errorMessage.value = error instanceof ApiError ? error.message : '报修记录加载失败，请稍后重试。'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadOptions() {
+  optionsLoading.value = true
+  optionsErrorMessage.value = ''
+
+  try {
+    options.value = await getRepairRecordOptions()
+  } catch (error) {
+    optionsErrorMessage.value =
+      error instanceof ApiError ? error.message : '器材和员工选项加载失败，请稍后重试。'
+  } finally {
+    optionsLoading.value = false
   }
 }
 
@@ -140,7 +160,9 @@ async function advanceStatus(record: RepairRecord) {
   }
 }
 
-onMounted(loadRecords)
+onMounted(async () => {
+  await Promise.all([loadRecords(), loadOptions()])
+})
 </script>
 
 <template>
@@ -150,14 +172,21 @@ onMounted(loadRecords)
     <p v-if="isPreview" class="preview-banner">预览模式：可以查看页面和筛选记录，但不能新建或更新报修。</p>
     <p v-if="noticeMessage" class="notice-banner">{{ noticeMessage }}</p>
     <p v-if="errorMessage && records.length > 0" class="inline-error">{{ errorMessage }}</p>
+    <p v-if="optionsErrorMessage" class="inline-error">{{ optionsErrorMessage }}</p>
 
     <section class="panel">
       <h2>新建报修</h2>
       <form class="create-form" @submit.prevent="handleCreate">
-        <label>
-          器材编号
-          <input v-model.number="createForm.equipId" type="number" min="1" placeholder="例如 1001" />
-        </label>
+        <SearchableEntitySelect
+          v-model="createForm.equipId"
+          class="equipment-field"
+          label="器材"
+          :options="options.equipment"
+          :disabled="optionsLoading"
+          :placeholder="optionsLoading ? '器材加载中...' : '输入器材名称或编号'"
+          empty-text="暂无可选器材"
+          required
+        />
         <label class="description-field">
           问题描述
           <input v-model="createForm.description" type="text" maxlength="200" placeholder="简单说明器材故障情况" />
@@ -225,10 +254,15 @@ onMounted(loadRecords)
                 <td colspan="8">
                   <form class="progress-form" @submit.prevent="advanceStatus(record)">
                     <strong>更新为“{{ nextStatus(record.status) }}”</strong>
-                    <label>
-                      维修员工编号
-                      <input v-model.number="progressForm.empId" type="number" min="1" />
-                    </label>
+                    <SearchableEntitySelect
+                      v-model="progressForm.empId"
+                      label="维修员工"
+                      :options="options.employees"
+                      :disabled="optionsLoading"
+                      :placeholder="optionsLoading ? '员工加载中...' : '输入员工姓名或编号'"
+                      empty-text="暂无可选员工"
+                      required
+                    />
                     <label>
                       维修费用
                       <input v-model.number="progressForm.repairCost" type="number" min="0" step="0.01" />
@@ -258,6 +292,7 @@ onMounted(loadRecords)
 .create-form { margin-top: 18px; }
 .create-form label, .progress-form label, .filter-field { display: grid; gap: 6px; color: #2a3c59; font-size: 14px; }
 .description-field { flex: 1; min-width: 280px; }
+.equipment-field { min-width: 240px; }
 input, select { min-height: 40px; padding: 8px 11px; border: 1px solid #d7e0ef; border-radius: 9px; background: #fff; color: var(--tj-text); }
 .panel-heading { display: flex; justify-content: space-between; gap: 16px; align-items: end; margin-bottom: 18px; }
 .table-wrap { overflow-x: auto; }

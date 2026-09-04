@@ -25,6 +25,20 @@ export interface UpdateRepairRecordStatusRequest {
   repairCost?: number
 }
 
+export interface MaintenanceOption {
+  id: number
+  name: string
+}
+
+export interface RepairRecordOptions {
+  equipment: MaintenanceOption[]
+  employees: MaintenanceOption[]
+}
+
+export function getRepairRecordOptions() {
+  return http.get<RepairRecordOptions>('/repair-records/options')
+}
+
 export function getRepairRecords(status?: RepairStatus) {
   const params = new URLSearchParams({ pageNumber: '1', pageSize: '100' })
   if (status) {

@@ -12,6 +12,10 @@ public interface IInspectionTaskRepository : IRepository<Inspectiontask, int>
         int pageSize,
         string? status,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, string>> GetVenueOptionsAsync(
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, string>> GetEmployeeOptionsAsync(
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyDictionary<int, string>> GetVenueNamesAsync(
         IEnumerable<int> venueIds,
         CancellationToken cancellationToken = default);

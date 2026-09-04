@@ -4,12 +4,15 @@ import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/http'
 import {
   createInspectionTask,
+  getInspectionTaskOptions,
   getInspectionTasks,
   updateInspectionTaskStatus,
   type InspectionStatus,
   type InspectionTask,
+  type InspectionTaskOptions,
 } from '@/api/inspection-tasks'
 import PageHeader from '@/components/ui/PageHeader.vue'
+import SearchableEntitySelect from '@/components/ui/SearchableEntitySelect.vue'
 import StateCard from '@/components/ui/StateCard.vue'
 
 const route = useRoute()
@@ -20,6 +23,9 @@ const saving = ref(false)
 const errorMessage = ref('')
 const noticeMessage = ref('')
 const selectedStatus = ref<InspectionStatus | ''>('')
+const options = ref<InspectionTaskOptions>({ venues: [], employees: [] })
+const optionsLoading = ref(true)
+const optionsErrorMessage = ref('')
 
 const createForm = reactive({
   venueId: undefined as number | undefined,
@@ -61,6 +67,20 @@ async function loadTasks() {
     errorMessage.value = error instanceof ApiError ? error.message : '巡检任务加载失败，请稍后重试。'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadOptions() {
+  optionsLoading.value = true
+  optionsErrorMessage.value = ''
+
+  try {
+    options.value = await getInspectionTaskOptions()
+  } catch (error) {
+    optionsErrorMessage.value =
+      error instanceof ApiError ? error.message : '场馆和员工选项加载失败，请稍后重试。'
+  } finally {
+    optionsLoading.value = false
   }
 }
 
@@ -138,7 +158,9 @@ async function advanceStatus(task: InspectionTask) {
   }
 }
 
-onMounted(loadTasks)
+onMounted(async () => {
+  await Promise.all([loadTasks(), loadOptions()])
+})
 </script>
 
 <template>
@@ -148,18 +170,29 @@ onMounted(loadTasks)
     <p v-if="isPreview" class="preview-banner">预览模式：可以查看页面和筛选任务，但不能创建任务或更新状态。</p>
     <p v-if="noticeMessage" class="notice-banner">{{ noticeMessage }}</p>
     <p v-if="errorMessage && tasks.length > 0" class="inline-error">{{ errorMessage }}</p>
+    <p v-if="optionsErrorMessage" class="inline-error">{{ optionsErrorMessage }}</p>
 
     <section class="panel">
       <h2>安排巡检</h2>
       <form class="create-form" @submit.prevent="handleCreate">
-        <label>
-          场馆编号
-          <input v-model.number="createForm.venueId" type="number" min="1" placeholder="例如 1" />
-        </label>
-        <label>
-          执行员工编号
-          <input v-model.number="createForm.empId" type="number" min="1" placeholder="例如 9" />
-        </label>
+        <SearchableEntitySelect
+          v-model="createForm.venueId"
+          label="场馆"
+          :options="options.venues"
+          :disabled="optionsLoading"
+          :placeholder="optionsLoading ? '场馆加载中...' : '输入场馆名称或编号'"
+          empty-text="暂无可选场馆"
+          required
+        />
+        <SearchableEntitySelect
+          v-model="createForm.empId"
+          label="执行员工"
+          :options="options.employees"
+          :disabled="optionsLoading"
+          :placeholder="optionsLoading ? '员工加载中...' : '输入员工姓名或编号'"
+          empty-text="暂无可选员工"
+          required
+        />
         <label>
           计划时间
           <input v-model="createForm.taskTime" type="datetime-local" />
@@ -254,10 +287,10 @@ onMounted(loadTasks)
 .preview-banner { background: #fff7ed; color: #c2410c; }
 .notice-banner { background: #e8f7ee; color: #15803d; }
 .inline-error { margin: 0; color: var(--tj-danger); }
-.create-form, .progress-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
-.create-form { margin-top: 18px; }
+.create-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; margin-top: 18px; }
+.progress-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
 .create-form label, .progress-form label, .filter-field { display: grid; gap: 6px; color: #2a3c59; font-size: 14px; }
-.remark-field { flex: 1; min-width: 220px; }
+.remark-field { grid-column: span 2; min-width: 0; }
 input, select { min-height: 40px; padding: 8px 11px; border: 1px solid #d7e0ef; border-radius: 9px; background: #fff; color: var(--tj-text); }
 .panel-heading { display: flex; justify-content: space-between; gap: 16px; align-items: end; margin-bottom: 18px; }
 .table-wrap { overflow-x: auto; }
@@ -278,5 +311,5 @@ th { color: var(--tj-text-muted); font-size: 13px; white-space: nowrap; }
 .primary-btn:disabled, .ghost-btn:disabled { opacity: .6; cursor: not-allowed; }
 .finished-text, .empty-text { color: var(--tj-text-muted); }
 .empty-text { margin: 24px 0 0; text-align: center; }
-@media (max-width: 760px) { .panel-heading { align-items: stretch; flex-direction: column; } .create-form { align-items: stretch; flex-direction: column; } }
+@media (max-width: 760px) { .panel-heading { align-items: stretch; flex-direction: column; } .create-form { grid-template-columns: 1fr; } .remark-field { grid-column: auto; } }
 </style>

@@ -15,6 +15,17 @@ public sealed class InspectionTasksController : ControllerBase
         _inspectionTaskAppService = inspectionTaskAppService;
     }
 
+    [HttpGet("options")]
+    [ProducesResponseType(typeof(ApiResponse<InspectionTaskOptionsDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<InspectionTaskOptionsDto>>> GetOptions(
+        CancellationToken cancellationToken)
+    {
+        var options = await _inspectionTaskAppService.GetOptionsAsync(cancellationToken);
+        return Ok(ApiResponse<InspectionTaskOptionsDto>.Success(
+            options,
+            HttpContext.TraceIdentifier));
+    }
+
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<InspectionTaskDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<InspectionTaskDto>>>> GetPaged(

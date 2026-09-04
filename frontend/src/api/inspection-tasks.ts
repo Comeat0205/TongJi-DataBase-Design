@@ -25,6 +25,20 @@ export interface UpdateInspectionTaskStatusRequest {
   remark?: string
 }
 
+export interface MaintenanceOption {
+  id: number
+  name: string
+}
+
+export interface InspectionTaskOptions {
+  venues: MaintenanceOption[]
+  employees: MaintenanceOption[]
+}
+
+export function getInspectionTaskOptions() {
+  return http.get<InspectionTaskOptions>('/inspection-tasks/options')
+}
+
 export function getInspectionTasks(status?: InspectionStatus) {
   const params = new URLSearchParams({ pageNumber: '1', pageSize: '100' })
   if (status) {

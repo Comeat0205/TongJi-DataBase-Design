@@ -4,6 +4,7 @@ namespace Application.Interfaces;
 
 public interface IInspectionTaskAppService
 {
+    Task<InspectionTaskOptionsDto> GetOptionsAsync(CancellationToken cancellationToken = default);
     Task<InspectionTaskDto?> GetByIdAsync(
         int id,
         CancellationToken cancellationToken = default);

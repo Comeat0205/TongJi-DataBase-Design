@@ -15,6 +15,17 @@ public sealed class RepairRecordsController : ControllerBase
         _repairRecordAppService = repairRecordAppService;
     }
 
+    [HttpGet("options")]
+    [ProducesResponseType(typeof(ApiResponse<RepairRecordOptionsDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<RepairRecordOptionsDto>>> GetOptions(
+        CancellationToken cancellationToken)
+    {
+        var options = await _repairRecordAppService.GetOptionsAsync(cancellationToken);
+        return Ok(ApiResponse<RepairRecordOptionsDto>.Success(
+            options,
+            HttpContext.TraceIdentifier));
+    }
+
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<RepairRecordDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<RepairRecordDto>>>> GetPaged(

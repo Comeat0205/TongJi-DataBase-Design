@@ -4,6 +4,7 @@ namespace Application.Interfaces;
 
 public interface IRepairRecordAppService
 {
+    Task<RepairRecordOptionsDto> GetOptionsAsync(CancellationToken cancellationToken = default);
     Task<RepairRecordDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RepairRecordDto>> GetPagedAsync(
         int pageNumber,

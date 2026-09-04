@@ -10,6 +10,10 @@ public interface IRepairRecordRepository : IRepository<Repairrecord, int>
         int pageSize,
         string? status,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, string>> GetEquipmentOptionsAsync(
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, string>> GetEmployeeOptionsAsync(
+        CancellationToken cancellationToken = default);
     Task<bool> EquipmentExistsAsync(int equipId, CancellationToken cancellationToken = default);
     Task<bool> EmployeeExistsAsync(int empId, CancellationToken cancellationToken = default);
     Task<int> GetNextIdAsync(CancellationToken cancellationToken = default);

@@ -48,6 +48,31 @@ public sealed class InspectionTaskRepository : Repository<Inspectiontask, int>, 
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<int, string>> GetVenueOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.Venues
+            .AsNoTracking()
+            .OrderBy(venue => venue.VenueId)
+            .ToDictionaryAsync(
+                venue => venue.VenueId,
+                venue => venue.VenueName,
+                cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<int, string>> GetEmployeeOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.Employees
+            .AsNoTracking()
+            .Where(employee => employee.Status == null || employee.Status != "0")
+            .OrderBy(employee => employee.EmpId)
+            .ToDictionaryAsync(
+                employee => employee.EmpId,
+                employee => employee.EmpName,
+                cancellationToken);
+    }
+
     public async Task<IReadOnlyDictionary<int, string>> GetVenueNamesAsync(
         IEnumerable<int> venueIds,
         CancellationToken cancellationToken = default)

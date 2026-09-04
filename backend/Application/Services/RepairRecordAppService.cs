@@ -35,6 +35,19 @@ public sealed class RepairRecordAppService : IRepairRecordAppService
         _unitOfWork = unitOfWork;
     }
 
+    public async Task<RepairRecordOptionsDto> GetOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var equipment = await _repairRecordRepository.GetEquipmentOptionsAsync(cancellationToken);
+        var employees = await _repairRecordRepository.GetEmployeeOptionsAsync(cancellationToken);
+
+        return new RepairRecordOptionsDto
+        {
+            Equipment = MapOptions(equipment),
+            Employees = MapOptions(employees)
+        };
+    }
+
     public async Task<RepairRecordDto?> GetByIdAsync(
         int id,
         CancellationToken cancellationToken = default)
@@ -171,5 +184,18 @@ public sealed class RepairRecordAppService : IRepairRecordAppService
             Status = record.Status ?? "待处理",
             Description = record.Description
         };
+    }
+
+    private static IReadOnlyList<MaintenanceOptionDto> MapOptions(
+        IReadOnlyDictionary<int, string> options)
+    {
+        return options
+            .OrderBy(option => option.Key)
+            .Select(option => new MaintenanceOptionDto
+            {
+                Id = option.Key,
+                Name = option.Value
+            })
+            .ToList();
     }
 }
