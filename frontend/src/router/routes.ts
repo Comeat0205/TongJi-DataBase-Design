@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 const Placeholder = () => import('@/views/shared/ModulePlaceholderView.vue')
 const MemberHome = () => import('@/views/member/MemberHomeView.vue')
 const MemberProfile = () => import('@/views/member/MemberProfileView.vue')
+const GroupCourseList = () => import('@/views/member/GroupCourseListView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 
@@ -88,20 +89,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         features: '#5 #6 #7 #18',
       },
       {
-        path: 'group-courses',
-        name: `${p}-group-courses`,
-        pageTitle: '团课预约',
-        owner: 'F',
-        features: '#4 #8 #9 #19',
-      },
-      {
-        path: 'my-group-bookings',
-        name: `${p}-my-group-bookings`,
-        pageTitle: '我的团课预约',
-        owner: 'F',
-        features: '#8 #9 #10 #11',
-      },
-      {
         path: 'pt-packages',
         name: `${p}-pt-packages`,
         pageTitle: '私教课包',
@@ -137,6 +124,30 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         features: '#18',
       },
     ]),
+    {
+      path: 'group-courses',
+      name: `${p}-group-courses`,
+      component: GroupCourseList,
+      meta: {
+        pageTitle: '团课预约',
+        owner: 'F',
+        features: '#4 #8 #9 #19',
+        preview: mode === 'preview',
+        userType: 'member',
+      },
+    },
+    {
+      path: 'my-group-bookings',
+      name: `${p}-my-group-bookings`,
+      component: Placeholder,
+      meta: {
+        pageTitle: '我的团课预约',
+        owner: 'F',
+        features: '#8 #9 #10 #11',
+        preview: mode === 'preview',
+        userType: 'member',
+      },
+    },
   ]
 }
 
