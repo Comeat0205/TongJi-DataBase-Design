@@ -4,6 +4,7 @@ namespace Application.Services;
 
 internal static class PersonalTrainingRules
 {
+    // 共享库 CHECK：PACKAGE_STATUS IN ('有效','已用完','已过期')
     private static readonly HashSet<string> InactivePackageStatuses =
     [
         "2",
@@ -11,16 +12,19 @@ internal static class PersonalTrainingRules
         "EXPIRED",
         "CANCELLED",
         "已过期",
+        "已用完",
         "已取消",
         "停用"
     ];
 
     public static bool IsPackageUsable(Personalpackage package, DateTime now)
     {
-        var status = package.PackageStatus.Trim().ToUpperInvariant();
+        var status = package.PackageStatus.Trim();
+        var normalized = status.ToUpperInvariant();
         return package.RemainingSessions > 0
             && package.ExpireDate.Date >= now.Date
-            && !InactivePackageStatuses.Contains(status);
+            && !InactivePackageStatuses.Contains(status)
+            && !InactivePackageStatuses.Contains(normalized);
     }
 
     public static string GetBookingStatus(Ptbooking booking)

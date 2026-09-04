@@ -89,7 +89,8 @@ BEGIN
     END IF;
 
     IF UPPER(TRIM(v_package_status)) IN
-        ('2', 'INACTIVE', 'EXPIRED', 'CANCELLED', '已过期', '已取消', '停用') THEN
+        ('2', 'INACTIVE', 'EXPIRED', 'CANCELLED', '已过期', '已用完', '已取消', '停用')
+       OR TRIM(v_package_status) IN ('已过期', '已用完', '已取消', '停用') THEN
         p_message := '课包当前不可用';
         RETURN;
     END IF;

@@ -7,7 +7,8 @@ database/oracle/
 ├── views/          ← 视图，文件名 v_*.sql
 ├── procedures/     ← 存储过程，文件名 sp_*.sql
 ├── functions/      ← 函数，文件名 fn_*.sql
-└── triggers/       ← 触发器，文件名 trg_*.sql
+├── triggers/       ← 触发器，文件名 trg_*.sql
+└── seed_*.sql      ← 各模块演示数据（可重复执行）
 ```
 
 ## 怎么执行
@@ -25,8 +26,12 @@ database/oracle/
 | `functions/fn_is_card_valid.sql` | 函数 | D |
 | `triggers/trg_checkin_update_venue.sql` | 触发器 | E |
 | `procedures/sp_book_group_course.sql` | 存储过程 | F |
+| `procedures/sp_book_personal_training.sql` | 存储过程 | G |
+| `seed_personal_training_demo.sql` | 演示数据 | G |
 
-C、G、H、I 在对应子目录 **新建** 自己的 `.sql`，不要覆盖他人文件。
+C、G、H、I 在对应子目录 **新建** 自己的 `.sql`，不要覆盖他人文件。演示数据用固定编号区间，只清自己的 seed ID。
+
+**G 课包状态：** 共享库检查约束只允许 `有效` / `已用完` / `已过期`（不要写 `'1'` / `'2'`）。
 
 ## 执行后怎么确认
 
