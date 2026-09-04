@@ -43,11 +43,11 @@ const filteredVenueList = computed(() => {
 })
 
 function resolveStatusLabel(value?: string) {
-  return value === '停用' ? '停用' : '正常'
+  return value === '0' ? '停用' : '正常'
 }
 
 function resolveBadgeTone(value?: string) {
-  return value === '停用' ? 'is-inactive' : 'is-active'
+  return value === '0' ? 'is-inactive' : 'is-active'
 }
 
 function resolveImageUrl(value?: string | null) {

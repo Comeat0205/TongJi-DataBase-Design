@@ -17,12 +17,14 @@ public sealed class VenueAppService : IVenueAppService
     };
 
     private readonly IVenueRepository _venueRepository;
+    private readonly IEquipmentRepository _equipmentRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly string _imageRootPath;
 
-    public VenueAppService(IVenueRepository venueRepository, IUnitOfWork unitOfWork)
+    public VenueAppService(IVenueRepository venueRepository, IEquipmentRepository equipmentRepository, IUnitOfWork unitOfWork)
     {
         _venueRepository = venueRepository;
+        _equipmentRepository = equipmentRepository;
         _unitOfWork = unitOfWork;
         _imageRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Api", "wwwroot", "uploads", "venues"));
     }
@@ -77,14 +79,11 @@ public sealed class VenueAppService : IVenueAppService
             venue.CurrentCapacity = request.MaxCapacity;
         }
 
-        if (venueStatus == "0")
+        var equipments = await _equipmentRepository.GetManagementListAsync(null, "all", venue.VenueId, cancellationToken);
+        foreach (var equipment in equipments)
         {
-            var equipments = await _unitOfWork.EquipmentRepository.GetManagementListAsync(null, "all", venue.VenueId, cancellationToken);
-            foreach (var equipment in equipments)
-            {
-                equipment.Status = "0";
-                _unitOfWork.EquipmentRepository.Update(equipment);
-            }
+            equipment.Status = venueStatus;
+            _equipmentRepository.Update(equipment);
         }
 
         _venueRepository.Update(venue);
