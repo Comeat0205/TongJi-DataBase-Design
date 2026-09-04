@@ -35,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<IRepairRecordAppService, RepairRecordAppService>();
         services.AddScoped<IInspectionTaskAppService, InspectionTaskAppService>();
         
+        // feature/schedule 日程管理模块
+        services.AddScoped<IScheduleAppService, ScheduleAppService>();
         return services;
     }
 }

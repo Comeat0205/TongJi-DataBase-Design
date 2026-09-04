@@ -51,6 +51,11 @@ public static class DependencyInjection
         services.AddScoped<IRepairRecordRepository, RepairRecordRepository>();
         services.AddScoped<IInspectionTaskRepository, InspectionTaskRepository>();
         
+        
+         // feature/schedule 日程管理模块
+        services.AddScoped<IMemberScheduleRepository, MemberScheduleRepository>();
+        services.AddScoped<ICoachScheduleRepository, CoachScheduleRepository>();
+        
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

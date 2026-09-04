@@ -27,6 +27,8 @@ const CapacityLogs = () => import('@/views/admin/CapacityLogsView.vue')
 const PtConfirm = () => import('@/views/coach/PtConfirmView.vue')
 const RepairRecords = () => import('@/views/admin/RepairRecordListView.vue')
 const InspectionTasks = () => import('@/views/admin/InspectionTaskListView.vue')
+const MemberSchedule = () => import('@/views/member/MemberScheduleView.vue')
+const CoachSchedule = () => import('@/views/coach/CoachScheduleView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
 type RouteMode = 'auth' | 'preview'
@@ -143,6 +145,22 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
 
 
 
+    // feature/schedule 日程管理模块
+    {
+      path: 'schedule',
+      name: `${p}-schedule`,
+      component: MemberSchedule,
+      meta: {
+        pageTitle: '我的日程',
+        owner: 'J',
+        features: '#11 #13',
+        preview: mode === 'preview',
+        userType: 'member',
+      },
+    },
+
+
+
     // feature/payment-marketing  支付与营销模块
     {
       path: 'orders',
@@ -184,13 +202,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '我的团课预约',
         owner: 'F',
         features: '#8 #9 #10 #11',
-      },
-      {
-        path: 'schedule',
-        name: `${p}-schedule`,
-        pageTitle: '我的日程',
-        owner: 'J',
-        features: '#11 #13',
       },
     ]),
   ]
@@ -358,7 +369,7 @@ function coachChildren(mode: RouteMode): RouteRecordRaw[] {
       component: CoachHome,
       meta: { userType: 'coach', preview: mode === 'preview' },
     },
-    
+
     
 
     // feature/personal-training  私教课包与预约模块
@@ -371,15 +382,19 @@ function coachChildren(mode: RouteMode): RouteRecordRaw[] {
 
 
 
-    ...placeholderChildRoutes('coach', mode, [
-      {
-        path: 'schedule',
-        name: `${p}-schedule`,
+    // feature/schedule 日程管理模块
+    {
+      path: 'schedule',
+      name: `${p}-schedule`,
+      component: CoachSchedule,
+      meta: {
         pageTitle: '教练日程',
         owner: 'J',
         features: '#4 #11 #13',
+        preview: mode === 'preview',
+        userType: 'coach',
       },
-    ]),
+    }
   ]
 }
 
