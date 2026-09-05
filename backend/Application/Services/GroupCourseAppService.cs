@@ -24,12 +24,30 @@ public class GroupCourseAppService : IGroupCourseAppService
             {
                 CourseId = c.CourseId,
                 CourseName = c.CourseName,
+
                 MaxCapacity = c.MaxCapacity,
                 CurrentCapacity = c.CurrentCapacity ?? 0,
+
                 CourseSummary = c.CourseSummary,
+
                 TypeId = c.TypeId,
+                CourseTypeName = c.Type.TypeName,
+
                 CoachId = c.CoachId,
-                TimeSlotId = c.TimeSlotId
+                CoachName = c.Coach.CoachName,
+
+                TimeSlotId = c.TimeSlotId,
+
+                TimeSlots = c.TimeSlot.TimeSlotInstances
+                    .OrderBy(t => t.CourseDate)
+                    .ThenBy(t => t.StartTime)
+                    .Select(t => new GroupCourseTimeSlotDto
+                    {
+                        CourseDate = t.CourseDate,
+                        StartTime = t.StartTime,
+                        EndTime = t.EndTime
+                    })
+                    .ToList()
             })
             .ToList();
     }

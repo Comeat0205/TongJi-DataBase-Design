@@ -17,6 +17,10 @@ public class GroupcourseRepository : Repository<Groupcourse, int>, IGroupcourseR
     {
         return await DbSet
             .AsNoTracking()
+            .Include(c => c.Coach)
+            .Include(c => c.Type)
+            .Include(c => c.TimeSlot)
+                .ThenInclude(t => t.TimeSlotInstances)
             .OrderBy(c => c.CourseId)
             .ToListAsync(cancellationToken);
     }

@@ -4,6 +4,8 @@ const Placeholder = () => import('@/views/shared/ModulePlaceholderView.vue')
 const MemberHome = () => import('@/views/member/MemberHomeView.vue')
 const MemberProfile = () => import('@/views/member/MemberProfileView.vue')
 const GroupCourseList = () => import('@/views/member/GroupCourseListView.vue')
+const GroupCourseBooking = () =>
+  import('@/views/member/GroupCourseBookingView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 
@@ -139,7 +141,7 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
     {
       path: 'my-group-bookings',
       name: `${p}-my-group-bookings`,
-      component: Placeholder,
+      component: GroupCourseBooking,
       meta: {
         pageTitle: '我的团课预约',
         owner: 'F',
@@ -162,101 +164,101 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       meta: { userType: 'employee', preview: mode === 'preview' },
     },
     ...placeholderChildRoutes('admin', mode, [
-    {
-      path: 'check-in-desk',
-      name: `${p}-check-in-desk`,
-      pageTitle: '前台入场',
-      owner: 'E',
-      features: '#5 #6 #7',
-    },
-    {
-      path: 'capacity-logs',
-      name: `${p}-capacity-logs`,
-      pageTitle: '容量日志',
-      owner: 'E',
-      features: '#7 #21',
-    },
-    {
-      path: 'members',
-      name: `${p}-members`,
-      pageTitle: '会员管理',
-      owner: 'C',
-      features: '#1 #2 #17',
-    },
-    {
-      path: 'coaches',
-      name: `${p}-coaches`,
-      pageTitle: '教练管理',
-      owner: 'C',
-      features: '#3 #4',
-    },
-    {
-      path: 'course-types',
-      name: `${p}-course-types`,
-      pageTitle: '课程类型维护',
-      owner: 'C / F',
-      features: '#3 #4',
-    },
-    {
-      path: 'venues',
-      name: `${p}-venues`,
-      pageTitle: '场馆管理',
-      owner: 'C',
-    },
-    {
-      path: 'equipment',
-      name: `${p}-equipment`,
-      pageTitle: '器材管理',
-      owner: 'C',
-      features: '#15',
-    },
-    {
-      path: 'card-products',
-      name: `${p}-card-products`,
-      pageTitle: '卡商品管理',
-      owner: 'D',
-    },
-    {
-      path: 'group-courses',
-      name: `${p}-group-courses`,
-      pageTitle: '团课排期管理',
-      owner: 'F',
-      features: '#3 #4',
-    },
-    {
-      path: 'orders',
-      name: `${p}-orders`,
-      pageTitle: '订单管理',
-      owner: 'H',
-    },
-    {
-      path: 'vouchers',
-      name: `${p}-vouchers`,
-      pageTitle: '优惠券管理',
-      owner: 'H',
-      features: '#18 #20',
-    },
-    {
-      path: 'repairs',
-      name: `${p}-repairs`,
-      pageTitle: '器材报修',
-      owner: 'I',
-      features: '#15',
-    },
-    {
-      path: 'inspections',
-      name: `${p}-inspections`,
-      pageTitle: '巡检任务',
-      owner: 'I',
-      features: '#16',
-    },
-    {
-      path: 'at-risk-members',
-      name: `${p}-at-risk-members`,
-      pageTitle: '流失预警会员',
-      owner: 'H',
-      features: '#17',
-    },
+      {
+        path: 'check-in-desk',
+        name: `${p}-check-in-desk`,
+        pageTitle: '前台入场',
+        owner: 'E',
+        features: '#5 #6 #7',
+      },
+      {
+        path: 'capacity-logs',
+        name: `${p}-capacity-logs`,
+        pageTitle: '容量日志',
+        owner: 'E',
+        features: '#7 #21',
+      },
+      {
+        path: 'members',
+        name: `${p}-members`,
+        pageTitle: '会员管理',
+        owner: 'C',
+        features: '#1 #2 #17',
+      },
+      {
+        path: 'coaches',
+        name: `${p}-coaches`,
+        pageTitle: '教练管理',
+        owner: 'C',
+        features: '#3 #4',
+      },
+      {
+        path: 'course-types',
+        name: `${p}-course-types`,
+        pageTitle: '课程类型维护',
+        owner: 'C / F',
+        features: '#3 #4',
+      },
+      {
+        path: 'venues',
+        name: `${p}-venues`,
+        pageTitle: '场馆管理',
+        owner: 'C',
+      },
+      {
+        path: 'equipment',
+        name: `${p}-equipment`,
+        pageTitle: '器材管理',
+        owner: 'C',
+        features: '#15',
+      },
+      {
+        path: 'card-products',
+        name: `${p}-card-products`,
+        pageTitle: '卡商品管理',
+        owner: 'D',
+      },
+      {
+        path: 'group-courses',
+        name: `${p}-group-courses`,
+        pageTitle: '团课排期管理',
+        owner: 'F',
+        features: '#3 #4',
+      },
+      {
+        path: 'orders',
+        name: `${p}-orders`,
+        pageTitle: '订单管理',
+        owner: 'H',
+      },
+      {
+        path: 'vouchers',
+        name: `${p}-vouchers`,
+        pageTitle: '优惠券管理',
+        owner: 'H',
+        features: '#18 #20',
+      },
+      {
+        path: 'repairs',
+        name: `${p}-repairs`,
+        pageTitle: '器材报修',
+        owner: 'I',
+        features: '#15',
+      },
+      {
+        path: 'inspections',
+        name: `${p}-inspections`,
+        pageTitle: '巡检任务',
+        owner: 'I',
+        features: '#16',
+      },
+      {
+        path: 'at-risk-members',
+        name: `${p}-at-risk-members`,
+        pageTitle: '流失预警会员',
+        owner: 'H',
+        features: '#17',
+      },
     ]),
   ]
 }

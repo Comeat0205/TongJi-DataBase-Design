@@ -9,6 +9,8 @@ import {
 import { bookGroupCourse } from '../../api/groupCourseBookings'
 import { useAuthStore } from '../../stores/auth'
 
+const authStore = useAuthStore()
+
 const courses = ref<GroupCourse[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -39,8 +41,22 @@ function isFull(course: GroupCourse) {
   return course.currentCapacity >= course.maxCapacity
 }
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 async function handleBooking(course: GroupCourse) {
-  const authStore = useAuthStore()
   const memberId = authStore.session?.userId
 
   if (!memberId) {
@@ -150,21 +166,46 @@ onMounted(() => {
         </p>
 
         <div class="course-info">
-          <div class="info-item">
-            <span class="label">教练</span>
-            <strong>教练 {{ course.coachId }}</strong>
-          </div>
+  <div class="info-item">
+    <span class="label">课程类型</span>
+    <strong>{{ course.courseTypeName }}</strong>
+  </div>
 
-          <div class="info-item">
-            <span class="label">时间</span>
-            <strong>{{ course.timeSlotId }}</strong>
-          </div>
+  <div class="info-item">
+    <span class="label">教练</span>
+    <strong>{{ course.coachName }}</strong>
+  </div>
 
-          <div class="info-item">
-            <span class="label">人数</span>
-            <strong>{{ getCapacityText(course) }}</strong>
-          </div>
-        </div>
+  <div class="info-item">
+    <span class="label">人数</span>
+    <strong>{{ getCapacityText(course) }}</strong>
+  </div>
+</div>
+
+<div
+  v-if="course.timeSlots.length > 0"
+  class="course-times"
+>
+  <span class="label">上课时间</span>
+
+  <div
+    v-for="slot in course.timeSlots"
+    :key="`${slot.courseDate}-${slot.startTime}`"
+    class="course-time"
+  >
+    {{ formatDate(slot.courseDate) }}
+    {{ formatTime(slot.startTime) }}
+    -
+    {{ formatTime(slot.endTime) }}
+  </div>
+</div>
+
+<div
+  v-else
+  class="course-times empty"
+>
+  上课时间暂未安排
+</div>
 
         <button
   class="booking-button"
@@ -185,6 +226,29 @@ onMounted(() => {
 </template>
 
 <style scoped>
+
+.course-times {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  color: #334155;
+}
+
+.course-times .label {
+  display: block;
+  margin-bottom: 8px;
+  color: #64748b;
+}
+
+.course-time {
+  line-height: 1.8;
+  color: #334155;
+}
+
+.course-times.empty {
+  color: #64748b;
+}
+
 .group-course-page {
   width: 100%;
 }

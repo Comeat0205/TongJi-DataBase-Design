@@ -13,4 +13,13 @@ public interface IGroupCourseBookingRepository : IRepository<GroupCourseBooking,
         int memberId,
         int courseId,
         CancellationToken cancellationToken = default);
+
+    Task<(bool Success, string Message)> CancelAsync(
+    int memberId,
+    int courseId,
+    CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<GroupCourseBooking>> GetByMemberIdAsync(
+        int memberId,
+        CancellationToken cancellationToken = default);
 }

@@ -27,6 +27,18 @@ public sealed class GroupCourseBookingRepository
 
     return booking != 0;
 }
+    public async Task<IReadOnlyList<GroupCourseBooking>> GetByMemberIdAsync(
+    int memberId,
+    CancellationToken cancellationToken = default)
+{
+    return await DbSet
+        .AsNoTracking()
+        .Include(x => x.Course)
+        .Where(x => x.MemberId == memberId)
+        .OrderByDescending(x => x.BookingTime)
+        .ToListAsync(cancellationToken);
+}
+
     public async Task<(bool Success, int BookingId, string Message)> BookAsync(
         int memberId,
         int courseId,
@@ -100,4 +112,59 @@ public sealed class GroupCourseBookingRepository
 
         return (success, success ? bookingId : 0, message);
     }
+
+    public async Task<(bool Success, string Message)> CancelAsync(
+    int memberId,
+    int courseId,
+    CancellationToken cancellationToken = default)
+{
+    await using var connection = Context.Database.GetDbConnection();
+
+    if (connection.State != ConnectionState.Open)
+    {
+        await connection.OpenAsync(cancellationToken);
+    }
+
+    await using var command = connection.CreateCommand();
+    command.CommandText = "sp_cancel_group_course";
+    command.CommandType = CommandType.StoredProcedure;
+
+    var memberParameter = command.CreateParameter();
+    memberParameter.ParameterName = "p_member_id";
+    memberParameter.DbType = DbType.Int32;
+    memberParameter.Direction = ParameterDirection.Input;
+    memberParameter.Value = memberId;
+
+    var courseParameter = command.CreateParameter();
+    courseParameter.ParameterName = "p_course_id";
+    courseParameter.DbType = DbType.Int32;
+    courseParameter.Direction = ParameterDirection.Input;
+    courseParameter.Value = courseId;
+
+    var resultParameter = command.CreateParameter();
+    resultParameter.ParameterName = "p_result";
+    resultParameter.DbType = DbType.Decimal;
+    resultParameter.Direction = ParameterDirection.Output;
+
+    var messageParameter = command.CreateParameter();
+    messageParameter.ParameterName = "p_message";
+    messageParameter.DbType = DbType.String;
+    messageParameter.Size = 4000;
+    messageParameter.Direction = ParameterDirection.Output;
+
+    command.Parameters.Add(memberParameter);
+    command.Parameters.Add(courseParameter);
+    command.Parameters.Add(resultParameter);
+    command.Parameters.Add(messageParameter);
+
+    await command.ExecuteNonQueryAsync(cancellationToken);
+
+    var success =
+        Convert.ToDecimal(resultParameter.Value) == 1;
+
+    var message =
+        messageParameter.Value?.ToString() ?? "取消预约失败";
+
+    return (success, message);
+}
 }
