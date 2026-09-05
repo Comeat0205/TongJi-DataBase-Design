@@ -143,28 +143,32 @@ onMounted(loadBookings)
           </span>
         </div>
 
-        <dl>
-          <div>
-            <dt>会员编号</dt>
-            <dd>#{{ item.memberId }}</dd>
+        <div class="meta">
+          <div class="meta-row primary">
+            <div>
+              <span class="label">会员编号</span>
+              <strong>#{{ item.memberId }}</strong>
+            </div>
+            <div>
+              <span class="label">使用课包</span>
+              <strong>#{{ item.packageId }}</strong>
+            </div>
+            <div>
+              <span class="label">提交时间</span>
+              <strong>{{ formatDateTime(item.bookingTime) }}</strong>
+            </div>
           </div>
-          <div>
-            <dt>使用课包</dt>
-            <dd>#{{ item.packageId }}</dd>
+          <div class="meta-row secondary">
+            <div>
+              <span class="label">消课状态</span>
+              <strong>{{ item.isConsumed ? '已消课' : '未消课' }}</strong>
+            </div>
+            <div v-if="item.consumedTime">
+              <span class="label">消课时间</span>
+              <strong>{{ formatDateTime(item.consumedTime) }}</strong>
+            </div>
           </div>
-          <div>
-            <dt>提交时间</dt>
-            <dd>{{ formatDateTime(item.bookingTime) }}</dd>
-          </div>
-          <div>
-            <dt>消课状态</dt>
-            <dd>{{ item.isConsumed ? '已消课' : '未消课' }}</dd>
-          </div>
-          <div v-if="item.consumedTime">
-            <dt>消课时间</dt>
-            <dd>{{ formatDateTime(item.consumedTime) }}</dd>
-          </div>
-        </dl>
+        </div>
 
         <div class="actions">
           <template v-if="item.status === 'PENDING'">
@@ -270,13 +274,18 @@ button:disabled {
 
 .confirmation-card {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(330px, 1.4fr) auto;
+  /* 左右固定宽，中间字段跨卡片竖向对齐 */
+  grid-template-columns: 220px minmax(0, 1fr) 200px;
   gap: 24px;
   align-items: center;
   padding: 22px;
   border-radius: var(--tj-radius);
   background: var(--tj-card-bg);
   box-shadow: var(--tj-shadow);
+}
+
+.booking-main {
+  min-width: 0;
 }
 
 .booking-id {
@@ -290,6 +299,10 @@ button:disabled {
 .booking-main h2 {
   margin: 6px 0;
   color: var(--tj-text);
+  font-size: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .time {
@@ -319,32 +332,54 @@ button:disabled {
   color: #a13a3a;
 }
 
-dl {
+.meta {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
-  margin: 0;
+  min-width: 0;
 }
 
-dt {
+.meta-row {
+  display: grid;
+  gap: 12px 20px;
+}
+
+.meta-row.primary {
+  grid-template-columns: 88px 88px minmax(0, 1fr);
+}
+
+.meta-row.secondary {
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.meta .label {
+  display: block;
   color: var(--tj-text-muted);
   font-size: 12px;
 }
 
-dd {
-  margin: 5px 0 0;
+.meta strong {
+  display: block;
+  margin-top: 5px;
   color: var(--tj-text);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 40px;
 }
 
 .readonly-status {
   color: var(--tj-text-muted);
   font-size: 13px;
+  text-align: right;
 }
 
 @media (max-width: 1050px) {
@@ -358,7 +393,8 @@ dd {
 }
 
 @media (max-width: 560px) {
-  dl {
+  .meta-row.primary,
+  .meta-row.secondary {
     grid-template-columns: 1fr;
   }
 
