@@ -8,6 +8,8 @@ const GroupCourseBooking = () =>
   import('@/views/member/GroupCourseBookingView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
 const AdminGroupCourse = () => import('@/views/admin/AdminGroupCourseView.vue')
+const AdminCourseType = () =>
+  import('@/views/admin/AdminCourseTypeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
@@ -200,13 +202,7 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         owner: 'C',
         features: '#3 #4',
       },
-      {
-        path: 'course-types',
-        name: `${p}-course-types`,
-        pageTitle: '课程类型维护',
-        owner: 'C / F',
-        features: '#3 #4',
-      },
+
       {
         path: 'venues',
         name: `${p}-venues`,
@@ -261,6 +257,20 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         features: '#17',
       },
     ]),
+
+    {
+      path: 'course-types',
+      name: `${p}-course-types`,
+      component: AdminCourseType,
+      meta: {
+        pageTitle: '课程类型维护',
+        owner: 'C',
+        features: '#3 #4',
+        preview: mode === 'preview',
+        userType: 'employee',
+      },
+    },
+
     {
       path: 'group-courses',
       name: `${p}-group-courses`,

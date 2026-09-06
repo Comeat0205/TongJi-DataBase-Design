@@ -2,10 +2,7 @@
 import { onMounted, ref } from 'vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import {
-  createCourseType,
-  deleteCourseType,
   getCourseTypes,
-  updateCourseType,
   type CourseType,
 } from '@/api/courseTypes'
 import {
@@ -32,12 +29,6 @@ const courseLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
-const showForm = ref(false)
-const editing = ref(false)
-
-const formTypeId = ref<number | null>(null)
-const formTypeName = ref('')
-
 const showCourseForm = ref(false)
 const editingCourse = ref(false)
 
@@ -48,6 +39,12 @@ const formCourseSummary = ref('')
 const formCourseTypeId = ref<number | null>(null)
 const formCoachId = ref<number | null>(null)
 const formTimeSlotId = ref('')
+const availableTimeSlots = ref<
+  {
+    timeSlotId: string
+    label: string
+  }[]
+>([])
 const scheduleCourseId = ref<number | null>(null)
 const scheduleCoachId = ref<number | null>(null)
 const scheduleCourseDate = ref('')
@@ -135,7 +132,6 @@ async function checkScheduleConflict() {
     scheduleLoading.value = false
   }
 }
-
 async function loadCourseTypes() {
   loading.value = true
   errorMessage.value = ''
@@ -149,13 +145,39 @@ async function loadCourseTypes() {
     loading.value = false
   }
 }
-
 async function loadGroupCourses() {
   courseLoading.value = true
   errorMessage.value = ''
 
   try {
     groupCourses.value = await getGroupCourses()
+
+    const timeSlotMap = new Map<
+      string,
+      {
+        timeSlotId: string
+        label: string
+      }
+    >()
+
+    for (const course of groupCourses.value) {
+      const slot = course.timeSlots?.[0]
+
+      if (!slot || !course.timeSlotId) {
+        continue
+      }
+
+      const label = `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
+
+      if (!timeSlotMap.has(course.timeSlotId)) {
+        timeSlotMap.set(course.timeSlotId, {
+          timeSlotId: course.timeSlotId,
+          label,
+        })
+      }
+    }
+
+    availableTimeSlots.value = Array.from(timeSlotMap.values())
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : '团课加载失败'
@@ -173,87 +195,23 @@ async function loadCoaches() {
   }
 }
 
-function openCreateForm() {
-  editing.value = false
-  formTypeId.value = null
-  formTypeName.value = ''
-  errorMessage.value = ''
-  successMessage.value = ''
-  showForm.value = true
+function formatTime(value: string) {
+  if (!value) {
+    return ''
+  }
+
+  const match = value.match(/(\d{2}):(\d{2})/)
+  return match ? `${match[1]}:${match[2]}` : value
 }
 
-function openEditForm(courseType: CourseType) {
-  editing.value = true
-  formTypeId.value = courseType.typeId
-  formTypeName.value = courseType.typeName
-  errorMessage.value = ''
-  successMessage.value = ''
-  showForm.value = true
-}
+function getCourseTimeLabel(course: GroupCourse) {
+  const slot = course.timeSlots?.[0]
 
-function closeForm() {
-  showForm.value = false
-}
-
-async function submitForm() {
-  errorMessage.value = ''
-  successMessage.value = ''
-
-  const typeName = formTypeName.value.trim()
-
-  if (!editing.value && (!formTypeId.value || formTypeId.value <= 0)) {
-    errorMessage.value = '请输入有效的课程类型ID'
-    return
+  if (!slot) {
+    return '暂无具体时间'
   }
 
-  if (!typeName) {
-    errorMessage.value = '请输入课程类型名称'
-    return
-  }
-
-  try {
-    if (editing.value) {
-      await updateCourseType(formTypeId.value!, {
-        typeId: formTypeId.value!,
-        typeName,
-      })
-      successMessage.value = '课程类型修改成功'
-    } else {
-      await createCourseType({
-        typeId: formTypeId.value!,
-        typeName,
-      })
-      successMessage.value = '课程类型创建成功'
-    }
-
-    showForm.value = false
-    await loadCourseTypes()
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : '操作失败，请稍后重试'
-  }
-}
-
-async function removeCourseType(courseType: CourseType) {
-  const confirmed = window.confirm(
-    `确定要删除课程类型「${courseType.typeName}」吗？`,
-  )
-
-  if (!confirmed) {
-    return
-  }
-
-  errorMessage.value = ''
-  successMessage.value = ''
-
-  try {
-    await deleteCourseType(courseType.typeId)
-    successMessage.value = '课程类型删除成功'
-    await loadCourseTypes()
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : '删除失败，请稍后重试'
-  }
+  return `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
 }
 
 function resetCourseForm() {
@@ -404,16 +362,9 @@ onMounted(async () => {
     <PageHeader
       eyebrow="Group Course Management"
       title="团课排期管理"
-      subtitle="员工维护课程类型，并管理团课基本信息、教练和上课时间。"
+      subtitle="维护团课基本信息、授课教练、容量和上课时间。"
     >
       <template #actions>
-        <button
-          class="primary-button"
-          type="button"
-          @click="openCreateForm"
-        >
-          新增课程类型
-        </button>
 
         <button
           class="primary-button"
@@ -432,125 +383,6 @@ onMounted(async () => {
     <div v-if="errorMessage" class="message error">
       {{ errorMessage }}
     </div>
-
-    <!-- F9-1 -->
-    <section class="management-card">
-      <div class="card-head">
-        <div>
-          <p class="card-eyebrow">F9-1</p>
-          <h2>课程类型维护</h2>
-        </div>
-
-        <span class="count">
-          {{ courseTypes.length }} 个类型
-        </span>
-      </div>
-
-      <div v-if="loading" class="empty-state">
-        正在加载课程类型……
-      </div>
-
-      <div
-        v-else-if="courseTypes.length === 0"
-        class="empty-state"
-      >
-        暂无课程类型，请先新增。
-      </div>
-
-      <div v-else class="type-list">
-        <article
-          v-for="courseType in courseTypes"
-          :key="courseType.typeId"
-          class="type-item"
-        >
-          <div>
-            <h3>{{ courseType.typeName }}</h3>
-            <p>类型 ID：{{ courseType.typeId }}</p>
-          </div>
-
-          <div class="item-actions">
-            <button
-              class="secondary-button"
-              type="button"
-              @click="openEditForm(courseType)"
-            >
-              编辑
-            </button>
-
-            <button
-              class="danger-button"
-              type="button"
-              @click="removeCourseType(courseType)"
-            >
-              删除
-            </button>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <!-- F9-1 表单 -->
-    <section
-      v-if="showForm"
-      class="management-card form-card"
-    >
-      <div class="card-head">
-        <div>
-          <p class="card-eyebrow">
-            {{ editing ? 'F9-1 · EDIT' : 'F9-1 · CREATE' }}
-          </p>
-
-          <h2>
-            {{ editing ? '修改课程类型' : '新增课程类型' }}
-          </h2>
-        </div>
-      </div>
-
-      <form
-        class="type-form"
-        @submit.prevent="submitForm"
-      >
-        <label>
-          <span>课程类型 ID</span>
-
-          <input
-            v-model.number="formTypeId"
-            type="number"
-            min="1"
-            :disabled="editing"
-            placeholder="例如：160004"
-          />
-        </label>
-
-        <label>
-          <span>课程类型名称</span>
-
-          <input
-            v-model="formTypeName"
-            type="text"
-            maxlength="100"
-            placeholder="例如：普拉提"
-          />
-        </label>
-
-        <div class="form-actions">
-          <button
-            class="secondary-button"
-            type="button"
-            @click="closeForm"
-          >
-            取消
-          </button>
-
-          <button
-            class="primary-button"
-            type="submit"
-          >
-            {{ editing ? '保存修改' : '创建类型' }}
-          </button>
-        </div>
-      </form>
-    </section>
 
     <!-- F9-2 -->
     <section class="management-card">
@@ -610,9 +442,9 @@ onMounted(async () => {
                 {{ course.maxCapacity }}
               </span>
 
-              <span>
-                时间模板：{{ course.timeSlotId }}
-              </span>
+              <p>
+  上课时间：{{ getCourseTimeLabel(course) }}
+</p>
             </div>
 
             <p
@@ -644,171 +476,175 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- F9-2 表单 -->
-    <section
-      v-if="showCourseForm"
-      class="management-card form-card"
-    >
-      <div class="card-head">
-        <div>
-          <p class="card-eyebrow">
-            {{
-              editingCourse
-                ? 'F9-2 · EDIT'
-                : 'F9-2 · CREATE'
-            }}
-          </p>
+    <!-- F9-2 新增 / 编辑团课弹窗 -->
+<div
+  v-if="showCourseForm"
+  class="modal-mask"
+  @click.self="closeCourseForm"
+>
+  <section class="modal-card">
+    <div class="modal-head">
+      <div>
+        <p class="card-eyebrow">
+          {{ editingCourse ? 'F9-2 · EDIT' : 'F9-2 · CREATE' }}
+        </p>
 
-          <h2>
-            {{
-              editingCourse
-                ? '修改团课'
-                : '新增团课'
-            }}
-          </h2>
-        </div>
+        <h2>
+          {{ editingCourse ? '修改团课' : '新增团课' }}
+        </h2>
       </div>
 
-      <form
-        class="course-form"
-        @submit.prevent="submitCourseForm"
+      <button
+        class="close-button"
+        type="button"
+        aria-label="关闭"
+        @click="closeCourseForm"
       >
-        <label>
-          <span>团课 ID</span>
+        ×
+      </button>
+    </div>
 
-          <input
-            v-model.number="formCourseId"
-            type="number"
-            min="1"
-            :disabled="editingCourse"
-            placeholder="例如：100001"
-          />
-        </label>
+    <form
+      class="course-form"
+      @submit.prevent="submitCourseForm"
+    >
+      <label>
+        <span>团课 ID</span>
 
-        <label>
-          <span>团课名称</span>
+        <input
+          v-model.number="formCourseId"
+          type="number"
+          min="1"
+          :disabled="editingCourse"
+          placeholder="例如：100001"
+        />
+      </label>
 
-          <input
-            v-model="formCourseName"
-            type="text"
-            maxlength="100"
-            placeholder="例如：瑜伽基础"
-          />
-        </label>
+      <label>
+        <span>团课名称</span>
 
-        <label>
-          <span>课程类型</span>
+        <input
+          v-model="formCourseName"
+          type="text"
+          maxlength="100"
+          placeholder="例如：瑜伽基础"
+        />
+      </label>
 
-          <select v-model.number="formCourseTypeId">
-            <option :value="null">
-              请选择课程类型
-            </option>
+      <label>
+        <span>课程类型</span>
 
-            <option
-              v-for="courseType in courseTypes"
-              :key="courseType.typeId"
-              :value="courseType.typeId"
-            >
-              {{ courseType.typeName }}
-            </option>
-          </select>
-        </label>
+        <select v-model.number="formCourseTypeId">
+          <option :value="null">
+            请选择课程类型
+          </option>
 
-        <label>
-          <span>授课教练</span>
-
-          <select v-model.number="formCoachId">
-            <option :value="null">
-              请选择授课教练
-            </option>
-
-            <option
-              v-for="coach in coaches"
-              :key="coach.coachId"
-              :value="coach.coachId"
-            >
-              {{ coach.coachName }}
-              <template v-if="coach.specialty">
-                · {{ coach.specialty }}
-              </template>
-            </option>
-          </select>
-        </label>
-
-        <label>
-          <span>最大容量</span>
-
-          <input
-            v-model.number="formMaxCapacity"
-            type="number"
-            min="1"
-            max="32767"
-            placeholder="例如：30"
-          />
-        </label>
-
-        <label>
-          <span>当前报名人数</span>
-
-          <input
-            value="新增时自动为 0"
-            type="text"
-            disabled
-          />
-
-          <small class="form-hint">
-            当前报名人数由预约业务自动维护，管理员不能直接修改。
-          </small>
-        </label>
-
-        <label>
-          <span>时间模板 ID</span>
-
-          <input
-            v-model="formTimeSlotId"
-            type="text"
-            maxlength="20"
-            placeholder="例如：TS001"
-          />
-
-          <small class="form-hint">
-            F9-2 暂时填写已有时间模板 ID；具体日期、开始时间、
-            结束时间以及冲突检测将在 F9-3 完成。
-          </small>
-        </label>
-
-        <label>
-          <span>课程简介</span>
-
-          <textarea
-            v-model="formCourseSummary"
-            rows="4"
-            placeholder="请输入团课简介"
-          />
-        </label>
-
-        <div class="form-actions">
-          <button
-            class="secondary-button"
-            type="button"
-            @click="closeCourseForm"
+          <option
+            v-for="courseType in courseTypes"
+            :key="courseType.typeId"
+            :value="courseType.typeId"
           >
-            取消
-          </button>
+            {{ courseType.typeName }}
+          </option>
+        </select>
+      </label>
 
-          <button
-            class="primary-button"
-            type="submit"
+      <label>
+        <span>授课教练</span>
+
+        <select v-model.number="formCoachId">
+          <option :value="null">
+            请选择授课教练
+          </option>
+
+          <option
+            v-for="coach in coaches"
+            :key="coach.coachId"
+            :value="coach.coachId"
           >
-            {{
-              editingCourse
-                ? '保存修改'
-                : '创建团课'
-            }}
-          </button>
-        </div>
-      </form>
-    </section>
+            {{ coach.coachName }}
+            <template v-if="coach.specialty">
+              · {{ coach.specialty }}
+            </template>
+          </option>
+        </select>
+      </label>
+
+      <label>
+        <span>最大容量</span>
+
+        <input
+          v-model.number="formMaxCapacity"
+          type="number"
+          min="1"
+          max="32767"
+          placeholder="例如：30"
+        />
+      </label>
+
+      <label>
+        <span>当前报名人数</span>
+
+        <input
+          value="新增时自动为 0"
+          type="text"
+          disabled
+        />
+
+        <small class="form-hint">
+          当前报名人数由预约业务自动维护，管理员不能直接修改。
+        </small>
+      </label>
+
+      <label>
+  <span>上课时间</span>
+
+  <select v-model="formTimeSlotId">
+    <option value="">
+      请选择上课时间
+    </option>
+
+    <option
+      v-for="slot in availableTimeSlots"
+      :key="slot.timeSlotId"
+      :value="slot.timeSlotId"
+    >
+      {{ slot.label }}
+    </option>
+  </select>
+
+</label>
+
+      <label>
+        <span>课程描述</span>
+
+        <textarea
+          v-model="formCourseSummary"
+          rows="4"
+          maxlength="1000"
+          placeholder="请输入课程简介、适合人群等信息"
+        />
+      </label>
+
+      <div class="form-actions">
+        <button
+          class="secondary-button"
+          type="button"
+          @click="closeCourseForm"
+        >
+          取消
+        </button>
+
+        <button
+          class="primary-button"
+          type="submit"
+        >
+          {{ editingCourse ? '保存修改' : '创建团课' }}
+        </button>
+      </div>
+    </form>
+  </section>
+</div>
 
     <!-- F9-3 -->
 <section class="management-card">
@@ -1453,4 +1289,110 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 }
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.modal-card {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--tj-card-bg);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.close-button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: #eef3fb;
+  color: var(--tj-text-muted);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.close-button:hover {
+  background: #e3eaf5;
+}
+
+.course-form {
+  display: grid;
+  gap: 16px;
+}
+
+.course-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.course-form label > span {
+  color: var(--tj-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.course-form input,
+.course-form select,
+.course-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #d9e2ef;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--tj-text);
+  font: inherit;
+}
+
+.course-form textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.course-form input:focus,
+.course-form select:focus,
+.course-form textarea:focus {
+  outline: 2px solid #dbe4ff;
+  border-color: #285cff;
+}
+
+.form-hint {
+  color: var(--tj-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+@media (max-width: 700px) {
+  .modal-card {
+    padding: 18px;
+  }
+}
+
 </style>
