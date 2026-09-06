@@ -11,9 +11,24 @@ public sealed class CoachRepository : Repository<Coach, int>, ICoachRepository
     {
     }
 
-    public async Task<Coach?> GetByNameAndPhoneAsync(string name, string phoneNumber, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Coach>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .OrderBy(x => x.CoachId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Coach?> GetByNameAndPhoneAsync(
+        string name,
+        string phoneNumber,
+        CancellationToken cancellationToken = default)
     {
         return await Context.Coaches
-            .FirstOrDefaultAsync(x => x.CoachName == name && x.PhoneNumber == phoneNumber, cancellationToken);
+            .FirstOrDefaultAsync(
+                x => x.CoachName == name &&
+                     x.PhoneNumber == phoneNumber,
+                cancellationToken);
     }
 }

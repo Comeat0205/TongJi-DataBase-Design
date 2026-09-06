@@ -7,6 +7,7 @@ const GroupCourseList = () => import('@/views/member/GroupCourseListView.vue')
 const GroupCourseBooking = () =>
   import('@/views/member/GroupCourseBookingView.vue')
 const AdminHome = () => import('@/views/admin/AdminHomeView.vue')
+const AdminGroupCourse = () => import('@/views/admin/AdminGroupCourseView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
@@ -45,13 +46,13 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
   return [
     {
       path: 'home',
-      name: `${p}-home`,
+      name: `${p} -home`,
       component: MemberHome,
       meta: { userType: 'member', preview: mode === 'preview' },
     },
     {
       path: 'profile/:id/edit',
-      name: `${p}-profile-edit`,
+      name: `${p} -profile - edit`,
       component: Placeholder,
       meta: {
         pageTitle: '编辑会员资料',
@@ -64,83 +65,75 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
     },
     {
       path: 'profile/:id',
-      name: `${p}-profile`,
+      name: `${p} -profile`,
       component: MemberProfile,
-      meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
+      meta: {
+        requiresAuth: mode === 'auth',
+        userType: 'member',
+        preview: mode === 'preview',
+      },
     },
     ...placeholderChildRoutes('member', mode, [
       {
         path: 'cards',
-        name: `${p}-cards`,
+        name: `${p} -cards`,
         pageTitle: '我的会员卡',
         owner: 'D',
         features: '#1 #5 #6 #20',
       },
       {
         path: 'card-products',
-        name: `${p}-card-products`,
+        name: `${p} -card - products`,
         pageTitle: '购买会员卡',
         owner: 'D',
         features: '#20',
       },
       {
         path: 'check-in',
-        name: `${p}-check-in`,
+        name: `${p} -check -in `,
         pageTitle: '入场签到',
         owner: 'E',
         features: '#5 #6 #7 #18',
       },
       {
         path: 'pt-packages',
-        name: `${p}-pt-packages`,
+        name: `${p} -pt - packages`,
         pageTitle: '私教课包',
         owner: 'G',
         features: '#12',
       },
       {
         path: 'pt-bookings',
-        name: `${p}-pt-bookings`,
+        name: `${p} -pt - bookings`,
         pageTitle: '私教预约',
         owner: 'G',
         features: '#12 #13 #14',
       },
       {
         path: 'schedule',
-        name: `${p}-schedule`,
+        name: `${p} -schedule`,
         pageTitle: '我的日程',
         owner: 'J',
         features: '#11 #13',
       },
       {
         path: 'orders',
-        name: `${p}-orders`,
+        name: `${p} -orders`,
         pageTitle: '我的订单',
         owner: 'H',
         features: '#20',
       },
       {
         path: 'vouchers',
-        name: `${p}-vouchers`,
+        name: `${p} -vouchers`,
         pageTitle: '我的优惠券',
         owner: 'H',
         features: '#18',
       },
     ]),
     {
-      path: 'group-courses',
-      name: `${p}-group-courses`,
-      component: GroupCourseList,
-      meta: {
-        pageTitle: '团课预约',
-        owner: 'F',
-        features: '#4 #8 #9 #19',
-        preview: mode === 'preview',
-        userType: 'member',
-      },
-    },
-    {
       path: 'my-group-bookings',
-      name: `${p}-my-group-bookings`,
+      name: `${p} -my - group - bookings`,
       component: GroupCourseBooking,
       meta: {
         pageTitle: '我的团课预约',
@@ -159,107 +152,115 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
   return [
     {
       path: 'home',
-      name: `${p}-home`,
+      name: `${p} -home`,
       component: AdminHome,
-      meta: { userType: 'employee', preview: mode === 'preview' },
+      meta: {
+        userType: 'employee',
+        preview: mode === 'preview',
+      },
     },
     ...placeholderChildRoutes('admin', mode, [
       {
         path: 'check-in-desk',
-        name: `${p}-check-in-desk`,
+        name: `${p} -check -in -desk`,
         pageTitle: '前台入场',
         owner: 'E',
         features: '#5 #6 #7',
       },
       {
         path: 'capacity-logs',
-        name: `${p}-capacity-logs`,
+        name: `${p} -capacity - logs`,
         pageTitle: '容量日志',
         owner: 'E',
         features: '#7 #21',
       },
       {
         path: 'members',
-        name: `${p}-members`,
+        name: `${p} -members`,
         pageTitle: '会员管理',
         owner: 'C',
         features: '#1 #2 #17',
       },
       {
         path: 'coaches',
-        name: `${p}-coaches`,
+        name: `${p} -coaches`,
         pageTitle: '教练管理',
         owner: 'C',
         features: '#3 #4',
       },
       {
         path: 'course-types',
-        name: `${p}-course-types`,
+        name: `${p} -course - types`,
         pageTitle: '课程类型维护',
         owner: 'C / F',
         features: '#3 #4',
       },
       {
         path: 'venues',
-        name: `${p}-venues`,
+        name: `${p} -venues`,
         pageTitle: '场馆管理',
         owner: 'C',
       },
       {
         path: 'equipment',
-        name: `${p}-equipment`,
+        name: `${p} -equipment`,
         pageTitle: '器材管理',
         owner: 'C',
         features: '#15',
       },
       {
         path: 'card-products',
-        name: `${p}-card-products`,
+        name: `${p} -card - products`,
         pageTitle: '卡商品管理',
         owner: 'D',
       },
       {
-        path: 'group-courses',
-        name: `${p}-group-courses`,
-        pageTitle: '团课排期管理',
-        owner: 'F',
-        features: '#3 #4',
-      },
-      {
         path: 'orders',
-        name: `${p}-orders`,
+        name: `${p} -orders`,
         pageTitle: '订单管理',
         owner: 'H',
       },
       {
         path: 'vouchers',
-        name: `${p}-vouchers`,
+        name: `${p} -vouchers`,
         pageTitle: '优惠券管理',
         owner: 'H',
         features: '#18 #20',
       },
       {
         path: 'repairs',
-        name: `${p}-repairs`,
+        name: `${p} -repairs`,
         pageTitle: '器材报修',
         owner: 'I',
         features: '#15',
       },
       {
         path: 'inspections',
-        name: `${p}-inspections`,
+        name: `${p} -inspections`,
         pageTitle: '巡检任务',
         owner: 'I',
         features: '#16',
       },
       {
         path: 'at-risk-members',
-        name: `${p}-at-risk-members`,
-        pageTitle: '流失预警会员',
+        name: `${p} -at - risk - members`,
+        pageTitle: '流失风险会员',
         owner: 'H',
         features: '#17',
       },
     ]),
+    {
+      path: 'group-courses',
+      name: `${p} -group - courses`,
+      component: AdminGroupCourse,
+      meta: {
+        pageTitle: '团课排期管理',
+        owner: 'F',
+        features: '#3 #4',
+        preview: mode === 'preview',
+        userType: 'employee',
+      },
+    },
   ]
 }
 
@@ -269,21 +270,21 @@ function coachChildren(mode: RouteMode): RouteRecordRaw[] {
   return [
     {
       path: 'home',
-      name: `${p}-home`,
+      name: `${p} -home`,
       component: CoachHome,
       meta: { userType: 'coach', preview: mode === 'preview' },
     },
     ...placeholderChildRoutes('coach', mode, [
       {
         path: 'schedule',
-        name: `${p}-schedule`,
+        name: `${p} -schedule`,
         pageTitle: '教练日程',
         owner: 'J',
         features: '#4 #11 #13',
       },
       {
         path: 'pt-confirm',
-        name: `${p}-pt-confirm`,
+        name: `${p} -pt - confirm`,
         pageTitle: '私教确认与消课',
         owner: 'G',
         features: '#13 #14',

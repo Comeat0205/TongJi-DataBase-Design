@@ -7,6 +7,7 @@ import {
   type GroupCourse,
 } from '../../api/groupCourses'
 import { bookGroupCourse } from '../../api/groupCourseBookings'
+import { joinWaitingQueue } from '../../api/waitingQueues'
 import { useAuthStore } from '../../stores/auth'
 
 const authStore = useAuthStore()
@@ -16,6 +17,8 @@ const loading = ref(true)
 const error = ref('')
 
 const bookingCourseId = ref<number | null>(null)
+const waitingCourseId = ref<number | null>(null)
+
 const bookingMessage = ref('')
 const bookingError = ref('')
 
@@ -66,8 +69,6 @@ async function handleBooking(course: GroupCourse) {
   }
 
   if (isFull(course)) {
-    bookingError.value = '该课程已满，无法预约'
-    bookingMessage.value = ''
     return
   }
 
@@ -92,6 +93,40 @@ async function handleBooking(course: GroupCourse) {
   }
 }
 
+async function handleJoinWaitingQueue(course: GroupCourse) {
+  const memberId = authStore.session?.userId
+
+  if (!memberId) {
+    bookingError.value = '未获取到当前会员信息，请先登录'
+    bookingMessage.value = ''
+    return
+  }
+
+  if (!isFull(course)) {
+    bookingError.value = '该课程当前仍有空位，请直接预约'
+    bookingMessage.value = ''
+    return
+  }
+
+  waitingCourseId.value = course.courseId
+  bookingMessage.value = ''
+  bookingError.value = ''
+
+  try {
+    const result = await joinWaitingQueue({
+      memberId,
+      courseId: course.courseId,
+    })
+
+    bookingMessage.value = result.message || '加入候补队列成功'
+  } catch (err) {
+    bookingError.value =
+      err instanceof Error ? err.message : '加入候补失败，请稍后重试'
+  } finally {
+    waitingCourseId.value = null
+  }
+}
+
 onMounted(() => {
   loadCourses()
 })
@@ -106,18 +141,18 @@ onMounted(() => {
     />
 
     <div
-  v-if="bookingMessage"
-  class="booking-message success"
->
-  {{ bookingMessage }}
-</div>
+      v-if="bookingMessage"
+      class="booking-message success"
+    >
+      {{ bookingMessage }}
+    </div>
 
-<div
-  v-if="bookingError"
-  class="booking-message error"
->
-  {{ bookingError }}
-</div>
+    <div
+      v-if="bookingError"
+      class="booking-message error"
+    >
+      {{ bookingError }}
+    </div>
 
     <StateCard
       v-if="loading"
@@ -166,60 +201,69 @@ onMounted(() => {
         </p>
 
         <div class="course-info">
-  <div class="info-item">
-    <span class="label">课程类型</span>
-    <strong>{{ course.courseTypeName }}</strong>
-  </div>
+          <div class="info-item">
+            <span class="label">课程类型</span>
+            <strong>{{ course.courseTypeName }}</strong>
+          </div>
 
-  <div class="info-item">
-    <span class="label">教练</span>
-    <strong>{{ course.coachName }}</strong>
-  </div>
+          <div class="info-item">
+            <span class="label">教练</span>
+            <strong>{{ course.coachName }}</strong>
+          </div>
 
-  <div class="info-item">
-    <span class="label">人数</span>
-    <strong>{{ getCapacityText(course) }}</strong>
-  </div>
-</div>
+          <div class="info-item">
+            <span class="label">人数</span>
+            <strong>{{ getCapacityText(course) }}</strong>
+          </div>
+        </div>
 
-<div
-  v-if="course.timeSlots.length > 0"
-  class="course-times"
->
-  <span class="label">上课时间</span>
+        <div
+          v-if="course.timeSlots.length > 0"
+          class="course-times"
+        >
+          <span class="label">上课时间</span>
 
-  <div
-    v-for="slot in course.timeSlots"
-    :key="`${slot.courseDate}-${slot.startTime}`"
-    class="course-time"
-  >
-    {{ formatDate(slot.courseDate) }}
-    {{ formatTime(slot.startTime) }}
-    -
-    {{ formatTime(slot.endTime) }}
-  </div>
-</div>
+          <div
+            v-for="slot in course.timeSlots"
+            :key="`${slot.courseDate}-${slot.startTime}`"
+            class="course-time"
+          >
+            {{ formatDate(slot.courseDate) }}
+            {{ formatTime(slot.startTime) }}
+            -
+            {{ formatTime(slot.endTime) }}
+          </div>
+        </div>
 
-<div
-  v-else
-  class="course-times empty"
->
-  上课时间暂未安排
-</div>
+        <div
+          v-else
+          class="course-times empty"
+        >
+          上课时间暂未安排
+        </div>
 
         <button
-  class="booking-button"
-  :disabled="isFull(course) || bookingCourseId === course.courseId"
-  @click="handleBooking(course)"
->
-  {{
-    bookingCourseId === course.courseId
-      ? '预约中...'
-      : isFull(course)
-        ? '课程已满'
-        : '立即预约'
-  }}
-</button>
+          class="booking-button"
+          :disabled="
+            bookingCourseId === course.courseId ||
+            waitingCourseId === course.courseId
+          "
+          @click="
+            isFull(course)
+              ? handleJoinWaitingQueue(course)
+              : handleBooking(course)
+          "
+        >
+          {{
+            bookingCourseId === course.courseId
+              ? '预约中...'
+              : waitingCourseId === course.courseId
+                ? '加入中...'
+                : isFull(course)
+                  ? '加入候补'
+                  : '立即预约'
+          }}
+        </button>
       </article>
     </section>
   </div>
