@@ -1,0 +1,23 @@
+using Domain.Entities;
+
+namespace Domain.Interfaces;
+
+public interface IMemberRepository : IRepository<Member, int>
+{
+    // feature/member-template  会员样板模块
+    Task<Member?> GetByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default);
+    Task<Member?> GetByNameAndPhoneAsync(string name, string phoneNumber, CancellationToken cancellationToken = default);
+    Task<Member?> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
+    Task<bool> ExistsByIdCardAsync(string idCard, CancellationToken cancellationToken = default);
+    Task<bool> ExistsByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Member>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    Task<int> GetNextMemberIdAsync(CancellationToken cancellationToken = default);
+
+    // feature/basic-info  基本信息模块
+    Task<bool> HasBlockingRelationsAsync(int memberId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<(Member Member, AppUser User)>> GetManagementListAsync(string? keyword, string? sortBy, string? sortDirection, CancellationToken cancellationToken = default); 
+
+    // feature/payment-marketing  支付与营销模块
+    Task<IReadOnlyList<Member>> GetActiveMembersAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Member>> GetMembersWithBirthdayTodayAsync(CancellationToken cancellationToken = default);
+}
