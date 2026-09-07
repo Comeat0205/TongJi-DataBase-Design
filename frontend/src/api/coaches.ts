@@ -14,6 +14,13 @@ export interface CoachManagementListItem {
   status?: string
 }
 
+export interface Coach {
+  coachId: number
+  coachName: string
+  specialty: string | null
+  status: string | null
+}
+
 export interface GetCoachManagementListParams {
   keyword?: string
   sortBy?: 'coachId' | 'userId' | 'displayName' | 'coachName' | 'hireDate'
@@ -72,4 +79,8 @@ export function updateCoach(coachId: number, payload: UpdateCoachRequest) {
 
 export function deactivateCoach(coachId: number) {
   return http.delete<CoachManagementListItem>(`/coaches/${coachId}`)
+}
+
+export function getCoaches() {
+  return http.get<Coach[]>('/coaches')
 }

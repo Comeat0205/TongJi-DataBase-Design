@@ -57,6 +57,15 @@ public static class DependencyInjection
         services.AddScoped<ICoachScheduleRepository, CoachScheduleRepository>();
         
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        
+        // feature/group-course  团课预约模块
+        services.AddScoped<ICourseTypeRepository, CourseTypeRepository>();
+        services.AddScoped<IGroupcourseRepository, GroupcourseRepository>();
+        services.AddScoped<IGroupCourseScheduleRepository, GroupCourseScheduleRepository>();
+        services.AddScoped<IGroupCourseBookingRepository, GroupCourseBookingRepository>();
+        services.AddScoped<IWaitingQueueRepository, WaitingQueueRepository>();
+        services.AddScoped<IAbsenceRecordRepository, AbsenceRecordRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>(); 
 
         return services;
     }

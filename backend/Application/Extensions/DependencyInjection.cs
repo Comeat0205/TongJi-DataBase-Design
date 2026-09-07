@@ -37,6 +37,14 @@ public static class DependencyInjection
         
         // feature/schedule 日程管理模块
         services.AddScoped<IScheduleAppService, ScheduleAppService>();
+        
+        // feature/group-course  团课预约模块
+        services.AddScoped<IGroupCourseAppService, GroupCourseAppService>();
+        services.AddScoped<ICourseTypeAppService, CourseTypeAppService>();
+        services.AddScoped<IGroupCourseBookingAppService, GroupCourseBookingAppService>();
+        services.AddScoped<IWaitingQueueAppService, WaitingQueueAppService>();
+        services.AddScoped<IAbsenceRecordAppService, AbsenceRecordAppService>();
+        
         return services;
     }
 }

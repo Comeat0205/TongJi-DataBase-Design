@@ -18,6 +18,8 @@ public partial class GroupCourseBooking
     public virtual Groupcourse Course { get; set; } = null!;
 
     public virtual Member Member { get; set; } = null!;
+
+    public virtual ICollection<AbsenceRecord> AbsenceRecords { get; set; } = new List<AbsenceRecord>();
 }
 
 

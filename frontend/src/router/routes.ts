@@ -20,6 +20,10 @@ const Vouchers = () => import('@/views/member/VouchersView.vue')
 const AdminPaymentOrderList = () => import('@/views/admin/AdminPaymentOrderListView.vue')
 const AdminVouchers = () => import('@/views/admin/AdminVouchersView.vue')
 const AtRiskMembers = () => import('@/views/admin/AtRiskMembersView.vue')
+const GroupCourseList = () => import('@/views/member/GroupCourseListView.vue')
+const GroupCourseBooking = () =>import('@/views/member/GroupCourseBookingView.vue')
+const AdminGroupCourse = () => import('@/views/admin/AdminGroupCourseView.vue')
+const AdminCourseType = () => import('@/views/admin/AdminCourseTypeView.vue')
 const CoachHome = () => import('@/views/coach/CoachHomeView.vue')
 const CheckIn = () => import('@/views/member/CheckInView.vue')
 const CheckInDesk = () => import('@/views/admin/CheckInDeskView.vue')
@@ -84,7 +88,11 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'profile/:id',
       name: `${p}-profile`,
       component: MemberProfile,
-      meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
+      meta: {
+        requiresAuth: mode === 'auth',
+        userType: 'member',
+        preview: mode === 'preview',
+      },
     },
     
 
@@ -161,6 +169,34 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
 
 
 
+    // feature/group-course  团课预约模块
+    {
+      path: 'group-courses',
+      name: `${p}-group-courses`,
+      component: GroupCourseList,
+      meta: {
+        pageTitle: '团课预约',
+        owner: 'F',
+        features: '#4 #8',
+        preview: mode === 'preview',
+        userType: 'member',
+      },
+    },
+    {
+      path: 'my-group-bookings',
+      name: `${p}-my-group-bookings`,
+      component: GroupCourseBooking,
+      meta: {
+        pageTitle: '我的团课预约',
+        owner: 'F',
+        features: '#8 #9 #10 #11',
+        preview: mode === 'preview',
+        userType: 'member',
+      },
+    },
+
+
+
     // feature/payment-marketing  支付与营销模块
     {
       path: 'orders',
@@ -186,24 +222,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         userType: 'member',
       },
     },
-
-    
-    ...placeholderChildRoutes('member', mode, [
-      {
-        path: 'group-courses',
-        name: `${p}-group-courses`,
-        pageTitle: '团课预约',
-        owner: 'F',
-        features: '#4 #8 #9 #19',
-      },
-      {
-        path: 'my-group-bookings',
-        name: `${p}-my-group-bookings`,
-        pageTitle: '我的团课预约',
-        owner: 'F',
-        features: '#8 #9 #10 #11',
-      },
-    ]),
   ]
 }
 
@@ -215,7 +233,10 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'home',
       name: `${p}-home`,
       component: AdminHome,
-      meta: { userType: 'employee', preview: mode === 'preview' },
+      meta: {
+        userType: 'employee',
+        preview: mode === 'preview',
+      },
     },
 
 
@@ -284,6 +305,35 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
     },
    
 
+    
+    // feature/group-course  团课预约模块
+    {
+      path: 'course-types',
+      name: `${p}-course-types`,
+      component: AdminCourseType,
+      meta: {
+        pageTitle: '课程类型维护',
+        owner: 'C',
+        features: '#3 #4',
+        preview: mode === 'preview',
+        userType: 'employee',
+      },
+    },
+
+    {
+      path: 'group-courses',
+      name: `${p}-group-courses`,
+      component: AdminGroupCourse,
+      meta: {
+        pageTitle: '团课排期管理',
+        owner: 'F',
+        features: '#3 #4',
+        preview: mode === 'preview',
+        userType: 'employee',
+      },
+    },
+
+    
 
     // feature/payment-marketing  支付与营销模块
     {
@@ -337,25 +387,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       component: InspectionTasks,
       meta: { pageTitle: '巡检任务', owner: 'I', features: '#16', preview: mode === 'preview', userType: 'employee' },
     },
-
-
-    
-    ...placeholderChildRoutes('admin', mode, [
-      {
-        path: 'course-types',
-        name: `${p}-course-types`,
-        pageTitle: '课程类型维护',
-        owner: 'C / F',
-        features: '#3 #4',
-      },
-      {
-        path: 'group-courses',
-        name: `${p}-group-courses`,
-        pageTitle: '团课排期管理',
-        owner: 'F',
-        features: '#3 #4',
-      },
-    ]),
   ]
 }
 
