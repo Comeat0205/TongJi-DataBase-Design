@@ -20,8 +20,11 @@ const displayName = computed(() => authStore.session?.displayName ?? '员工')
 const stats = ref<DashboardStats>({ todayCheckIns: 0, activeMembers: 0, venues: [] })
 const atRiskMembers = adminAtRiskMembersMock
 const loading = ref(false)
+const refreshing = ref(false)
 const autoCheckoutMsg = ref('')
 let timer: ReturnType<typeof setInterval> | null = null
+let refreshAnimationTimer: ReturnType<typeof setTimeout> | null = null
+let refreshAnimationFrame: number | null = null
 
 onMounted(async () => {
   await refresh()
@@ -30,15 +33,39 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (refreshAnimationTimer) clearTimeout(refreshAnimationTimer)
+  if (refreshAnimationFrame !== null) cancelAnimationFrame(refreshAnimationFrame)
 })
 
+function handleRefreshClick() {
+  if (refreshAnimationTimer) clearTimeout(refreshAnimationTimer)
+  if (refreshAnimationFrame !== null) cancelAnimationFrame(refreshAnimationFrame)
+
+  refreshing.value = false
+  refreshAnimationFrame = requestAnimationFrame(() => {
+    refreshAnimationFrame = null
+    refreshing.value = true
+    refreshAnimationTimer = setTimeout(() => {
+      refreshing.value = false
+      refreshAnimationTimer = null
+    }, 1000)
+  })
+
+  void refresh()
+}
+
 async function refresh() {
+  if (loading.value) return
+
   loading.value = true
+  const start = Date.now()
   try {
     stats.value = await getDashboardStats()
   } catch {
     // 接口异常时保留上次数据
   } finally {
+    const elapsed = Date.now() - start
+    if (elapsed < 475) await new Promise(r => setTimeout(r, 475 - elapsed))
     loading.value = false
   }
 }
@@ -93,10 +120,17 @@ function crowdBarClass(level: CrowdLevel) {
         <strong>{{ stats.venues.length }}</strong>
         <small>个</small>
       </article>
-      <article class="summary-card">
+      <article class="summary-card refresh-card" :class="{ refreshing }" @click="handleRefreshClick">
         <span>数据刷新</span>
-        <strong :class="{ spinning: loading }">&#x21bb;</strong>
-        <small>每 30 秒自动</small>
+        <div class="refresh-icon-wrap">
+          <svg class="refresh-icon" :class="{ spinning: refreshing }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 2v6h-6"/>
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+            <path d="M3 22v-6h6"/>
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+          </svg>
+        </div>
+        <small>点击刷新 · 自动 30s</small>
       </article>
     </section>
 
@@ -202,13 +236,37 @@ function crowdBarClass(level: CrowdLevel) {
 }
 
 .spinning {
-  display: inline-block;
-  animation: spin 1s linear infinite;
+  animation: spin 1s linear 1;
+  transform-origin: center center;
 }
 
 @keyframes spin {
   from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  to { transform: rotate(180deg); }
+}
+
+.refresh-card {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.refresh-card:hover {
+  background: #f0f5ff;
+}
+.refresh-card.refreshing {
+  background: #f0f5ff;
+}
+
+.refresh-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.refresh-icon {
+  width: 28px;
+  height: 28px;
+  color: #4d77ff;
 }
 
 .dashboard-grid {
