@@ -17,12 +17,17 @@ public sealed class EquipmentAppService : IEquipmentAppService
     };
 
     private readonly IEquipmentRepository _equipmentRepository;
+    private readonly IRepairRecordRepository _repairRecordRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly string _imageRootPath;
 
-    public EquipmentAppService(IEquipmentRepository equipmentRepository, IUnitOfWork unitOfWork)
+    public EquipmentAppService(
+        IEquipmentRepository equipmentRepository,
+        IRepairRecordRepository repairRecordRepository,
+        IUnitOfWork unitOfWork)
     {
         _equipmentRepository = equipmentRepository;
+        _repairRecordRepository = repairRecordRepository;
         _unitOfWork = unitOfWork;
         _imageRootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Api", "wwwroot", "uploads", "equipment"));
     }
@@ -63,6 +68,28 @@ public sealed class EquipmentAppService : IEquipmentAppService
         var imageUrl = NormalizeImageUrl(request.ImageUrl);
         var status = NormalizeStatus(request.Status);
         ValidateEquipmentName(equipName);
+
+        var previousStatus = equipment.Status?.Trim();
+        var enteringRepair = status == "0" && previousStatus != "0";
+
+        if (enteringRepair)
+        {
+            var faultDescription = NormalizeRequired(request.FaultDescription, "请填写故障原因后再将器材设为维修。");
+            if (faultDescription.Length > 200)
+            {
+                throw new DomainException("故障原因不能超过 200 个字符。");
+            }
+
+            await _repairRecordRepository.AddAsync(new Repairrecord
+            {
+                RecordId = await _repairRecordRepository.GetNextIdAsync(cancellationToken),
+                EquipId = equipment.EquipId,
+                Status = "待处理",
+                Description = faultDescription,
+                ReportTime = DateTime.Now,
+                RepairCost = 0m
+            }, cancellationToken);
+        }
 
         if (!string.Equals(equipment.ImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase))
         {
@@ -147,11 +174,6 @@ public sealed class EquipmentAppService : IEquipmentAppService
         return value.Trim();
     }
 
-    private static string? NormalizeOptional(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
-
     private static string NormalizeStatus(string? value)
     {
         var normalized = value?.Trim();
@@ -159,7 +181,13 @@ public sealed class EquipmentAppService : IEquipmentAppService
         {
             "1" => "1",
             "0" => "0",
-            _ => throw new DomainException("器材状态只能为 1（正常）或 0（停用）。")
+            "正常" => "1",
+            // 原「停用」编码复用为「维修」，兼容旧文案与误传的 2
+            "2" => "0",
+            "停用" => "0",
+            "维修" => "0",
+            "维护中" => "0",
+            _ => throw new DomainException("器材状态只能为 1（正常）或 0（维修）。")
         };
     }
 

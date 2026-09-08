@@ -2,16 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import PlaceholderPanel from '@/components/ui/PlaceholderPanel.vue'
-import { checkOut, getMyCard, getMyCheckIn, getVenueStatus, type CheckInOutRecord, type MemberCard, type VenueStatus } from '@/api/check-in-out'
+import { checkOut, getMyCheckInByMember, getVenueStatus, type CheckInOutRecord, type VenueStatus } from '@/api/check-in-out'
+import { getMyCards, type MembershipCard } from '@/api/membership-cards'
 import { getMemberProfile } from '@/api/members'
-import {
-  getCrowdHint,
-  getCrowdLabel,
-  memberCourseRecommendationsMock,
-  memberUpcomingRemindersMock,
-  type CrowdLevel,
-} from '@/data/home-dashboard-mock'
+import { getGroupCourses, type GroupCourse } from '@/api/groupCourses'
+import { getMemberSchedules, type MemberScheduleItem } from '@/api/member-schedules'
+import { getCrowdHint, getCrowdLabel, type CrowdLevel } from '@/data/home-dashboard-mock'
 import { useAuthStore } from '@/stores/auth'
 
 interface VenueDisplay {
@@ -24,6 +20,25 @@ interface VenueDisplay {
   featureRef: string
 }
 
+interface CourseRecommendation {
+  courseId: number
+  courseName: string
+  courseType: string
+  coachName: string
+  scheduleLabel: string
+  remainingSlots: number
+  reason: string
+}
+
+interface UpcomingReminder {
+  scheduleId: number
+  title: string
+  startTime: string
+  coachName: string
+  minutesUntilStart: number
+  status: string
+}
+
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -33,15 +48,19 @@ const memberId = computed(() => authStore.session?.userId)
 const displayName = computed(() => authStore.session?.displayName ?? '会员')
 
 const venues = ref<VenueDisplay[]>([])
-const recommendations = memberCourseRecommendationsMock
-const reminders = memberUpcomingRemindersMock
+const recommendations = ref<CourseRecommendation[]>([])
+const reminders = ref<UpcomingReminder[]>([])
 const birthdayMessage = ref('完善档案生日后，生日当天将自动发放「生日福利券」（¥66，有效期 1 个月）。')
 const isBirthdayToday = ref(false)
 
 const myCheckIn = ref<CheckInOutRecord | null>(null)
-const myCard = ref<MemberCard | null>(null)
+const myCard = ref<MembershipCard | null>(null)
 const checkoutLoading = ref(false)
 const checkoutMsg = ref('')
+
+function toLocalDate(value: string) {
+  return new Date(value.endsWith('Z') ? value.slice(0, -1) : value)
+}
 
 function formatMonthDay(value?: string) {
   if (!value) return ''
@@ -112,15 +131,109 @@ async function refreshVenues() {
   } catch { /* ignore */ }
 }
 
+function formatSlotLabel(course: GroupCourse) {
+  const slot = course.timeSlots?.[0]
+  if (!slot) return '时段待排'
+  const start = toLocalDate(slot.startTime)
+  const end = toLocalDate(slot.endTime)
+  const datePart = Number.isNaN(start.getTime())
+    ? ''
+    : start.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })
+  const startText = Number.isNaN(start.getTime())
+    ? ''
+    : start.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const endText = Number.isNaN(end.getTime())
+    ? ''
+    : end.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  if (!startText) return '时段待排'
+  return `${datePart} ${startText}${endText ? ` - ${endText}` : ''}`.trim()
+}
+
+function buildRecommendations(courses: GroupCourse[]): CourseRecommendation[] {
+  return courses
+    .map((course) => {
+      const remaining = Math.max(course.maxCapacity - (course.currentCapacity ?? 0), 0)
+      const firstStart = course.timeSlots?.[0]?.startTime
+        ? toLocalDate(course.timeSlots[0].startTime).getTime()
+        : Number.MAX_SAFE_INTEGER
+      return { course, remaining, firstStart }
+    })
+    .filter((item) => item.remaining > 0)
+    .sort((a, b) => a.firstStart - b.firstStart)
+    .slice(0, 3)
+    .map(({ course, remaining }) => ({
+      courseId: course.courseId,
+      courseName: course.courseName,
+      courseType: course.courseTypeName || '团课',
+      coachName: course.coachName || `教练 #${course.coachId}`,
+      scheduleLabel: formatSlotLabel(course),
+      remainingSlots: remaining,
+      reason: remaining <= 3 ? '余量紧张，建议尽快预约' : '当前可预约，欢迎查看详情',
+    }))
+}
+
+function buildReminders(schedules: MemberScheduleItem[]): UpcomingReminder[] {
+  const now = Date.now()
+  return schedules
+    .slice()
+    .sort((a, b) => toLocalDate(a.scheduleStart).getTime() - toLocalDate(b.scheduleStart).getTime())
+    .slice(0, 5)
+    .map((item) => {
+      const start = toLocalDate(item.scheduleStart)
+      const minutes = Math.max(0, Math.round((start.getTime() - now) / 60000))
+      const title =
+        item.courseName?.trim()
+        || (item.scheduleType === 'P' ? '私教课' : '团操课')
+      return {
+        scheduleId: item.scheduleId,
+        title,
+        startTime: `${start.toLocaleDateString('zh-CN')} ${start.toLocaleTimeString('zh-CN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        })}`,
+        coachName: item.coachName?.trim() || (item.coachId ? `教练 #${item.coachId}` : '教练待同步'),
+        minutesUntilStart: minutes,
+        status: item.status || '待上课',
+      }
+    })
+}
+
+async function refreshRecommendations() {
+  try {
+    const courses = await getGroupCourses()
+    recommendations.value = buildRecommendations(courses)
+  } catch {
+    recommendations.value = []
+  }
+}
+
+async function refreshReminders() {
+  if (!memberId.value) {
+    reminders.value = []
+    return
+  }
+  try {
+    const schedules = await getMemberSchedules(memberId.value)
+    reminders.value = buildReminders(schedules)
+  } catch {
+    reminders.value = []
+  }
+}
+
 onMounted(async () => {
-  await refreshVenues()
+  await Promise.all([refreshVenues(), refreshRecommendations()])
   if (memberId.value) {
-    try { myCheckIn.value = await getMyCheckIn(memberId.value) } catch { /* ignore */ }
-    try { myCard.value = await getMyCard(memberId.value) } catch { /* ignore */ }
+    try { myCheckIn.value = await getMyCheckInByMember(memberId.value) } catch { /* ignore */ }
+    try {
+      const cards = await getMyCards(memberId.value)
+      myCard.value = cards.find((c) => c.isValid) ?? cards[0] ?? null
+    } catch { /* ignore */ }
     try {
       const profile = await getMemberProfile(memberId.value)
       refreshBirthdayMessage(profile.birthday)
     } catch { /* ignore */ }
+    await refreshReminders()
   }
 })
 
@@ -146,7 +259,7 @@ async function doCheckOut() {
     <PageHeader
       eyebrow="Member Dashboard"
       :title="`${displayName}，欢迎回来`"
-      subtitle="会员登录首页占位：汇总场馆拥挤度、会籍状态、团课推荐与上课提醒。联调后数据来自 VENUE、MEMBER_BENEFIT_CARD、GROUPCOURSE 等表及相关业务接口。"
+      subtitle="汇总场馆拥挤度、会籍状态、可预约团课与即将开始的上课提醒。"
     >
       <template #actions>
         <button v-if="memberId" type="button" class="ghost-btn" @click="goProfile">我的档案</button>
@@ -162,8 +275,6 @@ async function doCheckOut() {
     </PageHeader>
 
     <p v-if="checkoutMsg" class="checkout-toast">{{ checkoutMsg }}</p>
-
-    <p class="demo-banner">演示数据 · 功能点占位 · 后续由 E/F/H/J 等模块接入真实 API</p>
 
     <section class="top-grid">
       <div class="venues-column">
@@ -203,15 +314,15 @@ async function doCheckOut() {
         <article class="dashboard-card membership-card">
           <p class="card-eyebrow">我的会籍</p>
           <template v-if="myCard">
-            <h2>{{ myCard.cardTypeName }} · {{ myCard.cardStatusName }}</h2>
+            <h2>{{ myCard.cardTypeLabel }} · {{ myCard.isValid ? '可用' : '不可用' }}</h2>
             <dl class="info-list">
+              <div>
+                <dt>卡号</dt>
+                <dd>#{{ myCard.cardId }}</dd>
+              </div>
               <div v-if="myCard.expireDate">
                 <dt>有效期至</dt>
-                <dd>{{ myCard.expireDate }}</dd>
-              </div>
-              <div v-if="myCard.daysToExpire != null">
-                <dt>剩余天数</dt>
-                <dd :class="{ expired: myCard.daysToExpire < 0 }">{{ myCard.daysToExpire < 0 ? '已过期' : myCard.daysToExpire + ' 天' }}</dd>
+                <dd>{{ new Date(myCard.expireDate).toLocaleDateString('zh-CN') }}</dd>
               </div>
               <div v-if="myCard.remainingCount != null">
                 <dt>剩余次数</dt>
@@ -243,18 +354,18 @@ async function doCheckOut() {
       <article class="dashboard-card span-2">
         <div class="card-head">
           <div>
-            <p class="card-eyebrow">为你推荐团课 · 功能点 #19</p>
-            <h2>热门时段智能推荐</h2>
+            <p class="card-eyebrow">为你推荐团课</p>
+            <h2>可预约热门课程</h2>
           </div>
           <RouterLink class="text-link" :to="`${basePath}/group-courses`">全部团课</RouterLink>
         </div>
-        <div class="recommend-list">
+        <p v-if="recommendations.length === 0" class="card-hint">暂无可推荐团课，去全部团课看看吧。</p>
+        <div v-else class="recommend-list">
           <article v-for="course in recommendations" :key="course.courseId" class="recommend-item">
             <div>
               <h3>{{ course.courseName }}</h3>
               <p class="meta">{{ course.courseType }} · {{ course.coachName }} · {{ course.scheduleLabel }}</p>
               <p class="reason">{{ course.reason }}</p>
-              <p class="feature-note">关联功能点 {{ course.featureRef }}</p>
             </div>
             <div class="recommend-side">
               <span class="slots-pill">余 {{ course.remainingSlots }} 名额</span>
@@ -265,13 +376,16 @@ async function doCheckOut() {
       </article>
 
       <article class="dashboard-card">
-        <p class="card-eyebrow">上课提醒 · 功能点 #11</p>
+        <p class="card-eyebrow">上课提醒</p>
         <h2>即将开始</h2>
-        <ul class="reminder-list">
-          <li v-for="item in reminders" :key="item.bookingId">
+        <p v-if="reminders.length === 0" class="card-hint">暂无待上或进行中的课程。</p>
+        <ul v-else class="reminder-list">
+          <li v-for="item in reminders" :key="item.scheduleId">
             <strong>{{ item.title }}</strong>
-            <span>{{ item.startTime }} · {{ item.venueName }}</span>
-            <small>约 {{ item.minutesUntilStart }} 分钟后开始 · {{ item.featureRef }}</small>
+            <span>{{ item.startTime }} · {{ item.coachName }}</span>
+            <small v-if="item.status === '上课中'">正在上课中</small>
+            <small v-else-if="item.minutesUntilStart === 0">即将开始</small>
+            <small v-else>约 {{ item.minutesUntilStart }} 分钟后开始 · {{ item.status }}</small>
           </li>
         </ul>
         <RouterLink class="text-link" :to="`${basePath}/schedule`">查看完整日程 →</RouterLink>
@@ -283,19 +397,13 @@ async function doCheckOut() {
         <p class="card-eyebrow">快捷入口</p>
         <h2>常用功能</h2>
         <div class="quick-grid">
-          <RouterLink :to="`${basePath}/group-courses`">团课预约 (#4 #8)</RouterLink>
-          <RouterLink :to="`${basePath}/my-group-bookings`">我的团课 (#9 #10)</RouterLink>
-          <RouterLink :to="`${basePath}/pt-bookings`">私教预约 (#12)</RouterLink>
-          <RouterLink :to="`${basePath}/cards`">续费 / 购卡 (#20)</RouterLink>
+          <RouterLink :to="`${basePath}/group-courses`">团课预约</RouterLink>
+          <RouterLink :to="`${basePath}/my-group-bookings`">我的团课</RouterLink>
+          <RouterLink :to="`${basePath}/pt-bookings`">私教预约</RouterLink>
+          <RouterLink :to="`${basePath}/cards`">续费 / 购卡</RouterLink>
         </div>
       </article>
     </section>
-
-    <PlaceholderPanel
-      owner="B + E/F/H/J"
-      features="#7 #11 #18 #19 #20"
-      message="本页为需求/设计/功能点驱动的首页占位。E 接入 VENUE/CAPACITYLOG；F/H 接入推荐与候补；J 接入日程提醒；D/H 接入会籍与续费折扣。"
-    />
   </div>
 </template>
 

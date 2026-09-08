@@ -34,6 +34,7 @@ public sealed class GroupCourseBookingRepository
     return await DbSet
         .AsNoTracking()
         .Include(x => x.Course)
+            .ThenInclude(c => c.Coach)
         .Where(x => x.MemberId == memberId)
         .OrderByDescending(x => x.BookingTime)
         .ToListAsync(cancellationToken);

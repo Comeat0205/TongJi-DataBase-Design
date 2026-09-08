@@ -58,6 +58,43 @@ public sealed class PtBookingRepository : Repository<Ptbooking, int>, IPtBooking
             .FirstOrDefaultAsync(x => x.PtBookingId == bookingId, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<int, PtScheduleDetail>> GetScheduleDetailsByIdsAsync(
+        IReadOnlyCollection<int> bookingIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (bookingIds.Count == 0)
+        {
+            return new Dictionary<int, PtScheduleDetail>();
+        }
+
+        var rows = await (
+            from booking in Context.Ptbookings.AsNoTracking()
+            join member in Context.Members.AsNoTracking() on booking.MemberId equals member.MemberId
+            join coach in Context.Coaches.AsNoTracking() on booking.CoachId equals coach.CoachId
+            join package in Context.Personalpackages.AsNoTracking() on booking.PackageId equals package.PackageId
+            join course in Context.PersonalCourses.AsNoTracking() on package.PersonalCourseId equals course.PersonalCourseId
+            where bookingIds.Contains(booking.PtBookingId)
+            select new
+            {
+                booking.PtBookingId,
+                booking.MemberId,
+                MemberName = member.Name,
+                course.CourseName,
+                booking.CoachId,
+                CoachName = coach.CoachName
+            }).ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(
+            x => x.PtBookingId,
+            x => new PtScheduleDetail(
+                x.PtBookingId,
+                x.MemberId,
+                x.MemberName,
+                x.CourseName,
+                x.CoachId,
+                x.CoachName));
+    }
+
     public async Task<int> BookAsync(
         int memberId,
         int packageId,

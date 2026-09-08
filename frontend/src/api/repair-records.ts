@@ -58,3 +58,10 @@ export function updateRepairRecordStatus(
 ) {
   return http.patch<RepairRecord>(`/repair-records/${recordId}/status`, request)
 }
+
+export function completeRepairRecord(
+  recordId: number,
+  request: { empId?: number; repairCost?: number } = {},
+) {
+  return http.post<RepairRecord>(`/repair-records/${recordId}/complete`, request)
+}

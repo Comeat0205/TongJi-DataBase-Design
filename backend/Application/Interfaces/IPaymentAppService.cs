@@ -46,6 +46,13 @@ public interface IPaymentAppService
         PurchaseMembershipCardRequestDto request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 会员购私教课包：校验商品后创建待支付订单，支付成功后再发放课包。
+    /// </summary>
+    Task<PaymentOrderDto> CreatePersonalPackageOrderAsync(
+        PurchasePersonalPackageRequestDto request,
+        CancellationToken cancellationToken = default);
+
     Task<PaymentOrderDto?> UpdateOrderVoucherAsync(
         int orderId,
         UpdateOrderVoucherRequestDto request,

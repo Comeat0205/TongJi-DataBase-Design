@@ -12,6 +12,9 @@ public interface IPriceListRepository : IRepository<PriceList, int>
     // 员工管理用：含已下架（INACTIVE_ 前缀）的会员卡商品
     Task<IReadOnlyList<PriceList>> GetManageMembershipProductsAsync(CancellationToken cancellationToken = default);
 
+    // 会员购课包页：在售私教课包商品（PRODUCT_TYPE 以 PT_PACKAGE_ 开头）
+    Task<IReadOnlyList<PriceList>> GetPersonalPackageProductsAsync(CancellationToken cancellationToken = default);
+
     // 取下一个 PRICE_ID
     Task<int> GetNextPriceIdAsync(CancellationToken cancellationToken = default);
 }

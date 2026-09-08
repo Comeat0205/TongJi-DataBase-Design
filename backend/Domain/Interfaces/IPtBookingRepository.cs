@@ -2,6 +2,14 @@ using Domain.Entities;
 
 namespace Domain.Interfaces;
 
+public sealed record PtScheduleDetail(
+    int PtBookingId,
+    int MemberId,
+    string MemberName,
+    string CourseName,
+    int CoachId,
+    string CoachName);
+
 public interface IPtBookingRepository : IRepository<Ptbooking, int>
 {
     Task<IReadOnlyList<Ptbooking>> GetByMemberIdAsync(
@@ -18,6 +26,10 @@ public interface IPtBookingRepository : IRepository<Ptbooking, int>
 
     Task<Ptbooking?> GetWithPackageAsync(
         int bookingId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<int, PtScheduleDetail>> GetScheduleDetailsByIdsAsync(
+        IReadOnlyCollection<int> bookingIds,
         CancellationToken cancellationToken = default);
 
     Task<int> BookAsync(

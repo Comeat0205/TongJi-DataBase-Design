@@ -1,29 +1,73 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { ApiError } from '@/api/http'
+import { getCoachSchedules, type CoachScheduleItem } from '@/api/coach-schedules'
+import { getPendingCoachPtBookings, type PtBooking } from '@/api/pt-bookings'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import PlaceholderPanel from '@/components/ui/PlaceholderPanel.vue'
-import {
-  coachOpsSummaryMock,
-  coachPendingPtConfirmMock,
-  coachScheduleConflictMock,
-  coachTodaySessionsMock,
-  type CoachSessionItem,
-} from '@/data/home-dashboard-mock'
+import StateCard from '@/components/ui/StateCard.vue'
 import { useAuthStore } from '@/stores/auth'
+
+type SessionStatus = 'completed' | 'in-progress' | 'upcoming'
 
 const route = useRoute()
 const authStore = useAuthStore()
 
 const basePath = computed(() => (route.path.startsWith('/preview/coach') ? '/preview/coach' : '/coach'))
 const displayName = computed(() => authStore.session?.displayName ?? '教练')
+const coachId = computed(() =>
+  authStore.session?.userType === 'coach' ? authStore.session.userId : 101,
+)
 
-const sessions = coachTodaySessionsMock
-const pendingPt = coachPendingPtConfirmMock
-const conflict = coachScheduleConflictMock
-const ops = coachOpsSummaryMock
+const schedules = ref<CoachScheduleItem[]>([])
+const pendingPt = ref<PtBooking[]>([])
+const loading = ref(true)
+const errorMessage = ref('')
 
-function sessionStatusLabel(status: CoachSessionItem['status']) {
+function toLocalDate(value: string) {
+  return new Date(value.endsWith('Z') ? value.slice(0, -1) : value)
+}
+
+function isSameLocalDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate()
+  )
+}
+
+function formatTime(value: string) {
+  return toLocalDate(value).toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function formatDateTime(value: string) {
+  return toLocalDate(value).toLocaleString('zh-CN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+function resolveSessionStatus(item: CoachScheduleItem, now = new Date()): SessionStatus {
+  if (item.status === '正在进行中') {
+    return 'in-progress'
+  }
+
+  const start = toLocalDate(item.scheduleStart)
+  const end = toLocalDate(item.scheduleEnd)
+  if (now >= start && now < end) {
+    return 'in-progress'
+  }
+  if (now >= end) {
+    return 'completed'
+  }
+  return 'upcoming'
+}
+
+function sessionStatusLabel(status: SessionStatus) {
   switch (status) {
     case 'completed':
       return '已结束'
@@ -34,9 +78,85 @@ function sessionStatusLabel(status: CoachSessionItem['status']) {
   }
 }
 
-function sessionStatusClass(status: CoachSessionItem['status']) {
+function sessionStatusClass(status: SessionStatus) {
   return `status-${status}`
 }
+
+function courseTitle(item: CoachScheduleItem) {
+  return item.courseName?.trim() || (item.scheduleType === 'P' ? '私教课' : '团操课')
+}
+
+function memberLabel(item: CoachScheduleItem) {
+  if (item.memberName?.trim()) {
+    return item.memberId ? `${item.memberName}（#${item.memberId}）` : item.memberName
+  }
+  if (item.memberId) {
+    return `会员 #${item.memberId}`
+  }
+  return item.scheduleType === 'P' ? '会员信息待同步' : '—'
+}
+
+const todaySchedules = computed(() => {
+  const now = new Date()
+  return schedules.value
+    .filter((item) => isSameLocalDay(toLocalDate(item.scheduleStart), now))
+    .slice()
+    .sort(
+      (a, b) => toLocalDate(a.scheduleStart).getTime() - toLocalDate(b.scheduleStart).getTime(),
+    )
+})
+
+const todayGroupCount = computed(
+  () => todaySchedules.value.filter((item) => item.scheduleType === 'G').length,
+)
+const todayPtCount = computed(
+  () => todaySchedules.value.filter((item) => item.scheduleType === 'P').length,
+)
+const upcomingReminders = computed(() => {
+  const now = new Date()
+  const inTwoHours = now.getTime() + 2 * 60 * 60 * 1000
+  return todaySchedules.value.filter((item) => {
+    const start = toLocalDate(item.scheduleStart).getTime()
+    return start >= now.getTime() && start <= inTwoHours
+  }).length
+})
+
+const conflictSchedules = computed(() => schedules.value.filter((item) => item.isConflict))
+const conflictMessage = computed(() => {
+  if (conflictSchedules.value.length === 0) {
+    return null
+  }
+
+  const titles = conflictSchedules.value
+    .slice(0, 3)
+    .map((item) => `${courseTitle(item)} ${formatTime(item.scheduleStart)}`)
+    .join('、')
+
+  return {
+    count: conflictSchedules.value.length,
+    relatedSessions: titles,
+  }
+})
+
+async function loadDashboard() {
+  loading.value = true
+  errorMessage.value = ''
+
+  try {
+    const [scheduleResult, pendingResult] = await Promise.all([
+      getCoachSchedules(coachId.value),
+      getPendingCoachPtBookings(coachId.value),
+    ])
+    schedules.value = scheduleResult
+    pendingPt.value = pendingResult
+  } catch (error) {
+    errorMessage.value = error instanceof ApiError ? error.message : '工作台数据加载失败，请稍后重试。'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadDashboard)
 </script>
 
 <template>
@@ -44,107 +164,114 @@ function sessionStatusClass(status: CoachSessionItem['status']) {
     <PageHeader
       eyebrow="Coach Dashboard"
       :title="`${displayName}，教练工作台`"
-      subtitle="教练登录首页占位：汇总今日授课、上课提醒、待确认私教与排课冲突。联调后数据来自 COACH、GROUPCOURSE、PTBOOKING 等接口。"
+      subtitle="汇总今日授课、待确认私教与排课冲突，数据与「我的日程」「私教确认」实时同步。"
     >
       <template #actions>
-        <RouterLink class="primary-link" :to="`${basePath}/pt-confirm`">私教确认</RouterLink>
+        <div class="header-actions">
+          <RouterLink class="primary-link" :to="`${basePath}/pt-confirm`">私教确认</RouterLink>
+          <button type="button" class="refresh-btn" :disabled="loading" @click="loadDashboard">
+            刷新
+          </button>
+        </div>
       </template>
     </PageHeader>
 
-    <p class="demo-banner">演示数据 · 功能点占位 · 后续由 G/J 等模块接入真实 API</p>
+    <StateCard v-if="loading" message="工作台加载中..." />
+    <StateCard v-else-if="errorMessage" :message="errorMessage" type="error" />
 
-    <section class="summary-grid">
-      <article class="summary-card">
-        <span>今日团课</span>
-        <strong>{{ ops.todayGroupSessions }}</strong>
-        <small>功能点 #4</small>
-      </article>
-      <article class="summary-card">
-        <span>今日私教</span>
-        <strong>{{ ops.todayPtSessions }}</strong>
-        <small>功能点 #12 #13</small>
-      </article>
-      <article class="summary-card highlight">
-        <span>待确认私教</span>
-        <strong>{{ ops.pendingConfirmations }}</strong>
-        <small>功能点 #13 #14</small>
-      </article>
-      <article class="summary-card">
-        <span>上课提醒</span>
-        <strong>{{ ops.upcomingReminders }}</strong>
-        <small>功能点 #11</small>
-      </article>
-    </section>
+    <template v-else>
+      <section class="summary-grid">
+        <article class="summary-card">
+          <span>今日团课</span>
+          <strong>{{ todayGroupCount }}</strong>
+          <small>来自教练日程</small>
+        </article>
+        <article class="summary-card">
+          <span>今日私教</span>
+          <strong>{{ todayPtCount }}</strong>
+          <small>来自教练日程</small>
+        </article>
+        <article class="summary-card highlight">
+          <span>待确认私教</span>
+          <strong>{{ pendingPt.length }}</strong>
+          <small>与私教确认同步</small>
+        </article>
+        <article class="summary-card">
+          <span>上课提醒</span>
+          <strong>{{ upcomingReminders }}</strong>
+          <small>未来 2 小时内开课</small>
+        </article>
+      </section>
 
-    <section v-if="conflict" class="conflict-banner">
-      <div>
-        <p class="conflict-eyebrow">排课冲突 · 功能点 {{ conflict.featureRef }}</p>
-        <strong>{{ conflict.message }}</strong>
-        <p class="conflict-meta">涉及：{{ conflict.relatedSessions }}</p>
-      </div>
-      <RouterLink class="text-link" :to="`${basePath}/schedule`">查看日程 →</RouterLink>
-    </section>
-
-    <section class="dashboard-grid">
-      <article class="dashboard-card span-2">
-        <div class="card-head">
-          <div>
-            <p class="card-eyebrow">今日授课 · 功能点 #4 #11</p>
-            <h2>课程与私教安排</h2>
-          </div>
-          <RouterLink class="text-link" :to="`${basePath}/schedule`">完整日程 →</RouterLink>
+      <section v-if="conflictMessage" class="conflict-banner">
+        <div>
+          <p class="conflict-eyebrow">排课冲突</p>
+          <strong>检测到 {{ conflictMessage.count }} 条日程存在时间重叠</strong>
+          <p class="conflict-meta">涉及：{{ conflictMessage.relatedSessions }}</p>
         </div>
-        <div class="session-list">
-          <article v-for="session in sessions" :key="session.sessionId" class="session-item">
-            <div class="session-time">
-              <strong>{{ session.startTime }}</strong>
-              <span>{{ session.endTime }}</span>
+        <RouterLink class="text-link" :to="`${basePath}/schedule`">查看日程 →</RouterLink>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="dashboard-card">
+          <div class="card-head">
+            <div>
+              <p class="card-eyebrow">今日授课</p>
+              <h2>课程与私教安排</h2>
             </div>
-            <div class="session-body">
-              <div class="session-top">
-                <h3>
-                  {{ session.title }}
-                  <small>{{ session.sessionType === 'group' ? '团课' : '私教' }}</small>
-                </h3>
-                <span class="status-pill" :class="sessionStatusClass(session.status)">
-                  {{ sessionStatusLabel(session.status) }}
-                </span>
+            <RouterLink class="text-link" :to="`${basePath}/schedule`">完整日程 →</RouterLink>
+          </div>
+
+          <p v-if="todaySchedules.length === 0" class="empty-tip">今天暂无未结束的授课安排。</p>
+
+          <div v-else class="session-list">
+            <article v-for="session in todaySchedules" :key="session.scheduleId" class="session-item">
+              <div class="session-time">
+                <strong>{{ formatTime(session.scheduleStart) }}</strong>
+                <span>{{ formatTime(session.scheduleEnd) }}</span>
               </div>
-              <p class="meta">{{ session.venueName }}</p>
-              <p v-if="session.sessionType === 'group'" class="meta">
-                预约 {{ session.enrolledCount }} / {{ session.maxCapacity }} 人
-              </p>
-              <p v-else class="meta">会员：{{ session.memberName }}</p>
-            </div>
-            <span class="feature-tag">{{ session.featureRef }}</span>
-          </article>
-        </div>
-      </article>
-
-      <article class="dashboard-card">
-        <div class="card-head">
-          <div>
-            <p class="card-eyebrow">待确认 · 功能点 #13 #14</p>
-            <h2>私教预约确认</h2>
+              <div class="session-body">
+                <div class="session-top">
+                  <h3>
+                    {{ courseTitle(session) }}
+                    <small>{{ session.scheduleType === 'G' ? '团课' : '私教' }}</small>
+                  </h3>
+                  <span
+                    class="status-pill"
+                    :class="sessionStatusClass(resolveSessionStatus(session))"
+                  >
+                    {{ sessionStatusLabel(resolveSessionStatus(session)) }}
+                  </span>
+                </div>
+                <p v-if="session.scheduleType === 'P'" class="meta">会员：{{ memberLabel(session) }}</p>
+                <p v-else class="meta">状态：{{ session.status || '正常' }}</p>
+              </div>
+            </article>
           </div>
-        </div>
-        <div class="pt-list">
-          <article v-for="item in pendingPt" :key="item.bookingId" class="pt-item">
-            <h3>{{ item.memberName }}</h3>
-            <p class="meta">{{ item.packageName }} · 剩余 {{ item.remainingSessions }} 次</p>
-            <p class="meta">{{ item.scheduledAt }} · {{ item.venueName }}</p>
-            <span class="feature-tag">{{ item.featureRef }}</span>
-          </article>
-        </div>
-        <RouterLink class="primary-link block-link" :to="`${basePath}/pt-confirm`">前往确认与消课</RouterLink>
-      </article>
-    </section>
+        </article>
 
-    <PlaceholderPanel
-      owner="G + J"
-      features="#4 #11 #13 #14"
-      message="教练首页占位：J 负责日程与冲突检测，G 负责私教确认与消课。完整能力在「我的日程」「私教确认」页面展开。"
-    />
+        <article class="dashboard-card">
+          <div class="card-head">
+            <div>
+              <p class="card-eyebrow">待确认</p>
+              <h2>私教预约确认</h2>
+            </div>
+          </div>
+
+          <p v-if="pendingPt.length === 0" class="empty-tip">当前没有待确认的私教预约。</p>
+
+          <div v-else class="pt-list">
+            <article v-for="item in pendingPt" :key="item.ptBookingId" class="pt-item">
+              <h3>{{ item.courseName }}</h3>
+              <p class="meta">会员 #{{ item.memberId }} · 课包 #{{ item.packageId }}</p>
+              <p class="meta">{{ formatDateTime(item.sessionTime) }}</p>
+            </article>
+          </div>
+
+          <RouterLink class="primary-link block-link" :to="`${basePath}/pt-confirm`">前往私教确认</RouterLink>
+        </article>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -154,13 +281,26 @@ function sessionStatusClass(status: CoachSessionItem['status']) {
   gap: 20px;
 }
 
-.demo-banner {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #fff7e6;
-  color: #9a6700;
-  font-size: 13px;
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.refresh-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: #eef3ff;
+  color: #285cff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .summary-grid {
@@ -233,10 +373,6 @@ function sessionStatusClass(status: CoachSessionItem['status']) {
   box-shadow: var(--tj-shadow);
 }
 
-.span-2 {
-  grid-column: span 1;
-}
-
 .card-head {
   display: flex;
   justify-content: space-between;
@@ -259,6 +395,12 @@ function sessionStatusClass(status: CoachSessionItem['status']) {
   color: var(--tj-text);
 }
 
+.empty-tip {
+  margin: 0;
+  color: var(--tj-text-muted);
+  font-size: 14px;
+}
+
 .session-list,
 .pt-list {
   display: grid;
@@ -267,7 +409,7 @@ function sessionStatusClass(status: CoachSessionItem['status']) {
 
 .session-item {
   display: grid;
-  grid-template-columns: 72px 1fr auto;
+  grid-template-columns: 72px 1fr;
   gap: 14px;
   align-items: start;
   padding: 14px;
@@ -339,16 +481,6 @@ function sessionStatusClass(status: CoachSessionItem['status']) {
 .status-upcoming {
   background: #eef3ff;
   color: #285cff;
-}
-
-.feature-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #eef3fb;
-  color: #4f5f7a;
-  font-size: 12px;
-  align-self: center;
 }
 
 .pt-item {

@@ -34,6 +34,17 @@ public sealed class PriceListRepository : Repository<PriceList, int>, IPriceList
             .ToListAsync(cancellationToken);
     }
 
+    // 会员购课包页：只取在售私教课包商品
+    public async Task<IReadOnlyList<PriceList>> GetPersonalPackageProductsAsync(CancellationToken cancellationToken = default)
+    {
+        return await Context.PriceLists
+            .AsNoTracking()
+            .Where(x => x.ProductType.StartsWith("PT_PACKAGE_")
+                && !x.ProductType.StartsWith("INACTIVE_"))
+            .OrderBy(x => x.PriceId)
+            .ToListAsync(cancellationToken);
+    }
+
     // 当前最大 PRICE_ID + 1
     public async Task<int> GetNextPriceIdAsync(CancellationToken cancellationToken = default)
     {

@@ -77,7 +77,7 @@ function switchVenue(id: number) {
 
 <template>
   <div class="desk-page">
-    <PageHeader title="前台入场" subtitle="员工办理入场 / 退场，查看在场人员" />
+    <PageHeader title="前台入场" subtitle="按会员卡编号办理入场：次卡扣 1 次，时效卡校验有效期。" />
 
     <!-- 场馆 tab -->
     <div class="venue-bar">
@@ -99,7 +99,7 @@ function switchVenue(id: number) {
     <div class="card">
       <h2>办理入场</h2>
       <form class="inline" @submit.prevent="doCheckIn">
-        <input v-model.number="cardInput" type="number" min="1001" max="1999" placeholder="会员卡编号（1001-1999）" :disabled="submitting" />
+        <input v-model.number="cardInput" type="number" min="1" placeholder="会员卡编号（次卡扣1次 / 时效卡校验有效期）" :disabled="submitting" />
         <button type="submit" class="btn-primary" :disabled="submitting">
           {{ submitting ? '...' : '入场' }}
         </button>

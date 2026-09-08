@@ -20,4 +20,21 @@ public sealed class MemberScheduleRepository : Repository<MemberSchedule, int>, 
             .ThenBy(x => x.ScheduleStart)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<MemberSchedule?> GetBySourceTrackedAsync(
+        string scheduleType,
+        int sourceRecordId,
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.MemberSchedules
+            .FirstOrDefaultAsync(
+                x => x.ScheduleType == scheduleType && x.SourceRecordId == sourceRecordId,
+                cancellationToken);
+    }
+
+    public async Task<int> GetNextScheduleIdAsync(CancellationToken cancellationToken = default)
+    {
+        var maxId = await Context.MemberSchedules.MaxAsync(x => (int?)x.ScheduleId, cancellationToken);
+        return (maxId ?? 0) + 1;
+    }
 }

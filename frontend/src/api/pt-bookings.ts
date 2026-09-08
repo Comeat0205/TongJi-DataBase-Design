@@ -20,6 +20,7 @@ export interface PtBooking {
   isConsumed: boolean
   canConsume: boolean
   canUndoConsumption: boolean
+  canCancel: boolean
 }
 
 export interface CreatePtBookingRequest {

@@ -26,7 +26,12 @@ public sealed class EquipmentRepository : Repository<Equipment, int>, IEquipment
 
         if (!string.IsNullOrWhiteSpace(status) && status != "all")
         {
-            var normalizedStatus = status == "inactive" ? "0" : "1";
+            var normalizedStatus = status switch
+            {
+                "inactive" or "repairing" => "0",
+                "active" => "1",
+                _ => status.Trim()
+            };
             query = query.Where(x => x.Status == normalizedStatus);
         }
 
