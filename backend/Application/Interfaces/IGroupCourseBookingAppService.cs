@@ -13,6 +13,11 @@ public interface IGroupCourseBookingAppService
         int courseId,
         CancellationToken cancellationToken = default);
 
+    Task<(bool Success, string Message)> CancelByBookingIdAsync(
+        int bookingId,
+        int memberId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<GroupCourseBookingDto>> GetByMemberIdAsync(
         int memberId,
         CancellationToken cancellationToken = default);

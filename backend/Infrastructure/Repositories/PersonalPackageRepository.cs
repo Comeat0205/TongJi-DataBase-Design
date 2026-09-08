@@ -25,4 +25,31 @@ public sealed class PersonalPackageRepository
             .ThenBy(x => x.PackageId)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<PersonalCourse?> GetCourseByIdAsync(
+        int personalCourseId,
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.PersonalCourses
+            .AsNoTracking()
+            .Include(x => x.Coach)
+            .FirstOrDefaultAsync(x => x.PersonalCourseId == personalCourseId, cancellationToken);
+    }
+
+    public async Task<Personalpackage?> GetDetailByIdAsync(
+        int packageId,
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.Personalpackages
+            .AsNoTracking()
+            .Include(x => x.Coach)
+            .Include(x => x.PersonalCourse)
+            .FirstOrDefaultAsync(x => x.PackageId == packageId, cancellationToken);
+    }
+
+    public async Task<int> GetNextPackageIdAsync(CancellationToken cancellationToken = default)
+    {
+        var maxId = await Context.Personalpackages.MaxAsync(x => (int?)x.PackageId, cancellationToken);
+        return (maxId ?? 0) + 1;
+    }
 }

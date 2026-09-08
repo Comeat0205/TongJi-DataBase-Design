@@ -12,4 +12,8 @@ public interface IWaitingQueueRepository : IRepository<WaitingQueue, int>
     Task<IReadOnlyList<WaitingQueue>> GetByMemberIdAsync(
         int memberId,
         CancellationToken cancellationToken = default);
+
+    Task<WaitingQueue?> GetEarliestWaitingAsync(
+        int courseId,
+        CancellationToken cancellationToken = default);
 }

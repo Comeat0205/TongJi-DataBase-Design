@@ -3,6 +3,7 @@ namespace Application.DTOs;
 public sealed class CheckInResultDto
 {
     public int CheckInOutId { get; init; }
+    public int CardId { get; init; }
     public string MemberName { get; init; } = string.Empty;
     public string VenueName { get; init; } = string.Empty;
     public DateTime CheckInTime { get; init; }

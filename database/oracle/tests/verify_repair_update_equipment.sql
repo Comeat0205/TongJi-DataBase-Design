@@ -39,12 +39,12 @@ BEGIN
     END IF;
 
     INSERT INTO EQUIPMENT (EQUIP_ID, EQUIP_NAME, STATUS)
-    VALUES (c_test_equip_id, 'I-报修联动测试器材', '正常');
+    VALUES (c_test_equip_id, 'I-报修联动测试器材', '1');
 
     SELECT SEQ_REPAIRRECORD.NEXTVAL INTO v_first_record_id FROM DUAL;
     INSERT INTO REPAIRRECORD (RECORD_ID, EQUIP_ID, STATUS, DESCRIPTION)
     VALUES (v_first_record_id, c_test_equip_id, '待处理', '第一条测试报修');
-    assert_equipment_status('维护中');
+    assert_equipment_status('0');
 
     SELECT SEQ_REPAIRRECORD.NEXTVAL INTO v_second_record_id FROM DUAL;
     INSERT INTO REPAIRRECORD (RECORD_ID, EQUIP_ID, STATUS, DESCRIPTION)
@@ -53,12 +53,12 @@ BEGIN
     UPDATE REPAIRRECORD
     SET STATUS = '已完成'
     WHERE RECORD_ID = v_first_record_id;
-    assert_equipment_status('维护中');
+    assert_equipment_status('0');
 
     UPDATE REPAIRRECORD
     SET STATUS = '已完成'
     WHERE RECORD_ID = v_second_record_id;
-    assert_equipment_status('正常');
+    assert_equipment_status('1');
 
     ROLLBACK TO before_repair_trigger_test;
     DBMS_OUTPUT.PUT_LINE('PASS: 报修联动状态矩阵验证通过，测试表数据已回滚。');

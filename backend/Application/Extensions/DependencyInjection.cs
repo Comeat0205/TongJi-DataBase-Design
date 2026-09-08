@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupCourseBookingAppService, GroupCourseBookingAppService>();
         services.AddScoped<IWaitingQueueAppService, WaitingQueueAppService>();
         services.AddScoped<IAbsenceRecordAppService, AbsenceRecordAppService>();
+        services.AddScoped<IGroupPackageAppService, GroupPackageAppService>();
         
         return services;
     }

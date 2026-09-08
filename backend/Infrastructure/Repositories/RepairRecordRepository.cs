@@ -93,6 +93,25 @@ public sealed class RepairRecordRepository : Repository<Repairrecord, int>, IRep
             .FirstOrDefaultAsync(cancellationToken) == 1;
     }
 
+    public async Task<bool> HasOpenRepairsAsync(
+        int equipId,
+        int? excludeRecordId = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Oracle EF 对 AnyAsync / 可空比较有时会生成非法的 FALSE 标识符，改用 Count。
+        var excludeId = excludeRecordId ?? -1;
+        var openCount = await Context.Repairrecords
+            .AsNoTracking()
+            .CountAsync(
+                record =>
+                    record.EquipId == equipId
+                    && record.Status != "已完成"
+                    && record.RecordId != excludeId,
+                cancellationToken);
+
+        return openCount > 0;
+    }
+
     public async Task<int> GetNextIdAsync(CancellationToken cancellationToken = default)
     {
         var connection = Context.Database.GetDbConnection();

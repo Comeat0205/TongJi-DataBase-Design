@@ -41,11 +41,18 @@ const statusText: Record<PtBookingStatus, string> = {
   CANCELLED: '已取消',
 }
 
+/** 按北京时间墙钟展示；去掉误带的 Z，避免 UTC 被再减 8 小时。 */
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN', {
+  const normalized = value.endsWith('Z') ? value.slice(0, -1) : value
+  return new Date(normalized).toLocaleString('zh-CN', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
+}
+
+/** datetime-local → 无时区后缀的本地时间字符串，避免 toISOString 转成 UTC。 */
+function toWallClockSessionTime(value: string) {
+  return value.length === 16 ? `${value}:00` : value
 }
 
 async function loadData() {
@@ -84,9 +91,9 @@ async function submitBooking() {
     await createPtBooking({
       memberId: memberId.value,
       packageId: Number(form.packageId),
-      sessionTime: new Date(form.sessionTime).toISOString(),
+      sessionTime: toWallClockSessionTime(form.sessionTime),
     })
-    successMessage.value = '预约已提交，请等待教练确认。'
+    successMessage.value = '预约已提交，已扣除 1 次课包次数，请等待教练确认。'
     form.sessionTime = ''
     await loadData()
   } catch (error) {
@@ -97,7 +104,12 @@ async function submitBooking() {
 }
 
 async function cancelBooking(booking: PtBooking) {
-  if (!window.confirm(`确定取消 ${formatDateTime(booking.sessionTime)} 的预约吗？`)) {
+  if (!booking.canCancel) {
+    errorMessage.value = '距上课不足 24 小时，或当前状态不可取消。'
+    return
+  }
+
+  if (!window.confirm(`确定取消 ${formatDateTime(booking.sessionTime)} 的预约吗？取消后将返还 1 次课包次数。`)) {
     return
   }
 
@@ -105,7 +117,7 @@ async function cancelBooking(booking: PtBooking) {
   successMessage.value = ''
   try {
     await cancelPtBooking(booking.ptBookingId, memberId.value)
-    successMessage.value = '预约已取消。'
+    successMessage.value = '预约已取消，已返还 1 次课包次数。'
     await loadData()
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : '取消预约失败。'
@@ -120,7 +132,7 @@ onMounted(loadData)
     <PageHeader
       eyebrow="PT Booking"
       title="私教预约"
-      subtitle="使用有效课包选择上课时间；系统会检查课包有效期、剩余次数以及会员和教练的时间冲突。"
+      subtitle="使用有效课包选择上课时间；提交预约会立即扣除 1 次。待确认可随时取消；教练已确认的须在上课 24 小时前取消，取消或教练拒绝将返还次数。"
     />
 
     <StateCard v-if="loading" message="私教预约数据加载中..." />
@@ -178,19 +190,18 @@ onMounted(loadData)
               <div>
                 <p class="course">{{ item.courseName }}</p>
                 <p>{{ item.coachName }}教练 · {{ formatDateTime(item.sessionTime) }}</p>
-                <p>{{ item.isConsumed ? '已消课' : '未消课' }}</p>
               </div>
               <div class="item-actions">
                 <span class="badge" :class="item.status.toLowerCase()">
                   {{ statusText[item.status] }}
                 </span>
                 <button
-                  v-if="item.status === 'PENDING'"
+                  v-if="item.canCancel"
                   type="button"
                   class="cancel-btn"
                   @click="cancelBooking(item)"
                 >
-                  取消
+                  取消预约
                 </button>
               </div>
             </div>

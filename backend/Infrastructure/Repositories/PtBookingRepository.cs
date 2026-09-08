@@ -58,6 +58,87 @@ public sealed class PtBookingRepository : Repository<Ptbooking, int>, IPtBooking
             .FirstOrDefaultAsync(x => x.PtBookingId == bookingId, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<int, PtScheduleDetail>> GetScheduleDetailsByIdsAsync(
+        IReadOnlyCollection<int> bookingIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (bookingIds.Count == 0)
+        {
+            return new Dictionary<int, PtScheduleDetail>();
+        }
+
+        var rows = await (
+            from booking in Context.Ptbookings.AsNoTracking()
+            join member in Context.Members.AsNoTracking() on booking.MemberId equals member.MemberId
+            join coach in Context.Coaches.AsNoTracking() on booking.CoachId equals coach.CoachId
+            join package in Context.Personalpackages.AsNoTracking() on booking.PackageId equals package.PackageId
+            join course in Context.PersonalCourses.AsNoTracking() on package.PersonalCourseId equals course.PersonalCourseId
+            where bookingIds.Contains(booking.PtBookingId)
+            select new
+            {
+                booking.PtBookingId,
+                booking.MemberId,
+                MemberName = member.Name,
+                course.CourseName,
+                booking.CoachId,
+                CoachName = coach.CoachName
+            }).ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(
+            x => x.PtBookingId,
+            x => new PtScheduleDetail(
+                x.PtBookingId,
+                x.MemberId,
+                x.MemberName,
+                x.CourseName,
+                x.CoachId,
+                x.CoachName));
+    }
+
+    public async Task<bool> HasConfirmedSessionOverlapAsync(
+        int coachId,
+        DateTime sessionStart,
+        DateTime sessionEnd,
+        int? excludeBookingId = null,
+        CancellationToken cancellationToken = default)
+    {
+        // 私教默认 1 小时；重叠：对方开始 < 本段结束 且 对方结束 > 本段开始
+        var candidates = await Context.Ptbookings
+            .AsNoTracking()
+            .Where(x =>
+                x.CoachId == coachId
+                && x.CoachConfirmed == "1"
+                && x.MemberConfirmed == "1"
+                && x.SessionTime < sessionEnd
+                && (excludeBookingId == null || x.PtBookingId != excludeBookingId.Value))
+            .Select(x => x.SessionTime)
+            .ToListAsync(cancellationToken);
+
+        return candidates.Any(start => start.AddHours(1) > sessionStart);
+    }
+
+    public async Task<IReadOnlyList<Ptbooking>> GetPendingOverlappingTrackedAsync(
+        int coachId,
+        DateTime sessionStart,
+        DateTime sessionEnd,
+        int excludeBookingId,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await Context.Ptbookings
+            .Include(x => x.Package)
+            .Where(x =>
+                x.CoachId == coachId
+                && x.CoachConfirmed == "0"
+                && x.MemberConfirmed == "1"
+                && x.PtBookingId != excludeBookingId
+                && x.SessionTime < sessionEnd)
+            .ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(x => x.SessionTime.AddHours(1) > sessionStart)
+            .ToList();
+    }
+
     public async Task<int> BookAsync(
         int memberId,
         int packageId,

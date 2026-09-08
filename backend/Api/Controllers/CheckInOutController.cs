@@ -109,11 +109,21 @@ public class CheckInOutController : ControllerBase
         }
     }
 
-    // 会员查询自己的在场记录
+    // 会员查询自己的在场记录（按卡）
     [HttpGet("my-checkin/{cardId:int}")]
     public async Task<ActionResult<ApiResponse<CheckInOutDto>>> GetMyCheckIn(int cardId, CancellationToken ct)
     {
         var record = await _svc.GetMyActiveCheckInAsync(cardId, ct);
+        if (record is null)
+            return Ok(ApiResponse<CheckInOutDto>.Success(null!, HttpContext.TraceIdentifier));
+        return Ok(ApiResponse<CheckInOutDto>.Success(record, HttpContext.TraceIdentifier));
+    }
+
+    // 会员查询自己的在场记录（按会员，支持多卡）
+    [HttpGet("my-checkin/by-member/{memberId:int}")]
+    public async Task<ActionResult<ApiResponse<CheckInOutDto>>> GetMyCheckInByMember(int memberId, CancellationToken ct)
+    {
+        var record = await _svc.GetMyActiveCheckInByMemberAsync(memberId, ct);
         if (record is null)
             return Ok(ApiResponse<CheckInOutDto>.Success(null!, HttpContext.TraceIdentifier));
         return Ok(ApiResponse<CheckInOutDto>.Success(record, HttpContext.TraceIdentifier));

@@ -11,4 +11,13 @@ public sealed class MemberScheduleDto
     public int? SourceRecordId { get; init; }
     public string? Status { get; init; }
     public bool IsUpcoming { get; init; }
+
+    /// <summary>课程名称（私教来自 PERSONAL_COURSE；团操来自 GROUPCOURSE）。</summary>
+    public string? CourseName { get; init; }
+
+    /// <summary>授课教练编号。</summary>
+    public int? CoachId { get; init; }
+
+    /// <summary>授课教练姓名。</summary>
+    public string? CoachName { get; init; }
 }

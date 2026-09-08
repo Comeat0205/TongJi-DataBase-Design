@@ -3,10 +3,12 @@ import { http } from './http'
 export interface CheckInRequest {
   cardId: number
   venueId: number
+  memberId?: number
 }
 
 export interface CheckInResult {
   checkInOutId: number
+  cardId: number
   memberName: string
   venueName: string
   checkInTime: string
@@ -81,9 +83,14 @@ export function triggerAutoCheckout() {
   return http.post<{ message: string }>('/checkinout/auto-checkout')
 }
 
-// 会员查询自己的在场记录
+// 会员查询自己的在场记录（按卡）
 export function getMyCheckIn(cardId: number) {
   return http.get<CheckInOutRecord | null>(`/checkinout/my-checkin/${cardId}`)
+}
+
+// 会员查询自己的在场记录（按会员，支持多卡）
+export function getMyCheckInByMember(memberId: number) {
+  return http.get<CheckInOutRecord | null>(`/checkinout/my-checkin/by-member/${memberId}`)
 }
 
 // 会员查询自己的会员卡信息

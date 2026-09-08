@@ -20,4 +20,21 @@ public sealed class CoachScheduleRepository : Repository<CoachSchedule, int>, IC
             .ThenBy(x => x.ScheduleStart)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<CoachSchedule?> GetBySourceTrackedAsync(
+        string scheduleType,
+        int sourceRecordId,
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.CoachSchedules
+            .FirstOrDefaultAsync(
+                x => x.ScheduleType == scheduleType && x.SourceRecordId == sourceRecordId,
+                cancellationToken);
+    }
+
+    public async Task<int> GetNextScheduleIdAsync(CancellationToken cancellationToken = default)
+    {
+        var maxId = await Context.CoachSchedules.MaxAsync(x => (int?)x.ScheduleId, cancellationToken);
+        return (maxId ?? 0) + 1;
+    }
 }

@@ -16,5 +16,6 @@ public interface IRepairRecordRepository : IRepository<Repairrecord, int>
         CancellationToken cancellationToken = default);
     Task<bool> EquipmentExistsAsync(int equipId, CancellationToken cancellationToken = default);
     Task<bool> EmployeeExistsAsync(int empId, CancellationToken cancellationToken = default);
+    Task<bool> HasOpenRepairsAsync(int equipId, int? excludeRecordId = null, CancellationToken cancellationToken = default);
     Task<int> GetNextIdAsync(CancellationToken cancellationToken = default);
 }

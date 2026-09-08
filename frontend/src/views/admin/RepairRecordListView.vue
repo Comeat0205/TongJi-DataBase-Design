@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/http'
 import {
-  createRepairRecord,
+  completeRepairRecord,
   getRepairRecordOptions,
   getRepairRecords,
   updateRepairRecordStatus,
@@ -26,11 +26,6 @@ const selectedStatus = ref<RepairStatus | ''>('')
 const options = ref<RepairRecordOptions>({ equipment: [], employees: [] })
 const optionsLoading = ref(true)
 const optionsErrorMessage = ref('')
-
-const createForm = reactive({
-  equipId: undefined as number | undefined,
-  description: '',
-})
 
 const progressForm = reactive({
   recordId: 0,
@@ -77,40 +72,9 @@ async function loadOptions() {
     options.value = await getRepairRecordOptions()
   } catch (error) {
     optionsErrorMessage.value =
-      error instanceof ApiError ? error.message : '器材和员工选项加载失败，请稍后重试。'
+      error instanceof ApiError ? error.message : '员工选项加载失败，请稍后重试。'
   } finally {
     optionsLoading.value = false
-  }
-}
-
-async function handleCreate() {
-  if (isPreview.value) {
-    errorMessage.value = '预览模式只展示页面，请登录员工账号后再新建报修。'
-    return
-  }
-
-  if (!createForm.equipId || !createForm.description.trim()) {
-    errorMessage.value = '请填写器材编号和问题描述。'
-    return
-  }
-
-  saving.value = true
-  errorMessage.value = ''
-  noticeMessage.value = ''
-
-  try {
-    await createRepairRecord({
-      equipId: createForm.equipId,
-      description: createForm.description.trim(),
-    })
-    noticeMessage.value = '报修记录已创建。'
-    createForm.equipId = undefined
-    createForm.description = ''
-    await loadRecords()
-  } catch (error) {
-    errorMessage.value = error instanceof ApiError ? error.message : '新建报修失败，请稍后重试。'
-  } finally {
-    saving.value = false
   }
 }
 
@@ -160,6 +124,42 @@ async function advanceStatus(record: RepairRecord) {
   }
 }
 
+async function handleComplete(record: RepairRecord) {
+  if (isPreview.value) {
+    errorMessage.value = '预览模式只展示页面，请登录员工账号后再操作。'
+    return
+  }
+
+  if (record.status === '已完成') return
+
+  const confirmed = window.confirm(
+    `确认将报修 #${record.recordId}（${record.equipName}）标记为修理完成？完成后器材将恢复为「正常」。`,
+  )
+  if (!confirmed) return
+
+  saving.value = true
+  errorMessage.value = ''
+  noticeMessage.value = ''
+
+  try {
+    const payload: { empId?: number; repairCost?: number } = {}
+    const empId = progressForm.recordId === record.recordId ? progressForm.empId : record.empId
+    const repairCost =
+      progressForm.recordId === record.recordId ? progressForm.repairCost : record.repairCost
+    if (typeof empId === 'number' && empId > 0) payload.empId = empId
+    if (typeof repairCost === 'number' && repairCost >= 0) payload.repairCost = repairCost
+
+    await completeRepairRecord(record.recordId, payload)
+    noticeMessage.value = `报修 #${record.recordId} 已修理完成，器材已恢复正常。`
+    progressForm.recordId = 0
+    await loadRecords()
+  } catch (error) {
+    errorMessage.value = error instanceof ApiError ? error.message : '修理完成失败，请稍后重试。'
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(async () => {
   await Promise.all([loadRecords(), loadOptions()])
 })
@@ -167,33 +167,15 @@ onMounted(async () => {
 
 <template>
   <div class="repair-page">
-    <PageHeader title="器材报修" subtitle="登记器材故障，跟进维修负责人、费用和处理进度。" />
+    <PageHeader
+      title="器材报修"
+      subtitle="跟进维修进度；修理完成后器材自动恢复正常。报修请在「器材管理」将器材设为维修。"
+    />
 
-    <p v-if="isPreview" class="preview-banner">预览模式：可以查看页面和筛选记录，但不能新建或更新报修。</p>
+    <p v-if="isPreview" class="preview-banner">预览模式：可以查看页面和筛选记录，但不能更新报修。</p>
     <p v-if="noticeMessage" class="notice-banner">{{ noticeMessage }}</p>
     <p v-if="errorMessage && records.length > 0" class="inline-error">{{ errorMessage }}</p>
     <p v-if="optionsErrorMessage" class="inline-error">{{ optionsErrorMessage }}</p>
-
-    <section class="panel">
-      <h2>新建报修</h2>
-      <form class="create-form" @submit.prevent="handleCreate">
-        <SearchableEntitySelect
-          v-model="createForm.equipId"
-          class="equipment-field"
-          label="器材"
-          :options="options.equipment"
-          :disabled="optionsLoading"
-          :placeholder="optionsLoading ? '器材加载中...' : '输入器材名称或编号'"
-          empty-text="暂无可选器材"
-          required
-        />
-        <label class="description-field">
-          问题描述
-          <input v-model="createForm.description" type="text" maxlength="200" placeholder="简单说明器材故障情况" />
-        </label>
-        <button type="submit" class="primary-btn" :disabled="saving || isPreview">提交报修</button>
-      </form>
-    </section>
 
     <section class="panel">
       <div class="panel-heading">
@@ -238,16 +220,27 @@ onMounted(async () => {
                 <td><span class="status-tag" :class="statusClass(record.status)">{{ record.status }}</span></td>
                 <td>{{ formatTime(record.reportTime) }}</td>
                 <td>
-                  <button
-                    v-if="nextStatus(record.status)"
-                    type="button"
-                    class="ghost-btn"
-                    :disabled="saving || isPreview"
-                    @click="startProgress(record)"
-                  >
-                    推进处理
-                  </button>
-                  <span v-else class="finished-text">已办结</span>
+                  <div class="action-group">
+                    <button
+                      v-if="nextStatus(record.status)"
+                      type="button"
+                      class="ghost-btn"
+                      :disabled="saving || isPreview"
+                      @click="startProgress(record)"
+                    >
+                      推进处理
+                    </button>
+                    <button
+                      v-if="record.status !== '已完成'"
+                      type="button"
+                      class="primary-btn"
+                      :disabled="saving || isPreview"
+                      @click="handleComplete(record)"
+                    >
+                      修理完成
+                    </button>
+                    <span v-if="record.status === '已完成'" class="finished-text">已办结</span>
+                  </div>
                 </td>
               </tr>
               <tr v-if="progressForm.recordId === record.recordId" class="progress-row">
@@ -288,11 +281,8 @@ onMounted(async () => {
 .preview-banner { background: #fff7ed; color: #c2410c; }
 .notice-banner { background: #e8f7ee; color: #15803d; }
 .inline-error { margin: 0; color: var(--tj-danger); }
-.create-form, .progress-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
-.create-form { margin-top: 18px; }
-.create-form label, .progress-form label, .filter-field { display: grid; gap: 6px; color: #2a3c59; font-size: 14px; }
-.description-field { flex: 1; min-width: 280px; }
-.equipment-field { min-width: 240px; }
+.progress-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.progress-form label, .filter-field { display: grid; gap: 6px; color: #2a3c59; font-size: 14px; }
 input, select { min-height: 40px; padding: 8px 11px; border: 1px solid #d7e0ef; border-radius: 9px; background: #fff; color: var(--tj-text); }
 .panel-heading { display: flex; justify-content: space-between; gap: 16px; align-items: end; margin-bottom: 18px; }
 .table-wrap { overflow-x: auto; }
@@ -307,10 +297,11 @@ th { color: var(--tj-text-muted); font-size: 13px; white-space: nowrap; }
 .progress-row td { background: #f7f9fd; }
 .progress-form { justify-content: flex-end; }
 .primary-btn, .ghost-btn { min-height: 38px; padding: 8px 14px; border-radius: 9px; font-weight: 600; cursor: pointer; }
+.action-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .primary-btn { border: 0; background: var(--tj-primary); color: #fff; }
 .ghost-btn { border: 1px solid #d7e0ef; background: #fff; color: #2a3c59; }
 .primary-btn:disabled, .ghost-btn:disabled { opacity: .6; cursor: not-allowed; }
 .finished-text, .empty-text { color: var(--tj-text-muted); }
 .empty-text { margin: 24px 0 0; text-align: center; }
-@media (max-width: 760px) { .panel-heading { align-items: stretch; flex-direction: column; } .create-form { align-items: stretch; flex-direction: column; } }
+@media (max-width: 760px) { .panel-heading { align-items: stretch; flex-direction: column; } }
 </style>

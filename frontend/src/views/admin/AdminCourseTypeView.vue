@@ -8,10 +8,19 @@ import {
   updateCourseType,
   type CourseType,
 } from '@/api/courseTypes'
+import {
+  createGroupPackageProduct,
+  getManageGroupPackageProducts,
+  patchGroupPackageProduct,
+  type GroupPackageProduct,
+} from '@/api/group-packages'
+import { ApiError } from '@/api/http'
 
 const courseTypes = ref<CourseType[]>([])
+const packageProducts = ref<GroupPackageProduct[]>([])
 
 const loading = ref(false)
+const pkgLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
@@ -20,6 +29,13 @@ const editing = ref(false)
 
 const formTypeId = ref<number | null>(null)
 const formTypeName = ref('')
+
+const showPkgForm = ref(false)
+const pkgTypeId = ref<number | null>(null)
+const pkgSessionCount = ref(10)
+const pkgPrice = ref(199)
+const pkgBusy = ref(false)
+const togglingPriceId = ref<number | null>(null)
 
 async function loadCourseTypes() {
   loading.value = true
@@ -32,6 +48,18 @@ async function loadCourseTypes() {
       error instanceof Error ? error.message : '课程类型加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadPackageProducts() {
+  pkgLoading.value = true
+  try {
+    packageProducts.value = await getManageGroupPackageProducts()
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : '课包商品加载失败'
+  } finally {
+    pkgLoading.value = false
   }
 }
 
@@ -118,8 +146,106 @@ async function removeCourseType(courseType: CourseType) {
   }
 }
 
+function openPkgForm() {
+  pkgTypeId.value = courseTypes.value[0]?.typeId ?? null
+  pkgSessionCount.value = 10
+  pkgPrice.value = 199
+  showPkgForm.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
+function closePkgForm() {
+  showPkgForm.value = false
+}
+
+async function submitPkgForm() {
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  if (!pkgTypeId.value || pkgTypeId.value <= 0) {
+    errorMessage.value = '请选择课程类型'
+    return
+  }
+  if (!pkgSessionCount.value || pkgSessionCount.value <= 0) {
+    errorMessage.value = '请输入有效次数'
+    return
+  }
+  if (pkgPrice.value == null || pkgPrice.value < 0) {
+    errorMessage.value = '请输入有效价格'
+    return
+  }
+
+  pkgBusy.value = true
+  try {
+    await createGroupPackageProduct({
+      typeId: pkgTypeId.value,
+      sessionCount: pkgSessionCount.value,
+      standardPrice: pkgPrice.value,
+    })
+    successMessage.value = '团课课包商品已上架'
+    showPkgForm.value = false
+    await loadPackageProducts()
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : '创建课包商品失败'
+  } finally {
+    pkgBusy.value = false
+  }
+}
+
+async function updatePkgPrice(product: GroupPackageProduct) {
+  const input = window.prompt(`修改「${product.name}」价格（元）`, String(product.price))
+  if (input == null) return
+  const next = Number(input)
+  if (!Number.isFinite(next) || next < 0) {
+    errorMessage.value = '价格无效'
+    return
+  }
+
+  try {
+    await patchGroupPackageProduct(product.priceId, { standardPrice: next })
+    successMessage.value = '价格已更新'
+    await loadPackageProducts()
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : '改价失败'
+  }
+}
+
+async function togglePkgActive(product: GroupPackageProduct) {
+  const nextActive = !product.isActive
+  const tip = nextActive ? '确认重新上架该课包？' : '确认下架该课包？会员端将不可见。'
+  if (!window.confirm(tip)) return
+
+  togglingPriceId.value = product.priceId
+  try {
+    await patchGroupPackageProduct(product.priceId, { isActive: nextActive })
+    successMessage.value = nextActive ? '已上架' : '已下架'
+    await loadPackageProducts()
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : '状态更新失败'
+  } finally {
+    togglingPriceId.value = null
+  }
+}
+
 onMounted(() => {
-  loadCourseTypes()
+  void loadCourseTypes()
+  void loadPackageProducts()
 })
 </script>
 
@@ -128,9 +254,16 @@ onMounted(() => {
     <PageHeader
       eyebrow="Course Type Management"
       title="课程类型"
-      subtitle="维护团课、私教等课程类型的基础信息。"
+      subtitle="维护课程类型，并在此上架/改价/上下架团课课包（按类型核销、按次、无有效期）。"
     >
       <template #actions>
+        <button
+          class="secondary-button"
+          type="button"
+          @click="openPkgForm"
+        >
+          上架团课课包
+        </button>
         <button
           class="primary-button"
           type="button"
@@ -210,6 +343,54 @@ onMounted(() => {
       </div>
     </section>
 
+    <section class="management-card">
+      <div class="card-head">
+        <div>
+          <p class="card-eyebrow">GROUP PACKAGE PRODUCTS</p>
+          <h2>团课课包商品</h2>
+        </div>
+        <span class="count">{{ packageProducts.length }} 个商品</span>
+      </div>
+
+      <div v-if="pkgLoading" class="empty-state">正在加载课包商品……</div>
+      <div v-else-if="packageProducts.length === 0" class="empty-state">
+        暂无课包商品，请点击「上架团课课包」。
+      </div>
+      <div v-else class="type-list">
+        <article
+          v-for="product in packageProducts"
+          :key="product.priceId"
+          class="type-item"
+        >
+          <div>
+            <h3>{{ product.name }}</h3>
+            <p>
+              {{ product.courseTypeName }} · {{ product.sessionCount }} 次 ·
+              ¥{{ product.price }} ·
+              {{ product.isActive ? '在售' : '已下架' }}
+            </p>
+          </div>
+          <div class="item-actions">
+            <button
+              class="secondary-button"
+              type="button"
+              @click="updatePkgPrice(product)"
+            >
+              改价
+            </button>
+            <button
+              class="secondary-button"
+              type="button"
+              :disabled="togglingPriceId === product.priceId"
+              @click="togglePkgActive(product)"
+            >
+              {{ product.isActive ? '下架' : '上架' }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <!-- 新增 / 编辑课程类型弹窗 -->
     <div
       v-if="showForm"
@@ -279,6 +460,82 @@ onMounted(() => {
               type="submit"
             >
               {{ editing ? '保存修改' : '创建类型' }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- 上架团课课包弹窗 -->
+    <div
+      v-if="showPkgForm"
+      class="modal-mask"
+      @click.self="closePkgForm"
+    >
+      <section class="modal-card">
+        <div class="modal-head">
+          <div>
+            <p class="card-eyebrow">CREATE GROUP PACKAGE</p>
+            <h2>上架团课课包</h2>
+          </div>
+          <button
+            class="close-button"
+            type="button"
+            aria-label="关闭"
+            @click="closePkgForm"
+          >
+            ×
+          </button>
+        </div>
+
+        <form class="type-form" @submit.prevent="submitPkgForm">
+          <label>
+            <span>课程类型</span>
+            <select v-model.number="pkgTypeId">
+              <option
+                v-for="t in courseTypes"
+                :key="t.typeId"
+                :value="t.typeId"
+              >
+                {{ t.typeName }}（ID {{ t.typeId }}）
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>次数</span>
+            <input
+              v-model.number="pkgSessionCount"
+              type="number"
+              min="1"
+              step="1"
+            />
+          </label>
+
+          <label>
+            <span>标准价格（元）</span>
+            <input
+              v-model.number="pkgPrice"
+              type="number"
+              min="0"
+              step="0.01"
+            />
+          </label>
+
+          <div class="form-actions">
+            <button
+              class="secondary-button"
+              type="button"
+              @click="closePkgForm"
+            >
+              取消
+            </button>
+            <button
+              class="primary-button"
+              type="submit"
+              :disabled="pkgBusy"
+            >
+              {{ pkgBusy ? '提交中...' : '上架' }}
             </button>
           </div>
         </form>
@@ -480,9 +737,29 @@ onMounted(() => {
   font: inherit;
 }
 
-.type-form input:focus {
+.type-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #d9e2ef;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--tj-text);
+  font: inherit;
+}
+
+.type-form input:focus,
+.type-form select:focus {
   outline: 2px solid #dbe4ff;
   border-color: #285cff;
+}
+
+.mono {
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #64748b;
+  word-break: break-all;
 }
 
 .form-actions {

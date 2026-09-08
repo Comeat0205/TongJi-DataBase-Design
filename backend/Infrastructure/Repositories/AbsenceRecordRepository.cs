@@ -19,7 +19,8 @@ public sealed class AbsenceRecordRepository
     {
         return await Context.AbsenceRecords
             .Include(x => x.Booking)
-                .ThenInclude(x => x.Course)
+                .ThenInclude(b => b.Package)
+                    .ThenInclude(p => p.Course)
             .Where(x => x.MemberId == memberId)
             .OrderByDescending(x => x.CourseDate)
             .ThenByDescending(x => x.AbsenceTime)

@@ -10,6 +10,9 @@ export interface CoachScheduleItem {
   sourceRecordId: number | null
   status: string | null
   isConflict: boolean
+  memberId?: number | null
+  memberName?: string | null
+  courseName?: string | null
 }
 
 export function getCoachSchedules(coachId: number) {

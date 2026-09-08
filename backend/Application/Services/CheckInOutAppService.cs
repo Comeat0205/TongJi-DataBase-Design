@@ -27,34 +27,30 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
 
     public async Task<CheckInResultDto> CheckInAsync(CheckInRequestDto req, CancellationToken ct = default)
     {
+        if (req.CardId <= 0)
+            throw new InvalidOperationException("请选择要用于签到的会员卡。");
+
         // 查卡片 + 扩展表 + 会员
-        var card = await _checkInOutRepo.GetCardWithDetailsAsync(req.CardId, ct);
+        var card = await _checkInOutRepo.GetCardWithDetailsAsync(req.CardId, ct)
+            ?? throw new InvalidOperationException("未找到该会员卡");
 
-        if (card is null)
-            throw new InvalidOperationException("未找到该会员卡");
+        if (req.MemberId is > 0 && card.MemberId != req.MemberId.Value)
+            throw new InvalidOperationException("所选会员卡不属于当前会员。");
 
-        // 卡片状态 '1' = 正常
-        if (card.CardStatus?.Trim() != "1")
-            throw new InvalidOperationException("卡片状态异常");
-
-        var cardType = card.CardType?.Trim() ?? "1"; // 0=次卡, 1=时间卡
-        int? remaining = null;
-        DateTime? expire = null;
-
-        if (cardType == "0")
+        // 时效卡：校验在有效期内；次卡：校验有剩余次数。
+        if (!card.IsValidNow())
         {
-            // 次卡 - 看剩余次数
-            if (card.CountCardExtension is null || card.CountCardExtension.RemainingCount <= 0)
-                throw new InvalidOperationException("会员卡次数为0");
-            remaining = card.CountCardExtension.RemainingCount;
+            var type = card.CardType?.Trim();
+            if (type == "0")
+                throw new InvalidOperationException("次卡次数不足，无法签到。");
+            if (type == "1")
+                throw new InvalidOperationException("时效卡已过期，无法签到。");
+            throw new InvalidOperationException("会员卡当前不可用。");
         }
-        else
-        {
-            // 时间卡 - 看有效期
-            if (card.TimeCardExtension is null || card.TimeCardExtension.ExpireDate < DateTime.Now.Date)
-                throw new InvalidOperationException("时间卡已过期");
-            expire = card.TimeCardExtension.ExpireDate;
-        }
+
+        var cardType = card.CardType?.Trim() ?? "1"; // 0=次卡, 1=时效卡
+        int? remaining = cardType == "0" ? card.CountCardExtension?.RemainingCount : null;
+        DateTime? expire = cardType == "1" ? card.TimeCardExtension?.ExpireDate : null;
 
         // 场馆校验
         var venue = await _venueRepo.GetByIdAsync(req.VenueId, ct);
@@ -67,12 +63,12 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         if (cur >= venue.MaxCapacity)
             throw new InvalidOperationException($"场馆已满 ({cur}/{venue.MaxCapacity})");
 
-        // 防止重复入场
-        var dup = await _checkInOutRepo.GetActiveCheckInAsync(req.CardId, req.VenueId, ct);
-        if (dup is not null)
-            throw new InvalidOperationException("已在场内");
+        // 同一会员不可重复在场（与所选卡无关）
+        var activeByMember = await _checkInOutRepo.GetActiveCheckInByMemberAsync(card.MemberId, ct);
+        if (activeByMember is not null)
+            throw new InvalidOperationException("该会员已在场内，请先签退。");
 
-        // 写入场记录
+        // 写入场记录（关联用户选择的会员卡）
         var nextId = await _checkInOutRepo.GetNextIdAsync(ct);
         var record = new Checkinout
         {
@@ -84,10 +80,11 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         };
         await _checkInOutRepo.AddAsync(record, ct);
 
-        // 次卡扣减
+        // 次卡：扣减 1 次；时效卡：仅校验有效期，不扣次
         if (cardType == "0" && card.CountCardExtension is not null)
         {
             card.CountCardExtension.RemainingCount--;
+            remaining = card.CountCardExtension.RemainingCount;
             if (card.CountCardExtension.RemainingCount <= 0)
                 card.CardStatus = "0"; // 用完作废
         }
@@ -97,10 +94,11 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         return new CheckInResultDto
         {
             CheckInOutId = record.CheckInOutId,
+            CardId = card.CardId,
             MemberName = card.Member?.Name ?? "",
             VenueName = venue.VenueName,
             CheckInTime = record.CheckInTime,
-            CardType = cardType == "0" ? "次卡" : "时间卡",
+            CardType = cardType == "0" ? "次卡" : "时效卡",
             CardStatus = card.CardStatus?.Trim() == "1" ? "正常" : "已用完",
             RemainingCount = remaining,
             ExpireDate = expire,
@@ -201,6 +199,12 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         return record is null ? null : MapDto(record);
     }
 
+    public async Task<CheckInOutDto?> GetMyActiveCheckInByMemberAsync(int memberId, CancellationToken ct = default)
+    {
+        var record = await _checkInOutRepo.GetActiveCheckInByMemberAsync(memberId, ct);
+        return record is null ? null : MapDto(record);
+    }
+
     public async Task<MemberCardDto?> GetMemberCardAsync(int cardId, CancellationToken ct = default)
     {
         var card = await _checkInOutRepo.GetCardWithDetailsAsync(cardId, ct);
@@ -218,7 +222,7 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
             CardId = card.CardId,
             CardType = card.CardType?.Trim() ?? "",
             CardStatus = card.CardStatus?.Trim() ?? "",
-            CardTypeName = isCountCard ? "次卡" : "时间卡",
+            CardTypeName = isCountCard ? "次卡" : "时效卡",
             CardStatusName = card.CardStatus?.Trim() == "1" ? "正常" : "已停用",
             RemainingCount = isCountCard ? card.CountCardExtension?.RemainingCount : null,
             TotalCounts = isCountCard ? card.CountCardExtension?.TotalCounts : null,
