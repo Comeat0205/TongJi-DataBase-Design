@@ -20,6 +20,8 @@ public sealed class PaymentAppService : IPaymentAppService
     private readonly IPriceListRepository _priceListRepository;
     private readonly IMembershipCardAppService _membershipCardAppService;
     private readonly IPersonalPackageAppService _personalPackageAppService;
+    private readonly IGroupPackageAppService _groupPackageAppService;
+    private readonly IGroupcourseRepository _groupcourseRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public PaymentAppService(
@@ -29,6 +31,8 @@ public sealed class PaymentAppService : IPaymentAppService
         IPriceListRepository priceListRepository,
         IMembershipCardAppService membershipCardAppService,
         IPersonalPackageAppService personalPackageAppService,
+        IGroupPackageAppService groupPackageAppService,
+        IGroupcourseRepository groupcourseRepository,
         IUnitOfWork unitOfWork)
     {
         _paymentOrderRepository = paymentOrderRepository;
@@ -37,6 +41,8 @@ public sealed class PaymentAppService : IPaymentAppService
         _priceListRepository = priceListRepository;
         _membershipCardAppService = membershipCardAppService;
         _personalPackageAppService = personalPackageAppService;
+        _groupPackageAppService = groupPackageAppService;
+        _groupcourseRepository = groupcourseRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -486,12 +492,90 @@ public sealed class PaymentAppService : IPaymentAppService
             cancellationToken);
     }
 
+    public async Task<PaymentOrderDto> CreateGroupPackageOrderAsync(
+        PurchaseGroupPackageRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.MemberId <= 0)
+        {
+            throw new DomainException("请提供有效的会员 ID。");
+        }
+
+        if (request.PriceId <= 0)
+        {
+            throw new DomainException("请选择课包商品。");
+        }
+
+        var member = await _memberRepository.GetByIdAsync(request.MemberId, cancellationToken)
+            ?? throw new DomainException($"未找到编号为 {request.MemberId} 的会员。");
+
+        if (!member.IsActive())
+        {
+            throw new DomainException("当前会员状态不可购买课包。");
+        }
+
+        var price = await _priceListRepository.GetByIdAsync(request.PriceId, cancellationToken)
+            ?? throw new DomainException($"未找到编号为 {request.PriceId} 的商品。");
+
+        if (!GroupPackageLabels.IsActiveProductType(price.ProductType)
+            || !GroupPackageLabels.TryParse(price.ProductType, out var typeId, out _))
+        {
+            throw new DomainException("该商品不是在售团课课包。");
+        }
+
+        // 外键 COURSE_ID：优先用请求指定；否则自动取该课程类型下任意一门团课
+        int courseId;
+        if (request.CourseId is > 0)
+        {
+            var course = await _groupcourseRepository.GetByIdAsync(request.CourseId.Value, cancellationToken)
+                ?? throw new DomainException("所选团课不存在。");
+
+            if (course.TypeId != typeId)
+            {
+                throw new DomainException("所选团课与课包课程类型不匹配。");
+            }
+
+            courseId = course.CourseId;
+        }
+        else
+        {
+            var courses = await _groupcourseRepository.GetAllAsync(cancellationToken);
+            var match = courses.FirstOrDefault(c => c.TypeId == typeId)
+                ?? throw new DomainException("该课程类型下暂无团课，无法购买课包，请先维护团课。");
+            courseId = match.CourseId;
+        }
+
+        if (price.StandardPrice <= 0)
+        {
+            throw new DomainException("商品价格无效，无法下单。");
+        }
+
+        try
+        {
+            await EnsureWelcomeVoucherAsync(request.MemberId, cancellationToken);
+        }
+        catch
+        {
+        }
+
+        // detail.Quantity 暂存 CourseId，供支付成功履约写入 GROUPPACKAGE.COURSE_ID（不改表结构）
+        return await CreatePendingOrderAsync(
+            request.MemberId,
+            price.StandardPrice,
+            request.PriceId,
+            businessOrderId: request.MemberId,
+            voucherId: request.VoucherId,
+            detailQuantity: courseId,
+            cancellationToken);
+    }
+
     private async Task<PaymentOrderDto> CreatePendingOrderAsync(
         int memberId,
         decimal totalAmount,
         int priceId,
         int businessOrderId,
         int? voucherId,
+        int detailQuantity,
         CancellationToken cancellationToken)
     {
         var available = await _voucherRepository.GetAvailableAsync(memberId, null, cancellationToken);
@@ -525,7 +609,7 @@ public sealed class PaymentAppService : IPaymentAppService
                     OrderId = orderId,
                     PriceId = priceId,
                     TransactionPrice = totalAmount,
-                    Quantity = 1,
+                    Quantity = detailQuantity <= 0 ? 1 : detailQuantity,
                     SubtotalAmount = totalAmount
                 }
             }
@@ -538,6 +622,16 @@ public sealed class PaymentAppService : IPaymentAppService
             ?? throw new DomainException("订单创建失败。");
         return MapOrder(created, memberId);
     }
+
+    // 兼容旧签名
+    private Task<PaymentOrderDto> CreatePendingOrderAsync(
+        int memberId,
+        decimal totalAmount,
+        int priceId,
+        int businessOrderId,
+        int? voucherId,
+        CancellationToken cancellationToken)
+        => CreatePendingOrderAsync(memberId, totalAmount, priceId, businessOrderId, voucherId, 1, cancellationToken);
 
     public async Task<PaymentOrderDto?> UpdateOrderVoucherAsync(
         int orderId,
@@ -627,6 +721,8 @@ public sealed class PaymentAppService : IPaymentAppService
         await FulfillMembershipCardsAsync(order, cancellationToken);
         // 购课包订单：支付成功后按明细商品发放私教课包
         await FulfillPersonalPackagesAsync(order, cancellationToken);
+        // 团课课包订单：支付成功后按明细商品发放团课课包
+        await FulfillGroupPackagesAsync(order, cancellationToken);
 
         var paid = await _paymentOrderRepository.GetByIdWithDetailsAsync(orderId, cancellationToken)
             ?? order;
@@ -751,6 +847,44 @@ public sealed class PaymentAppService : IPaymentAppService
                     },
                     cancellationToken);
             }
+        }
+    }
+
+    /// <summary>
+    /// 支付成功后履约：GROUP_PKG_T 商品开通团课课包。
+    /// Quantity 字段在下单时存放 CourseId。
+    /// </summary>
+    private async Task FulfillGroupPackagesAsync(PaymentOrder order, CancellationToken cancellationToken)
+    {
+        var memberId = order.Voucher?.MemberId ?? order.BusinessOrderId;
+        if (memberId <= 0 || order.PaymentDetails is null || order.PaymentDetails.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var detail in order.PaymentDetails)
+        {
+            var productType = detail.Price?.ProductType;
+            if (string.IsNullOrWhiteSpace(productType)
+                || !GroupPackageLabels.IsGroupPackageProductType(productType))
+            {
+                continue;
+            }
+
+            var courseId = detail.Quantity;
+            if (courseId <= 0)
+            {
+                continue;
+            }
+
+            await _groupPackageAppService.IssueAsync(
+                new IssueGroupPackageRequestDto
+                {
+                    MemberId = memberId,
+                    PriceId = detail.PriceId,
+                    CourseId = courseId,
+                },
+                cancellationToken);
         }
     }
 

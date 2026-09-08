@@ -65,6 +65,8 @@ public static class DependencyInjection
         services.AddScoped<IGroupCourseBookingRepository, GroupCourseBookingRepository>();
         services.AddScoped<IWaitingQueueRepository, WaitingQueueRepository>();
         services.AddScoped<IAbsenceRecordRepository, AbsenceRecordRepository>();
+        services.AddScoped<IGroupPackageRepository, GroupPackageRepository>();
+        services.AddScoped<ITimeSlotRepository, TimeSlotRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>(); 
 
         return services;

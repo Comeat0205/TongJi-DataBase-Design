@@ -38,18 +38,42 @@ const formMaxCapacity = ref<number | null>(null)
 const formCourseSummary = ref('')
 const formCourseTypeId = ref<number | null>(null)
 const formCoachId = ref<number | null>(null)
+const formWeekday = ref<number | null>(null)
+const formStartTime = ref('')
+const formEndTime = ref('')
+const formScheduleFrom = ref('')
+const formScheduleTo = ref('')
 const formTimeSlotId = ref('')
-const availableTimeSlots = ref<
-  {
-    timeSlotId: string
-    label: string
-  }[]
->([])
+
+function defaultScheduleFrom() {
+  const d = new Date()
+  return d.toISOString().slice(0, 10)
+}
+
+function defaultScheduleTo() {
+  const d = new Date()
+  d.setDate(d.getDate() + 84) // 约 12 周
+  return d.toISOString().slice(0, 10)
+}
+
+function weekdayFromDate(value?: string | null) {
+  if (!value) return null
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  // JS: 0=周日 → 业务 7；1=周一 → 1
+  const js = d.getDay()
+  return js === 0 ? 7 : js
+}
+
+function toHm(value?: string | null) {
+  if (!value) return ''
+  const match = String(value).match(/(\d{2}):(\d{2})/)
+  return match ? `${match[1]}:${match[2]}` : ''
+}
 const scheduleCourseId = ref<number | null>(null)
 const scheduleCoachId = ref<number | null>(null)
-const scheduleCourseDate = ref('')
-const scheduleStartTime = ref('')
-const scheduleEndTime = ref('')
+const scheduleRangeStart = ref('')
+const scheduleRangeEnd = ref('')
 
 const scheduleLoading = ref(false)
 const scheduleResult = ref('')
@@ -58,9 +82,8 @@ const scheduleSuccess = ref(false)
 function resetScheduleForm() {
   scheduleCourseId.value = null
   scheduleCoachId.value = null
-  scheduleCourseDate.value = ''
-  scheduleStartTime.value = ''
-  scheduleEndTime.value = ''
+  scheduleRangeStart.value = ''
+  scheduleRangeEnd.value = ''
   scheduleResult.value = ''
   scheduleSuccess.value = false
 }
@@ -68,9 +91,8 @@ function resetScheduleForm() {
 function selectScheduleCourse(course: GroupCourse) {
   scheduleCourseId.value = course.courseId
   scheduleCoachId.value = course.coachId
-  scheduleCourseDate.value = ''
-  scheduleStartTime.value = ''
-  scheduleEndTime.value = ''
+  scheduleRangeStart.value = ''
+  scheduleRangeEnd.value = ''
   scheduleResult.value = ''
   scheduleSuccess.value = false
 }
@@ -89,26 +111,20 @@ async function checkScheduleConflict() {
     return
   }
 
-  if (!scheduleCourseDate.value) {
-    scheduleResult.value = '请选择课程日期'
+  if (!scheduleRangeStart.value || !scheduleRangeEnd.value) {
+    scheduleResult.value = '请选择排课日期区间（起止日期）'
     return
   }
 
-  if (!scheduleStartTime.value || !scheduleEndTime.value) {
-    scheduleResult.value = '请选择开始时间和结束时间'
-    return
-  }
-
-  if (scheduleStartTime.value >= scheduleEndTime.value) {
-    scheduleResult.value = '开始时间必须早于结束时间'
+  if (scheduleRangeEnd.value < scheduleRangeStart.value) {
+    scheduleResult.value = '结束日期不能早于开始日期'
     return
   }
 
   const request: GroupCourseScheduleConflictRequest = {
     coachId: scheduleCoachId.value,
-    courseDate: scheduleCourseDate.value,
-    startTime: `${scheduleCourseDate.value}T${scheduleStartTime.value}:00`,
-    endTime: `${scheduleCourseDate.value}T${scheduleEndTime.value}:00`,
+    rangeStart: scheduleRangeStart.value,
+    rangeEnd: scheduleRangeEnd.value,
   }
 
   scheduleLoading.value = true
@@ -120,8 +136,7 @@ async function checkScheduleConflict() {
     )
 
     scheduleSuccess.value = true
-    scheduleResult.value =
-      response?.message ?? '排课无冲突'
+    scheduleResult.value = response || '排课无冲突'
   } catch (error) {
     scheduleSuccess.value = false
     scheduleResult.value =
@@ -151,33 +166,6 @@ async function loadGroupCourses() {
 
   try {
     groupCourses.value = await getGroupCourses()
-
-    const timeSlotMap = new Map<
-      string,
-      {
-        timeSlotId: string
-        label: string
-      }
-    >()
-
-    for (const course of groupCourses.value) {
-      const slot = course.timeSlots?.[0]
-
-      if (!slot || !course.timeSlotId) {
-        continue
-      }
-
-      const label = `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
-
-      if (!timeSlotMap.has(course.timeSlotId)) {
-        timeSlotMap.set(course.timeSlotId, {
-          timeSlotId: course.timeSlotId,
-          label,
-        })
-      }
-    }
-
-    availableTimeSlots.value = Array.from(timeSlotMap.values())
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : '团课加载失败'
@@ -204,6 +192,14 @@ function formatTime(value: string) {
   return match ? `${match[1]}:${match[2]}` : value
 }
 
+function getWeekdayLabel(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  return labels[date.getDay()] ?? ''
+}
+
 function getCourseTimeLabel(course: GroupCourse) {
   const slot = course.timeSlots?.[0]
 
@@ -211,7 +207,9 @@ function getCourseTimeLabel(course: GroupCourse) {
     return '暂无具体时间'
   }
 
-  return `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
+  const weekday = getWeekdayLabel(slot.courseDate)
+  const timeRange = `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
+  return weekday ? `${weekday} ${timeRange}` : timeRange
 }
 
 function resetCourseForm() {
@@ -221,6 +219,11 @@ function resetCourseForm() {
   formCourseSummary.value = ''
   formCourseTypeId.value = null
   formCoachId.value = null
+  formWeekday.value = 1
+  formStartTime.value = '18:00'
+  formEndTime.value = '19:00'
+  formScheduleFrom.value = defaultScheduleFrom()
+  formScheduleTo.value = defaultScheduleTo()
   formTimeSlotId.value = ''
 }
 
@@ -243,6 +246,13 @@ function openEditCourseForm(course: GroupCourse) {
   formCoachId.value = course.coachId
   formTimeSlotId.value = course.timeSlotId
 
+  const slot = course.timeSlots?.[0]
+  formWeekday.value = weekdayFromDate(slot?.courseDate) ?? 1
+  formStartTime.value = toHm(slot?.startTime) || '18:00'
+  formEndTime.value = toHm(slot?.endTime) || '19:00'
+  formScheduleFrom.value = defaultScheduleFrom()
+  formScheduleTo.value = defaultScheduleTo()
+
   errorMessage.value = ''
   successMessage.value = ''
   showCourseForm.value = true
@@ -258,7 +268,6 @@ async function submitCourseForm() {
 
   const courseName = formCourseName.value.trim()
   const courseSummary = formCourseSummary.value.trim()
-  const timeSlotId = formTimeSlotId.value.trim()
 
   if (
     !editingCourse.value &&
@@ -291,8 +300,28 @@ async function submitCourseForm() {
     return
   }
 
-  if (!timeSlotId) {
-    errorMessage.value = '请输入时间模板ID'
+  if (!formWeekday.value || formWeekday.value < 1 || formWeekday.value > 7) {
+    errorMessage.value = '请选择上课星期'
+    return
+  }
+
+  if (!formStartTime.value || !formEndTime.value) {
+    errorMessage.value = '请选择开始时间和结束时间'
+    return
+  }
+
+  if (formStartTime.value >= formEndTime.value) {
+    errorMessage.value = '结束时间必须晚于开始时间'
+    return
+  }
+
+  if (!formScheduleFrom.value || !formScheduleTo.value) {
+    errorMessage.value = '请选择排期起止日期（用于生成每周上课日）'
+    return
+  }
+
+  if (formScheduleTo.value < formScheduleFrom.value) {
+    errorMessage.value = '排期结束日期不能早于开始日期'
     return
   }
 
@@ -303,7 +332,12 @@ async function submitCourseForm() {
     courseSummary: courseSummary || null,
     typeId: formCourseTypeId.value,
     coachId: formCoachId.value,
-    timeSlotId,
+    weekday: formWeekday.value,
+    startTime: formStartTime.value,
+    endTime: formEndTime.value,
+    scheduleFrom: formScheduleFrom.value,
+    scheduleTo: formScheduleTo.value,
+    timeSlotId: formTimeSlotId.value || undefined,
   }
 
   try {
@@ -597,23 +631,43 @@ onMounted(async () => {
       </label>
 
       <label>
-  <span>上课时间</span>
+        <span>上课星期</span>
+        <select v-model.number="formWeekday">
+          <option :value="1">周一</option>
+          <option :value="2">周二</option>
+          <option :value="3">周三</option>
+          <option :value="4">周四</option>
+          <option :value="5">周五</option>
+          <option :value="6">周六</option>
+          <option :value="7">周日</option>
+        </select>
+      </label>
 
-  <select v-model="formTimeSlotId">
-    <option value="">
-      请选择上课时间
-    </option>
+      <div class="time-row">
+        <label>
+          <span>开始时间</span>
+          <input v-model="formStartTime" type="time" />
+        </label>
+        <label>
+          <span>结束时间</span>
+          <input v-model="formEndTime" type="time" />
+        </label>
+      </div>
 
-    <option
-      v-for="slot in availableTimeSlots"
-      :key="slot.timeSlotId"
-      :value="slot.timeSlotId"
-    >
-      {{ slot.label }}
-    </option>
-  </select>
+      <div class="time-row">
+        <label>
+          <span>排期起始日</span>
+          <input v-model="formScheduleFrom" type="date" />
+        </label>
+        <label>
+          <span>排期结束日</span>
+          <input v-model="formScheduleTo" type="date" />
+        </label>
+      </div>
 
-</label>
+      <small class="form-hint">
+        按周排课：系统会写入时间模板，并在起止日期内为每个对应星期几生成上课日（本周会员端依赖这些日期）。
+      </small>
 
       <label>
         <span>课程描述</span>
@@ -655,7 +709,7 @@ onMounted(async () => {
     </div>
 
     <span class="count">
-      基于教练 + 日期 + 时间段检测
+      按周课模式：教练 + 日期区间
     </span>
   </div>
 
@@ -683,17 +737,7 @@ onMounted(async () => {
         type="button"
         @click="selectScheduleCourse(course)"
       >
-        <div>
-          <strong>{{ course.courseName }}</strong>
-
-          <span>
-            ID：{{ course.courseId }}
-          </span>
-        </div>
-
-        <small>
-          教练：{{ course.coachName }}
-        </small>
+        <strong>{{ course.courseName }}</strong>
       </button>
     </div>
 
@@ -704,8 +748,8 @@ onMounted(async () => {
       >
         <strong>请先选择一门团课</strong>
         <span>
-          选择团课后，可以指定上课日期和时间，
-          并检测该教练是否存在时间冲突。
+          选择团课后，指定意向授课教练与日期区间，
+          系统按该课的「星期几 + 时段」在区间内逐周检测冲突。
         </span>
       </div>
 
@@ -748,31 +792,20 @@ onMounted(async () => {
           </select>
         </label>
 
-        <label>
-          <span>课程日期</span>
-
-          <input
-            v-model="scheduleCourseDate"
-            type="date"
-          />
-        </label>
-
         <div class="time-row">
           <label>
-            <span>开始时间</span>
-
+            <span>起始日期</span>
             <input
-              v-model="scheduleStartTime"
-              type="time"
+              v-model="scheduleRangeStart"
+              type="date"
             />
           </label>
 
           <label>
-            <span>结束时间</span>
-
+            <span>结束日期</span>
             <input
-              v-model="scheduleEndTime"
-              type="time"
+              v-model="scheduleRangeEnd"
+              type="date"
             />
           </label>
         </div>

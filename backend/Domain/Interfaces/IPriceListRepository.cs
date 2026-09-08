@@ -1,4 +1,4 @@
-// 价格表仓储接口，卡商品列表从 PRICE_LIST 读取。
+// 价格表仓储接口，卡商品 / 私教课包 / 团课课包列表从 PRICE_LIST 读取。
 
 using Domain.Entities;
 
@@ -14,6 +14,12 @@ public interface IPriceListRepository : IRepository<PriceList, int>
 
     // 会员购课包页：在售私教课包商品（PRODUCT_TYPE 以 PT_PACKAGE_ 开头）
     Task<IReadOnlyList<PriceList>> GetPersonalPackageProductsAsync(CancellationToken cancellationToken = default);
+
+    // 团课课包在售商品
+    Task<IReadOnlyList<PriceList>> GetGroupPackageProductsAsync(CancellationToken cancellationToken = default);
+
+    // 团课课包管理（含下架）
+    Task<IReadOnlyList<PriceList>> GetManageGroupPackageProductsAsync(CancellationToken cancellationToken = default);
 
     // 取下一个 PRICE_ID
     Task<int> GetNextPriceIdAsync(CancellationToken cancellationToken = default);

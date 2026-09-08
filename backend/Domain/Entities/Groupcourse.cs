@@ -23,9 +23,10 @@ public partial class Groupcourse
 
     public virtual Coach Coach { get; set; } = null!;
 
-    public virtual ICollection<GroupCourseBooking> GroupCourseBookings { get; set; } = new List<GroupCourseBooking>();
-
     public virtual ICollection<WaitingQueue> WaitingQueues { get; set; } = new List<WaitingQueue>();
+
+    // 预约改为通过 GROUPPACKAGE.COURSE_ID 关联，不再由 BOOKING 直接外键挂课程。
+    public virtual ICollection<GroupPackage> GroupPackages { get; set; } = new List<GroupPackage>();
 
     public virtual TimeSlotTemplate TimeSlot { get; set; } = null!;
 

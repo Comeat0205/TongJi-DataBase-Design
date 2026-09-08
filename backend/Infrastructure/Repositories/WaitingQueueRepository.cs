@@ -104,4 +104,15 @@ public sealed class WaitingQueueRepository
             .OrderBy(x => x.EnqueueTime)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<WaitingQueue?> GetEarliestWaitingAsync(
+        int courseId,
+        CancellationToken cancellationToken = default)
+    {
+        return await Context.WaitingQueues
+            .Where(x => x.CourseId == courseId && x.QueueStatus == "0")
+            .OrderBy(x => x.EnqueueTime)
+            .ThenBy(x => x.QueueId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

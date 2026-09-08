@@ -1,4 +1,3 @@
-using System.Data;
 using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Data;
@@ -14,158 +13,72 @@ public sealed class GroupCourseBookingRepository
     {
     }
 
-    public async Task<bool> ExistsAsync(
-    int memberId,
-    int courseId,
-    CancellationToken cancellationToken = default)
-{
-    var booking = await DbSet
-        .AsNoTracking()
-        .Where(x => x.MemberId == memberId && x.CourseId == courseId)
-        .Select(x => x.BookingId)
-        .FirstOrDefaultAsync(cancellationToken);
-
-    return booking != 0;
-}
     public async Task<IReadOnlyList<GroupCourseBooking>> GetByMemberIdAsync(
-    int memberId,
-    CancellationToken cancellationToken = default)
-{
-    return await DbSet
-        .AsNoTracking()
-        .Include(x => x.Course)
-            .ThenInclude(c => c.Coach)
-        .Where(x => x.MemberId == memberId)
-        .OrderByDescending(x => x.BookingTime)
-        .ToListAsync(cancellationToken);
-}
+        int memberId,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Include(x => x.Package)
+                .ThenInclude(p => p.Course)
+                    .ThenInclude(c => c.Type)
+            .Include(x => x.Package)
+                .ThenInclude(p => p.Course)
+                    .ThenInclude(c => c.Coach)
+            .Include(x => x.Package)
+                .ThenInclude(p => p.Course)
+                    .ThenInclude(c => c.TimeSlot)
+                        .ThenInclude(t => t.TimeSlotInstances)
+            .Where(x => x.MemberId == memberId)
+            .OrderByDescending(x => x.BookingTime)
+            .ToListAsync(cancellationToken);
+    }
 
-    public async Task<(bool Success, int BookingId, string Message)> BookAsync(
+    public async Task<GroupCourseBooking?> GetActiveByMemberAndCourseAsync(
         int memberId,
         int courseId,
         CancellationToken cancellationToken = default)
     {
-        await using var connection = Context.Database.GetDbConnection();
-
-        if (connection.State != ConnectionState.Open)
-        {
-            await connection.OpenAsync(cancellationToken);
-        }
-
-        // 先从 Oracle Sequence 获取新的预约编号。
-        await using var sequenceCommand = connection.CreateCommand();
-        sequenceCommand.CommandText =
-            "SELECT SEQ_GROUP_COURSE_BOOKING.NEXTVAL FROM DUAL";
-        sequenceCommand.CommandType = CommandType.Text;
-
-        var sequenceResult =
-            await sequenceCommand.ExecuteScalarAsync(cancellationToken);
-
-        var bookingId = Convert.ToInt32(sequenceResult);
-
-        // 调用已有的 Oracle 存储过程完成实际预约。
-        await using var command = connection.CreateCommand();
-        command.CommandText = "sp_book_group_course";
-        command.CommandType = CommandType.StoredProcedure;
-
-        var memberParameter = command.CreateParameter();
-        memberParameter.ParameterName = "p_member_id";
-        memberParameter.DbType = DbType.Int32;
-        memberParameter.Direction = ParameterDirection.Input;
-        memberParameter.Value = memberId;
-
-        var courseParameter = command.CreateParameter();
-        courseParameter.ParameterName = "p_course_id";
-        courseParameter.DbType = DbType.Int32;
-        courseParameter.Direction = ParameterDirection.Input;
-        courseParameter.Value = courseId;
-
-        var bookingParameter = command.CreateParameter();
-        bookingParameter.ParameterName = "p_booking_id";
-        bookingParameter.DbType = DbType.Int32;
-        bookingParameter.Direction = ParameterDirection.Input;
-        bookingParameter.Value = bookingId;
-
-        var resultParameter = command.CreateParameter();
-        resultParameter.ParameterName = "p_result";
-        resultParameter.DbType = DbType.Decimal;
-        resultParameter.Direction = ParameterDirection.Output;
-
-        var messageParameter = command.CreateParameter();
-        messageParameter.ParameterName = "p_message";
-        messageParameter.DbType = DbType.String;
-        messageParameter.Size = 4000;
-        messageParameter.Direction = ParameterDirection.Output;
-
-        command.Parameters.Add(memberParameter);
-        command.Parameters.Add(courseParameter);
-        command.Parameters.Add(bookingParameter);
-        command.Parameters.Add(resultParameter);
-        command.Parameters.Add(messageParameter);
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
-
-        var success =
-            Convert.ToDecimal(resultParameter.Value) == 1;
-
-        var message =
-            messageParameter.Value?.ToString() ?? "预约失败";
-
-        return (success, success ? bookingId : 0, message);
+        return await DbSet
+            .Include(x => x.Package)
+                .ThenInclude(p => p.Course)
+            .FirstOrDefaultAsync(
+                x => x.MemberId == memberId
+                    && x.BookingStatus == "1"
+                    && x.Package.CourseId == courseId,
+                cancellationToken);
     }
 
-    public async Task<(bool Success, string Message)> CancelAsync(
-    int memberId,
-    int courseId,
-    CancellationToken cancellationToken = default)
-{
-    await using var connection = Context.Database.GetDbConnection();
-
-    if (connection.State != ConnectionState.Open)
+    public async Task<GroupCourseBooking?> GetDetailByIdAsync(
+        int bookingId,
+        CancellationToken cancellationToken = default)
     {
-        await connection.OpenAsync(cancellationToken);
+        return await DbSet
+            .Include(x => x.Package)
+                .ThenInclude(p => p.Course)
+                    .ThenInclude(c => c.TimeSlot)
+                        .ThenInclude(t => t.TimeSlotInstances)
+            .FirstOrDefaultAsync(x => x.BookingId == bookingId, cancellationToken);
     }
 
-    await using var command = connection.CreateCommand();
-    command.CommandText = "sp_cancel_group_course";
-    command.CommandType = CommandType.StoredProcedure;
-
-    var memberParameter = command.CreateParameter();
-    memberParameter.ParameterName = "p_member_id";
-    memberParameter.DbType = DbType.Int32;
-    memberParameter.Direction = ParameterDirection.Input;
-    memberParameter.Value = memberId;
-
-    var courseParameter = command.CreateParameter();
-    courseParameter.ParameterName = "p_course_id";
-    courseParameter.DbType = DbType.Int32;
-    courseParameter.Direction = ParameterDirection.Input;
-    courseParameter.Value = courseId;
-
-    var resultParameter = command.CreateParameter();
-    resultParameter.ParameterName = "p_result";
-    resultParameter.DbType = DbType.Decimal;
-    resultParameter.Direction = ParameterDirection.Output;
-
-    var messageParameter = command.CreateParameter();
-    messageParameter.ParameterName = "p_message";
-    messageParameter.DbType = DbType.String;
-    messageParameter.Size = 4000;
-    messageParameter.Direction = ParameterDirection.Output;
-
-    command.Parameters.Add(memberParameter);
-    command.Parameters.Add(courseParameter);
-    command.Parameters.Add(resultParameter);
-    command.Parameters.Add(messageParameter);
-
-    await command.ExecuteNonQueryAsync(cancellationToken);
-
-    var success =
-        Convert.ToDecimal(resultParameter.Value) == 1;
-
-    var message =
-        messageParameter.Value?.ToString() ?? "取消预约失败";
-
-    return (success, message);
-}
+    public async Task<int> GetNextBookingIdAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await Context.Database.OpenConnectionAsync(cancellationToken);
+            await using var command = Context.Database.GetDbConnection().CreateCommand();
+            command.CommandText = "SELECT SEQ_GROUP_COURSE_BOOKING.NEXTVAL FROM DUAL";
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt32(result);
+        }
+        catch
+        {
+            var max = await DbSet.MaxAsync(x => (int?)x.BookingId, cancellationToken) ?? 0;
+            return max + 1;
+        }
+        finally
+        {
+            await Context.Database.CloseConnectionAsync();
+        }
+    }
 }

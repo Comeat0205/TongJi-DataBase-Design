@@ -27,6 +27,8 @@ public partial class Member
 
     public virtual ICollection<GroupCourseBooking> GroupCourseBookings { get; set; } = new List<GroupCourseBooking>();
 
+    public virtual ICollection<GroupPackage> GroupPackages { get; set; } = new List<GroupPackage>();
+
     public virtual ICollection<MemberBenefitCard> MemberBenefitCards { get; set; } = new List<MemberBenefitCard>();
 
     public virtual ICollection<MemberSchedule> MemberSchedules { get; set; } = new List<MemberSchedule>();

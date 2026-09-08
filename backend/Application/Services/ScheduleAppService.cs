@@ -154,13 +154,13 @@ public sealed class ScheduleAppService : IScheduleAppService
 
         var bookings = await _groupCourseBookingRepository.GetByMemberIdAsync(memberId, cancellationToken);
         return bookings
-            .Where(b => bookingIds.Contains(b.BookingId) && b.Course is not null)
+            .Where(b => bookingIds.Contains(b.BookingId) && b.Package?.Course is not null)
             .ToDictionary(
                 b => b.BookingId,
                 b => (
-                    b.Course.CourseName,
-                    b.Course.CoachId,
-                    b.Course.Coach?.CoachName ?? $"教练 #{b.Course.CoachId}"
+                    b.Package.Course.CourseName,
+                    b.Package.Course.CoachId,
+                    b.Package.Course.Coach?.CoachName ?? $"教练 #{b.Package.Course.CoachId}"
                 ));
     }
 
