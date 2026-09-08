@@ -58,6 +58,11 @@ function resolveCapacityPercent(item: VenueItem) {
   return Math.min(100, Math.max(0, Math.round((current / item.maxCapacity) * 100)))
 }
 
+/** 仅主训练馆展示容量占用条 */
+function showsCapacityOccupancy(item: VenueItem) {
+  return (item.venueName ?? '').includes('主训练')
+}
+
 function resetForm() {
   form.venueName = ''
   form.maxCapacity = ''
@@ -255,7 +260,7 @@ onMounted(loadVenues)
               </div>
             </div>
 
-            <div class="capacity-box">
+            <div v-if="showsCapacityOccupancy(venue)" class="capacity-box">
               <div class="capacity-head">
                 <span class="meta-label">容量占用</span>
                 <strong>{{ venue.currentCapacity ?? 0 }} / {{ venue.maxCapacity }}</strong>

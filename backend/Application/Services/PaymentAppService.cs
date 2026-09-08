@@ -142,8 +142,9 @@ public sealed class PaymentAppService : IPaymentAppService
 
         return rows.Select(row =>
         {
+            // 未活跃天数 = 当前日期 − 最后签到日期（仅含有签到记录的会员）
             var inactive = row.LastCheckInTime is null
-                ? inactiveDays
+                ? 0
                 : Math.Max((today - row.LastCheckInTime.Value.Date).Days, 0);
 
             return new AtRiskMemberDto
@@ -155,9 +156,7 @@ public sealed class PaymentAppService : IPaymentAppService
                 LastCheckInTime = row.LastCheckInTime,
                 InactiveDays = inactive,
                 UnusedVoucherCount = row.UnusedVoucherCount,
-                RiskReason = row.LastCheckInTime is null
-                    ? "从未入场"
-                    : $"超过 {inactive} 天未入场"
+                RiskReason = $"超过 {inactive} 天未入场"
             };
         }).ToList();
     }

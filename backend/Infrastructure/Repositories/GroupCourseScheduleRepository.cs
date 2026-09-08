@@ -39,12 +39,10 @@ public sealed class GroupCourseScheduleRepository : IGroupCourseScheduleReposito
         }
 
         var patterns = course.TimeSlot.TimeSlotInstances
-            .Select(i => new
-            {
-                Weekday = i.CourseDate.DayOfWeek,
-                Start = i.StartTime.TimeOfDay,
-                End = i.EndTime.TimeOfDay,
-            })
+            .Select(i => (
+                Weekday: i.CourseDate.DayOfWeek,
+                Start: i.StartTime.TimeOfDay,
+                End: i.EndTime.TimeOfDay))
             .Where(p => p.End > p.Start)
             .Distinct()
             .ToList();
@@ -54,10 +52,55 @@ public sealed class GroupCourseScheduleRepository : IGroupCourseScheduleReposito
             return (false, "该团课尚未配置上课时间模板，无法检测冲突");
         }
 
-        // 教练名下其他团课的全部时段实例
+        return await EvaluateConflictsAsync(courseId, coachId, start, end, patterns, cancellationToken);
+    }
+
+    public async Task<(bool Success, string Message)> CheckWeeklyConflictWithPatternAsync(
+        int excludeCourseId,
+        int coachId,
+        int weekday,
+        TimeSpan startTime,
+        TimeSpan endTime,
+        DateTime rangeStart,
+        DateTime rangeEnd,
+        CancellationToken cancellationToken = default)
+    {
+        var start = rangeStart.Date;
+        var end = rangeEnd.Date;
+        if (end < start)
+        {
+            return (false, "结束日期不能早于开始日期");
+        }
+
+        if (weekday is < 1 or > 7)
+        {
+            return (false, "上课星期无效");
+        }
+
+        if (endTime <= startTime)
+        {
+            return (false, "结束时间必须晚于开始时间");
+        }
+
+        var patterns = new List<(DayOfWeek Weekday, TimeSpan Start, TimeSpan End)>
+        {
+            (ToDayOfWeek(weekday), startTime, endTime)
+        };
+
+        return await EvaluateConflictsAsync(excludeCourseId, coachId, start, end, patterns, cancellationToken);
+    }
+
+    private async Task<(bool Success, string Message)> EvaluateConflictsAsync(
+        int excludeCourseId,
+        int coachId,
+        DateTime start,
+        DateTime end,
+        IReadOnlyList<(DayOfWeek Weekday, TimeSpan Start, TimeSpan End)> patterns,
+        CancellationToken cancellationToken)
+    {
         var otherSlots = await _context.Groupcourses
             .AsNoTracking()
-            .Where(c => c.CoachId == coachId && c.CourseId != courseId)
+            .Where(c => c.CoachId == coachId && c.CourseId != excludeCourseId)
             .SelectMany(c => c.TimeSlot.TimeSlotInstances.Select(i => new
             {
                 c.CourseId,
@@ -100,6 +143,18 @@ public sealed class GroupCourseScheduleRepository : IGroupCourseScheduleReposito
             patterns.Select(p => GetWeekdayLabel(p.Weekday)).Distinct());
         return (true, $"排课无冲突（已按周课模式检查 {start:yyyy-MM-dd}～{end:yyyy-MM-dd}，星期：{weekdays}）");
     }
+
+    private static DayOfWeek ToDayOfWeek(int weekday) => weekday switch
+    {
+        1 => DayOfWeek.Monday,
+        2 => DayOfWeek.Tuesday,
+        3 => DayOfWeek.Wednesday,
+        4 => DayOfWeek.Thursday,
+        5 => DayOfWeek.Friday,
+        6 => DayOfWeek.Saturday,
+        7 => DayOfWeek.Sunday,
+        _ => DayOfWeek.Monday,
+    };
 
     private static string GetWeekdayLabel(DayOfWeek day) => day switch
     {

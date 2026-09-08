@@ -61,17 +61,21 @@ export function deleteGroupCourse(courseId: number) {
 }
 
 export interface GroupCourseScheduleConflictRequest {
+  courseId?: number
   coachId: number
   rangeStart: string
   rangeEnd: string
+  /** 1=周一 … 7=周日 */
+  weekday?: number
+  /** HH:mm */
+  startTime?: string
+  /** HH:mm */
+  endTime?: string
 }
 
+/** 创建/修改前冲突检测（可带 weekday/时段做草稿检测） */
 export function checkGroupCourseScheduleConflict(
-  courseId: number,
   request: GroupCourseScheduleConflictRequest,
 ) {
-  return http.post<string>(
-    `/GroupCourses/${courseId}/schedule/check`,
-    request,
-  )
+  return http.post<string>(`/GroupCourses/schedule/check`, request)
 }

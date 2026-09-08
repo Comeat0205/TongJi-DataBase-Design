@@ -13,7 +13,6 @@ import {
   updateGroupCourse,
   type GroupCourse,
   type GroupCourseRequest,
-  type GroupCourseScheduleConflictRequest,
 } from '@/api/groupCourses'
 import {
   getCoaches,
@@ -44,6 +43,7 @@ const formEndTime = ref('')
 const formScheduleFrom = ref('')
 const formScheduleTo = ref('')
 const formTimeSlotId = ref('')
+const submittingCourse = ref(false)
 
 function defaultScheduleFrom() {
   const d = new Date()
@@ -70,83 +70,7 @@ function toHm(value?: string | null) {
   const match = String(value).match(/(\d{2}):(\d{2})/)
   return match ? `${match[1]}:${match[2]}` : ''
 }
-const scheduleCourseId = ref<number | null>(null)
-const scheduleCoachId = ref<number | null>(null)
-const scheduleRangeStart = ref('')
-const scheduleRangeEnd = ref('')
 
-const scheduleLoading = ref(false)
-const scheduleResult = ref('')
-const scheduleSuccess = ref(false)
-
-function resetScheduleForm() {
-  scheduleCourseId.value = null
-  scheduleCoachId.value = null
-  scheduleRangeStart.value = ''
-  scheduleRangeEnd.value = ''
-  scheduleResult.value = ''
-  scheduleSuccess.value = false
-}
-
-function selectScheduleCourse(course: GroupCourse) {
-  scheduleCourseId.value = course.courseId
-  scheduleCoachId.value = course.coachId
-  scheduleRangeStart.value = ''
-  scheduleRangeEnd.value = ''
-  scheduleResult.value = ''
-  scheduleSuccess.value = false
-}
-
-async function checkScheduleConflict() {
-  scheduleResult.value = ''
-  scheduleSuccess.value = false
-
-  if (!scheduleCourseId.value || scheduleCourseId.value <= 0) {
-    scheduleResult.value = '请选择要排期的团课'
-    return
-  }
-
-  if (!scheduleCoachId.value || scheduleCoachId.value <= 0) {
-    scheduleResult.value = '请选择授课教练'
-    return
-  }
-
-  if (!scheduleRangeStart.value || !scheduleRangeEnd.value) {
-    scheduleResult.value = '请选择排课日期区间（起止日期）'
-    return
-  }
-
-  if (scheduleRangeEnd.value < scheduleRangeStart.value) {
-    scheduleResult.value = '结束日期不能早于开始日期'
-    return
-  }
-
-  const request: GroupCourseScheduleConflictRequest = {
-    coachId: scheduleCoachId.value,
-    rangeStart: scheduleRangeStart.value,
-    rangeEnd: scheduleRangeEnd.value,
-  }
-
-  scheduleLoading.value = true
-
-  try {
-    const response = await checkGroupCourseScheduleConflict(
-      scheduleCourseId.value,
-      request,
-    )
-
-    scheduleSuccess.value = true
-    scheduleResult.value = response || '排课无冲突'
-  } catch (error) {
-    scheduleSuccess.value = false
-    scheduleResult.value =
-      error instanceof Error
-        ? error.message
-        : '排课冲突检测失败，请稍后重试'
-  } finally {
-    scheduleLoading.value = false
-  }
-}
 async function loadCourseTypes() {
   loading.value = true
   errorMessage.value = ''
@@ -340,7 +264,19 @@ async function submitCourseForm() {
     timeSlotId: formTimeSlotId.value || undefined,
   }
 
+  submittingCourse.value = true
   try {
+    // 创建/保存前先做冲突检测：有冲突则弹窗提示并拦截
+    await checkGroupCourseScheduleConflict({
+      courseId: formCourseId.value ?? 0,
+      coachId: formCoachId.value,
+      rangeStart: formScheduleFrom.value,
+      rangeEnd: formScheduleTo.value,
+      weekday: formWeekday.value ?? undefined,
+      startTime: formStartTime.value,
+      endTime: formEndTime.value,
+    })
+
     if (editingCourse.value) {
       await updateGroupCourse(
         formCourseId.value!,
@@ -355,8 +291,12 @@ async function submitCourseForm() {
     showCourseForm.value = false
     await loadGroupCourses()
   } catch (error) {
-    errorMessage.value =
+    const message =
       error instanceof Error ? error.message : '团课操作失败，请稍后重试'
+    window.alert(message)
+    errorMessage.value = message
+  } finally {
+    submittingCourse.value = false
   }
 }
 
@@ -396,7 +336,7 @@ onMounted(async () => {
     <PageHeader
       eyebrow="Group Course Management"
       title="团课排期管理"
-      subtitle="维护团课基本信息、授课教练、容量和上课时间。"
+      subtitle="维护团课信息与上课时间；创建/修改时自动检测教练时间冲突。"
     >
       <template #actions>
 
@@ -692,160 +632,22 @@ onMounted(async () => {
         <button
           class="primary-button"
           type="submit"
+          :disabled="submittingCourse"
         >
-          {{ editingCourse ? '保存修改' : '创建团课' }}
+          {{
+            submittingCourse
+              ? '检测冲突中...'
+              : editingCourse
+                ? '保存修改'
+                : '创建团课'
+          }}
         </button>
       </div>
     </form>
   </section>
 </div>
 
-    <!-- F9-3 -->
-<section class="management-card">
-  <div class="card-head">
-    <div>
-      <p class="card-eyebrow">F9-3</p>
-      <h2>团课时间排期与冲突检测</h2>
-    </div>
 
-    <span class="count">
-      按周课模式：教练 + 日期区间
-    </span>
-  </div>
-
-  <div class="schedule-layout">
-    <div class="schedule-course-list">
-      <div class="schedule-section-title">
-        <strong>选择团课</strong>
-        <span>共 {{ groupCourses.length }} 门</span>
-      </div>
-
-      <div
-        v-if="groupCourses.length === 0"
-        class="empty-state"
-      >
-        暂无团课，请先创建团课。
-      </div>
-
-      <button
-        v-for="course in groupCourses"
-        :key="course.courseId"
-        class="schedule-course-item"
-        :class="{
-          selected: scheduleCourseId === course.courseId,
-        }"
-        type="button"
-        @click="selectScheduleCourse(course)"
-      >
-        <strong>{{ course.courseName }}</strong>
-      </button>
-    </div>
-
-    <div class="schedule-form-area">
-      <div
-        v-if="!scheduleCourseId"
-        class="schedule-placeholder"
-      >
-        <strong>请先选择一门团课</strong>
-        <span>
-          选择团课后，指定意向授课教练与日期区间，
-          系统按该课的「星期几 + 时段」在区间内逐周检测冲突。
-        </span>
-      </div>
-
-      <form
-        v-else
-        class="schedule-form"
-        @submit.prevent="checkScheduleConflict"
-      >
-        <div class="selected-course">
-          <span>当前排期课程</span>
-          <strong>
-            {{
-              groupCourses.find(
-                course => course.courseId === scheduleCourseId,
-              )?.courseName
-            }}
-          </strong>
-        </div>
-
-        <label>
-          <span>授课教练</span>
-
-          <select
-            v-model.number="scheduleCoachId"
-          >
-            <option :value="null">
-              请选择授课教练
-            </option>
-
-            <option
-              v-for="coach in coaches"
-              :key="coach.coachId"
-              :value="coach.coachId"
-            >
-              {{ coach.coachName }}
-              <template v-if="coach.specialty">
-                · {{ coach.specialty }}
-              </template>
-            </option>
-          </select>
-        </label>
-
-        <div class="time-row">
-          <label>
-            <span>起始日期</span>
-            <input
-              v-model="scheduleRangeStart"
-              type="date"
-            />
-          </label>
-
-          <label>
-            <span>结束日期</span>
-            <input
-              v-model="scheduleRangeEnd"
-              type="date"
-            />
-          </label>
-        </div>
-
-        <div
-          v-if="scheduleResult"
-          class="schedule-result"
-          :class="{
-            success: scheduleSuccess,
-            error: !scheduleSuccess,
-          }"
-        >
-          {{ scheduleResult }}
-        </div>
-
-        <div class="form-actions">
-          <button
-            class="secondary-button"
-            type="button"
-            @click="resetScheduleForm"
-          >
-            清空
-          </button>
-
-          <button
-            class="primary-button"
-            type="submit"
-            :disabled="scheduleLoading"
-          >
-            {{
-              scheduleLoading
-                ? '正在检测……'
-                : '检测排课冲突'
-            }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</section>
   </div>
 </template>
 

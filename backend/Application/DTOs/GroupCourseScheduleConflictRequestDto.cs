@@ -10,4 +10,13 @@ public sealed class GroupCourseScheduleConflictRequestDto
 
     /// <summary>意向排课区间止（含）。</summary>
     public DateTime RangeEnd { get; set; }
+
+    /// <summary>1=周一 … 7=周日。新建/改期草稿检测时传入。</summary>
+    public int? Weekday { get; set; }
+
+    /// <summary>HH:mm。新建/改期草稿检测时传入。</summary>
+    public string? StartTime { get; set; }
+
+    /// <summary>HH:mm。新建/改期草稿检测时传入。</summary>
+    public string? EndTime { get; set; }
 }

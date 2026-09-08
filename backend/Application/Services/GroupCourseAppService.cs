@@ -104,6 +104,31 @@ public class GroupCourseAppService : IGroupCourseAppService
             return (false, null, "授课教练当前不是在职状态");
         }
 
+        if (request.Weekday is >= 1 and <= 7
+            && !string.IsNullOrWhiteSpace(request.StartTime)
+            && !string.IsNullOrWhiteSpace(request.EndTime)
+            && request.ScheduleFrom is not null
+            && request.ScheduleTo is not null)
+        {
+            var conflict = await CheckScheduleConflictAsync(
+                new GroupCourseScheduleConflictRequestDto
+                {
+                    CourseId = request.CourseId,
+                    CoachId = request.CoachId,
+                    RangeStart = request.ScheduleFrom.Value.Date,
+                    RangeEnd = request.ScheduleTo.Value.Date,
+                    Weekday = request.Weekday,
+                    StartTime = request.StartTime,
+                    EndTime = request.EndTime,
+                },
+                cancellationToken);
+
+            if (!conflict.Success)
+            {
+                return (false, null, conflict.Message);
+            }
+        }
+
         var scheduleResult = await EnsureWeeklyScheduleAsync(
             request.CourseId,
             request,
@@ -214,6 +239,24 @@ public class GroupCourseAppService : IGroupCourseAppService
         if (hasWeeklyInput)
         {
             request.CourseId = courseId;
+            var conflict = await CheckScheduleConflictAsync(
+                new GroupCourseScheduleConflictRequestDto
+                {
+                    CourseId = courseId,
+                    CoachId = request.CoachId,
+                    RangeStart = request.ScheduleFrom!.Value.Date,
+                    RangeEnd = request.ScheduleTo!.Value.Date,
+                    Weekday = request.Weekday,
+                    StartTime = request.StartTime,
+                    EndTime = request.EndTime,
+                },
+                cancellationToken);
+
+            if (!conflict.Success)
+            {
+                return (false, null, conflict.Message);
+            }
+
             var scheduleResult = await EnsureWeeklyScheduleAsync(
                 courseId,
                 request,
@@ -280,11 +323,6 @@ public class GroupCourseAppService : IGroupCourseAppService
         GroupCourseScheduleConflictRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        if (request.CourseId <= 0)
-        {
-            return (false, "团课ID必须大于0");
-        }
-
         if (request.CoachId <= 0)
         {
             return (false, "教练ID必须大于0");
@@ -300,15 +338,6 @@ public class GroupCourseAppService : IGroupCourseAppService
             return (false, "结束日期不能早于开始日期");
         }
 
-        var course = await _groupcourseRepository.GetByIdAsync(
-            request.CourseId,
-            cancellationToken);
-
-        if (course is null)
-        {
-            return (false, "团课不存在");
-        }
-
         var coach = await _coachRepository.GetByIdAsync(
             request.CoachId,
             cancellationToken);
@@ -322,6 +351,48 @@ public class GroupCourseAppService : IGroupCourseAppService
             coach.Status != "在职")
         {
             return (false, "授课教练当前不是在职状态");
+        }
+
+        var hasDraftPattern = request.Weekday is >= 1 and <= 7
+            && !string.IsNullOrWhiteSpace(request.StartTime)
+            && !string.IsNullOrWhiteSpace(request.EndTime);
+
+        if (hasDraftPattern)
+        {
+            if (!TryParseHm(request.StartTime!, out var startTod)
+                || !TryParseHm(request.EndTime!, out var endTod))
+            {
+                return (false, "开始/结束时间格式应为 HH:mm");
+            }
+
+            if (endTod <= startTod)
+            {
+                return (false, "结束时间必须晚于开始时间");
+            }
+
+            return await _groupCourseScheduleRepository.CheckWeeklyConflictWithPatternAsync(
+                request.CourseId,
+                request.CoachId,
+                request.Weekday!.Value,
+                startTod,
+                endTod,
+                request.RangeStart,
+                request.RangeEnd,
+                cancellationToken);
+        }
+
+        if (request.CourseId <= 0)
+        {
+            return (false, "团课ID必须大于0，或请提供星期几与上课时段做草稿检测");
+        }
+
+        var course = await _groupcourseRepository.GetByIdAsync(
+            request.CourseId,
+            cancellationToken);
+
+        if (course is null)
+        {
+            return (false, "团课不存在");
         }
 
         return await _groupCourseScheduleRepository.CheckWeeklyConflictInRangeAsync(

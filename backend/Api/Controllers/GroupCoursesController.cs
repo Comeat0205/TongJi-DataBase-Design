@@ -118,6 +118,33 @@ public class GroupCoursesController : ControllerBase
                 result.Message));
     }
 
+    /// <summary>草稿/已有团课排期冲突检测（创建前也可调用，body 传 weekday/start/end）。</summary>
+    [HttpPost("schedule/check")]
+    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<string>>> CheckScheduleConflictPreview(
+        [FromBody] GroupCourseScheduleConflictRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _groupCourseAppService.CheckScheduleConflictAsync(
+            request,
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return BadRequest(
+                ApiResponse<string>.Failure(
+                    "GROUP_COURSE_SCHEDULE_CONFLICT",
+                    result.Message,
+                    HttpContext.TraceIdentifier));
+        }
+
+        return Ok(
+            ApiResponse<string>.Success(
+                result.Message,
+                HttpContext.TraceIdentifier,
+                result.Message));
+    }
+
     [HttpPost("{courseId:int}/schedule/check")]
     [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<string>>> CheckScheduleConflict(

@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import { getDashboardStats, triggerAutoCheckout, type DashboardStats, type VenueStatus } from '@/api/check-in-out'
 import {
-  adminAtRiskMembersMock,
   getCrowdHint,
   getCrowdLabel,
   type CrowdLevel,
@@ -18,13 +17,17 @@ const basePath = computed(() => (route.path.startsWith('/preview/admin') ? '/pre
 const displayName = computed(() => authStore.session?.displayName ?? '员工')
 
 const stats = ref<DashboardStats>({ todayCheckIns: 0, activeMembers: 0, venues: [] })
-const atRiskMembers = adminAtRiskMembersMock
 const loading = ref(false)
 const refreshing = ref(false)
 const autoCheckoutMsg = ref('')
 let timer: ReturnType<typeof setInterval> | null = null
 let refreshAnimationTimer: ReturnType<typeof setTimeout> | null = null
 let refreshAnimationFrame: number | null = null
+
+/** 实时拥挤度仅展示主训练馆 */
+const mainVenueCrowding = computed(() =>
+  stats.value.venues.filter((v) => (v.venueName ?? '').includes('主训练')),
+)
 
 onMounted(async () => {
   await refresh()
@@ -117,7 +120,7 @@ function crowdBarClass(level: CrowdLevel) {
       </article>
       <article class="summary-card">
         <span>场馆数量</span>
-        <strong>{{ stats.venues.length }}</strong>
+        <strong>{{ stats.venues.filter((v) => v.venueStatus !== '已关闭' && !(v.venueName ?? '').includes('测试')).length }}</strong>
         <small>个</small>
       </article>
       <article class="summary-card refresh-card" :class="{ refreshing }" @click="handleRefreshClick">
@@ -147,7 +150,8 @@ function crowdBarClass(level: CrowdLevel) {
       </div>
       <p v-if="autoCheckoutMsg" class="auto-msg">{{ autoCheckoutMsg }}</p>
       <div class="venue-list">
-        <article v-for="venue in stats.venues" :key="venue.venueId" class="venue-item" :class="`crowd-${getWarningLevel(venue)}`">
+        <p v-if="!mainVenueCrowding.length" class="card-hint">暂无主训练馆数据</p>
+        <article v-for="venue in mainVenueCrowding" :key="venue.venueId" class="venue-item" :class="`crowd-${getWarningLevel(venue)}`">
           <div class="venue-top">
             <h3>{{ venue.venueName }}</h3>
             <span class="status-pill" :class="`crowd-${getWarningLevel(venue)}`">{{ getCrowdLabel(getWarningLevel(venue)) }}</span>
@@ -165,39 +169,15 @@ function crowdBarClass(level: CrowdLevel) {
       </div>
     </section>
 
-    <section class="dashboard-grid">
-      <article class="dashboard-card span-2">
-        <div class="card-head">
-          <div>
-            <p class="card-eyebrow">流失风险 · 功能点 #17</p>
-            <h2>待回访会员与课程推荐</h2>
-          </div>
-          <RouterLink class="text-link" :to="`${basePath}/at-risk-members`">全部名单 →</RouterLink>
-        </div>
-        <div class="risk-list">
-          <article v-for="member in atRiskMembers" :key="member.memberId" class="risk-item">
-            <div>
-              <h3>{{ member.memberName }} <small>#{{ member.memberId }}</small></h3>
-              <p class="meta">近 30 天出勤下降 {{ member.attendanceDropRate }}% · 上次到馆 {{ member.lastVisitDate }}</p>
-              <p class="action">{{ member.suggestedAction }}</p>
-            </div>
-            <div class="risk-side">
-              <p class="recommend">{{ member.recommendedCourse }}</p>
-              <span class="feature-tag">{{ member.featureRef }}</span>
-            </div>
-          </article>
-        </div>
-      </article>
-
-      <article class="dashboard-card">
-        <p class="card-eyebrow">快捷操作</p>
-        <h2>前台常用</h2>
-        <div class="quick-grid">
-          <RouterLink :to="`${basePath}/members`">会员管理</RouterLink>
-          <RouterLink :to="`${basePath}/check-in-desk`">入场 / 退场</RouterLink>
-          <RouterLink :to="`${basePath}/capacity-logs`">容量日志</RouterLink>
-        </div>
-      </article>
+    <section class="dashboard-card quick-card">
+      <p class="card-eyebrow">快捷操作</p>
+      <h2>前台常用</h2>
+      <div class="quick-grid">
+        <RouterLink :to="`${basePath}/members`">会员管理</RouterLink>
+        <RouterLink :to="`${basePath}/check-in-desk`">入场 / 退场</RouterLink>
+        <RouterLink :to="`${basePath}/capacity-logs`">容量日志</RouterLink>
+        <RouterLink :to="`${basePath}/at-risk-members`">流失预警</RouterLink>
+      </div>
     </section>
   </div>
 </template>
@@ -269,12 +249,6 @@ function crowdBarClass(level: CrowdLevel) {
   color: #4d77ff;
 }
 
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
-}
-
 .dashboard-card {
   padding: 22px;
   border-radius: var(--tj-radius);
@@ -282,8 +256,8 @@ function crowdBarClass(level: CrowdLevel) {
   box-shadow: var(--tj-shadow);
 }
 
-.span-2 {
-  grid-column: span 1;
+.quick-card {
+  max-width: 420px;
 }
 
 .card-head {
@@ -314,41 +288,32 @@ function crowdBarClass(level: CrowdLevel) {
   color: var(--tj-text);
 }
 
-.venue-list,
-.risk-list {
+.venue-list {
   display: grid;
   gap: 12px;
 }
 
-.venue-item,
-.risk-item {
+.venue-item {
   padding: 14px;
   border-radius: 14px;
   background: #f8fbff;
   border: 1px solid #e6edf8;
 }
 
-.venue-top,
-.risk-item {
+.venue-top {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-}
-
-.venue-top {
   align-items: center;
   margin-bottom: 8px;
 }
 
-.venue-item h3,
-.risk-item h3 {
+.venue-item h3 {
   margin: 0;
   font-size: 17px;
 }
 
 .venue-meta,
-.meta,
-.action,
 .card-hint {
   margin: 8px 0 0;
   color: var(--tj-text-muted);
@@ -392,27 +357,6 @@ function crowdBarClass(level: CrowdLevel) {
 .capacity-bar-fill {
   height: 100%;
   border-radius: 999px;
-}
-
-.risk-side {
-  min-width: 220px;
-  text-align: right;
-}
-
-.recommend {
-  margin: 0 0 8px;
-  color: #285cff;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.feature-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #eef3fb;
-  color: #4f5f7a;
-  font-size: 12px;
 }
 
 .quick-grid {
@@ -462,19 +406,16 @@ function crowdBarClass(level: CrowdLevel) {
 }
 
 @media (max-width: 960px) {
-  .summary-grid,
-  .dashboard-grid {
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 
-  .venue-top,
-  .risk-item {
-    flex-direction: column;
+  .quick-card {
+    max-width: none;
   }
 
-  .risk-side {
-    min-width: 0;
-    text-align: left;
+  .venue-top {
+    flex-direction: column;
   }
 }
 </style>

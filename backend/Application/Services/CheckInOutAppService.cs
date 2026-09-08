@@ -11,17 +11,20 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
     private readonly ICheckInOutRepository _checkInOutRepo;
     private readonly IVenueRepository _venueRepo;
     private readonly ICapacityLogRepository _capLogRepo;
+    private readonly ICapacityMovementRepository _capMovementRepo;
     private readonly IUnitOfWork _uow;
 
     public CheckInOutAppService(
         ICheckInOutRepository checkInOutRepo,
         IVenueRepository venueRepo,
         ICapacityLogRepository capLogRepo,
+        ICapacityMovementRepository capMovementRepo,
         IUnitOfWork uow)
     {
         _checkInOutRepo = checkInOutRepo;
         _venueRepo = venueRepo;
         _capLogRepo = capLogRepo;
+        _capMovementRepo = capMovementRepo;
         _uow = uow;
     }
 
@@ -91,6 +94,17 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
 
         await _uow.SaveChangesAsync(ct);
 
+        // 触发器已 +1；用 cur+1 记流水，避免再查库。
+        await AppendMovementAsync(
+            venueId: req.VenueId,
+            memberId: card.MemberId,
+            eventType: "0",
+            eventTime: record.CheckInTime,
+            recordedCount: cur + 1,
+            maxCapacity: venue.MaxCapacity,
+            checkInOutId: record.CheckInOutId,
+            ct);
+
         return new CheckInResultDto
         {
             CheckInOutId = record.CheckInOutId,
@@ -114,9 +128,30 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         if (record.CheckOutTime is not null)
             throw new InvalidOperationException("已退场，勿重复操作");
 
+        var venue = await _venueRepo.GetByIdAsync(record.VenueId, ct)
+            ?? throw new InvalidOperationException("场馆不存在");
+        var cur = venue.CurrentCapacity ?? 0;
+        var after = Math.Max(cur - 1, 0);
+
+        var detailBefore = await _checkInOutRepo.GetWithDetailsAsync(id, ct);
+        var memberId = detailBefore?.Card?.MemberId ?? 0;
+
         record.CheckOutTime = DateTime.Now;
         record.CheckOutMode = "0"; // 手动退场
         await _uow.SaveChangesAsync(ct);
+
+        if (memberId > 0)
+        {
+            await AppendMovementAsync(
+                venueId: record.VenueId,
+                memberId: memberId,
+                eventType: "1",
+                eventTime: record.CheckOutTime.Value,
+                recordedCount: after,
+                maxCapacity: venue.MaxCapacity,
+                checkInOutId: record.CheckInOutId,
+                ct);
+        }
 
         var detail = await _checkInOutRepo.GetWithDetailsAsync(id, ct);
         return detail is null ? null : MapDto(detail);
@@ -172,6 +207,98 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
             RecordedCount = l.RecordedCount,
             OccupancyRate = l.OccupancyRate
         }).ToList();
+    }
+
+    public async Task<CapacityDailySeriesDto> GetMainVenueDailySeriesAsync(DateOnly date, CancellationToken ct = default)
+    {
+        var venue = await ResolveMainTrainingVenueAsync(ct)
+            ?? throw new InvalidOperationException("未找到主训练馆，请先在场馆管理中维护。");
+
+        var dayStart = date.ToDateTime(TimeOnly.MinValue);
+        var dayEnd = dayStart.AddDays(1);
+        var logs = await _capLogRepo.GetByVenueAndDateAsync(venue.VenueId, dayStart, dayEnd, ct);
+
+        return new CapacityDailySeriesDto
+        {
+            VenueId = venue.VenueId,
+            VenueName = venue.VenueName,
+            Date = date.ToString("yyyy-MM-dd"),
+            MaxCapacity = venue.MaxCapacity,
+            Points = logs
+                .Where(l => l.LogTimestamp is not null && IsTenMinuteSlot(l.LogTimestamp.Value))
+                .Select(l =>
+                {
+                    var ts = l.LogTimestamp!.Value;
+                    return new CapacityLogPointDto
+                    {
+                        Timestamp = ts,
+                        TimeLabel = ts.ToString("HH:mm"),
+                        RecordedCount = l.RecordedCount,
+                        OccupancyRate = l.OccupancyRate ?? 0m,
+                        RecordedCapacity = l.RecordedCapacity
+                    };
+                })
+                .ToList()
+        };
+    }
+
+    public async Task<IReadOnlyList<CapacityMovementDto>> GetMainVenueMovementsAsync(
+        DateOnly date,
+        CancellationToken ct = default)
+    {
+        var venue = await ResolveMainTrainingVenueAsync(ct)
+            ?? throw new InvalidOperationException("未找到主训练馆，请先在场馆管理中维护。");
+
+        var dayStart = date.ToDateTime(TimeOnly.MinValue);
+        var dayEnd = dayStart.AddDays(1);
+        var list = await _capMovementRepo.GetByVenueAndDateAsync(venue.VenueId, dayStart, dayEnd, ct);
+
+        return list.Select(MapMovement).ToList();
+    }
+
+    public async Task<CapacityLogDto?> RecordMainVenueSnapshotAsync(CancellationToken ct = default)
+    {
+        var venue = await ResolveMainTrainingVenueAsync(ct);
+        if (venue is null)
+        {
+            return null;
+        }
+
+        var slot = AlignToTenMinutes(DateTime.Now);
+        if (await _capLogRepo.ExistsAtAsync(venue.VenueId, slot, ct))
+        {
+            return null;
+        }
+
+        var count = venue.CurrentCapacity ?? 0;
+        var max = venue.MaxCapacity;
+        var rate = max > 0
+            ? Math.Round((decimal)count / max * 100m, 2)
+            : 0m;
+
+        var entity = new Capacitylog
+        {
+            CapacityLogId = await _capLogRepo.GetNextIdAsync(ct),
+            VenueId = venue.VenueId,
+            LogTimestamp = slot,
+            RecordedCapacity = max,
+            RecordedCount = count,
+            OccupancyRate = rate
+        };
+
+        await _capLogRepo.AddAsync(entity, ct);
+        await _uow.SaveChangesAsync(ct);
+
+        return new CapacityLogDto
+        {
+            CapacityLogId = entity.CapacityLogId,
+            VenueId = venue.VenueId,
+            VenueName = venue.VenueName,
+            LogTimestamp = entity.LogTimestamp,
+            RecordedCapacity = entity.RecordedCapacity,
+            RecordedCount = entity.RecordedCount,
+            OccupancyRate = entity.OccupancyRate
+        };
     }
 
     public async Task<DashboardStatsDto> GetDashboardStatsAsync(CancellationToken ct = default)
@@ -245,6 +372,79 @@ public sealed class CheckInOutAppService : ICheckInOutAppService
         CheckOutTime = e.CheckOutTime,
         CheckOutMode = e.CheckOutMode?.Trim()
     };
+
+    async Task AppendMovementAsync(
+        int venueId,
+        int memberId,
+        string eventType,
+        DateTime eventTime,
+        int recordedCount,
+        int maxCapacity,
+        int checkInOutId,
+        CancellationToken ct)
+    {
+        var rate = maxCapacity > 0
+            ? Math.Round((decimal)recordedCount / maxCapacity * 100m, 2)
+            : 0m;
+
+        var entity = new CapacityMovement
+        {
+            MovementId = await _capMovementRepo.GetNextIdAsync(ct),
+            VenueId = venueId,
+            MemberId = memberId,
+            EventTime = eventTime,
+            EventType = eventType,
+            RecordedCount = recordedCount,
+            OccupancyRate = rate,
+            CheckInOutId = checkInOutId
+        };
+
+        await _capMovementRepo.AddAsync(entity, ct);
+        await _uow.SaveChangesAsync(ct);
+    }
+
+    static CapacityMovementDto MapMovement(CapacityMovement e)
+    {
+        var type = e.EventType?.Trim() ?? "0";
+        return new CapacityMovementDto
+        {
+            MovementId = e.MovementId,
+            VenueId = e.VenueId,
+            VenueName = e.Venue?.VenueName ?? "",
+            MemberId = e.MemberId,
+            EventTime = e.EventTime,
+            EventType = type,
+            EventTypeLabel = type == "1" ? "出场" : "进场",
+            RecordedCount = e.RecordedCount,
+            OccupancyRate = e.OccupancyRate ?? 0m
+        };
+    }
+
+    /// <summary>
+    /// 解析主训练馆：优先名称含「主训练」，否则 VenueId=1，再否则取 ID 最小场馆。
+    /// </summary>
+    async Task<Venue?> ResolveMainTrainingVenueAsync(CancellationToken ct)
+    {
+        var venues = await _venueRepo.GetAllAsync(ct);
+        if (venues.Count == 0)
+        {
+            return null;
+        }
+
+        return venues.FirstOrDefault(v =>
+                   !string.IsNullOrWhiteSpace(v.VenueName)
+                   && v.VenueName.Contains("主训练", StringComparison.Ordinal))
+               ?? venues.FirstOrDefault(v => v.VenueId == 1)
+               ?? venues.OrderBy(v => v.VenueId).FirstOrDefault();
+    }
+
+    /// <summary>对齐到整十分钟（秒清零），用于采样时间轴。</summary>
+    internal static DateTime AlignToTenMinutes(DateTime dt) =>
+        new(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute / 10 * 10, 0);
+
+    /// <summary>仅保留整十分钟采样点，过滤历史自动签退产生的杂乱时间戳。</summary>
+    static bool IsTenMinuteSlot(DateTime ts) =>
+        ts.Minute % 10 == 0 && ts.Second == 0;
 
     /// <summary>
     /// 根据当前容量与最大容量计算预警级别（功能点 #7）

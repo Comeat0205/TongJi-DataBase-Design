@@ -21,6 +21,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Capacitylog> Capacitylogs { get; set; }
 
+    public virtual DbSet<CapacityMovement> CapacityMovements { get; set; }
+
     public virtual DbSet<Checkinout> Checkinouts { get; set; }
 
     public virtual DbSet<Coach> Coaches { get; set; }
@@ -156,6 +158,45 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.VenueId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_CAPACITY_VENUE");
+        });
+
+        modelBuilder.Entity<CapacityMovement>(entity =>
+        {
+            entity.HasKey(e => e.MovementId);
+
+            entity.ToTable("CAPACITYMOVEMENT");
+
+            entity.Property(e => e.MovementId)
+                .HasPrecision(10)
+                .ValueGeneratedNever()
+                .HasColumnName("MOVEMENT_ID");
+            entity.Property(e => e.VenueId)
+                .HasPrecision(10)
+                .HasColumnName("VENUE_ID");
+            entity.Property(e => e.MemberId)
+                .HasPrecision(10)
+                .HasColumnName("MEMBER_ID");
+            entity.Property(e => e.EventTime)
+                .HasColumnType("DATE")
+                .HasColumnName("EVENT_TIME");
+            entity.Property(e => e.EventType)
+                .HasMaxLength(1)
+                .IsUnicode(false)
+                .IsFixedLength()
+                .HasColumnName("EVENT_TYPE");
+            entity.Property(e => e.RecordedCount)
+                .HasPrecision(10)
+                .HasColumnName("RECORDED_COUNT");
+            entity.Property(e => e.OccupancyRate)
+                .HasColumnType("NUMBER(5,2)")
+                .HasColumnName("OCCUPANCY_RATE");
+            entity.Property(e => e.CheckInOutId)
+                .HasPrecision(10)
+                .HasColumnName("CHECK_IN_OUT_ID");
+
+            entity.HasOne(d => d.Venue).WithMany()
+                .HasForeignKey(d => d.VenueId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
         });
 
         modelBuilder.Entity<Checkinout>(entity =>

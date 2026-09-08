@@ -17,6 +17,8 @@ builder.Services.AddOpenApi();
 
 // 功能点 #21：每天 23:00 自动签退后台服务
 builder.Services.AddHostedService<AutoCheckoutBackgroundService>();
+// 主训练馆容量：每 10 分钟写入 CAPACITYLOG，供员工端波形图
+builder.Services.AddHostedService<CapacitySnapshotBackgroundService>();
 // 生日福利券：每天 00:05 按 MEMBER.BIRTHDAY 自动发放
 builder.Services.AddHostedService<BirthdayVoucherBackgroundService>();
 

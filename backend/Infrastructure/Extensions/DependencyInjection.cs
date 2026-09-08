@@ -31,6 +31,7 @@ public static class DependencyInjection
         // feature/venue-checkin  入场与容量模块
         services.AddScoped<ICheckInOutRepository, CheckInOutRepository>();
         services.AddScoped<ICapacityLogRepository, CapacityLogRepository>();
+        services.AddScoped<ICapacityMovementRepository, CapacityMovementRepository>();
 
         // feature/basic-info  基本信息模块
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();

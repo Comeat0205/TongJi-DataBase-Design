@@ -131,7 +131,7 @@ backend/Api/appsettings.json
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "..."
+    "DefaultConnection": "User Id=<DB_USER>;Password=<DB_PASSWORD>;Data Source=<DB_HOST>:<DB_PORT>/<DB_SERVICE>;"
   }
 }
 ```
@@ -139,9 +139,10 @@ backend/Api/appsettings.json
 注意：
 
 1. `Api` 是启动项目，所以运行环境配置放在 `Api/appsettings.json`。
-2. `Infrastructure` 会读取这个连接字符串并注册 `AppDbContext`。
-3. 团队成员运行前应确认本机能访问配置中的 Oracle 数据库地址和端口。
-4. 如果连接字符串包含密码，不建议随意公开或发到聊天群中。
+2. 真实账密请写在本地 `appsettings.Local.json`（已 gitignore，勿提交）；模板见 `appsettings.Local.example.json`。
+3. `Infrastructure` 会读取这个连接字符串并注册 `AppDbContext`。
+4. 团队成员运行前应确认本机能访问配置中的 Oracle 数据库地址和端口。
+5. 连接字符串中的账号密码不得写入仓库或发到公开渠道。
 
 ## 4.2 后端运行端口
 

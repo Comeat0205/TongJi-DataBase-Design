@@ -6,7 +6,7 @@ import { checkIn, checkOut, getActiveCheckIns, getVenueStatus } from '@/api/chec
 import PageHeader from '@/components/ui/PageHeader.vue'
 
 const venues = ref<any[]>([])
-const curVenueId = ref(1)
+const curVenueId = ref(0)
 const activeList = ref<any[]>([])
 const loading = ref(false)
 const msg = ref('') // 成功提示
@@ -15,6 +15,12 @@ const err = ref('')
 const cardInput = ref<number | ''>('')
 const submitting = ref(false)
 
+function isDeskVenue(v: { venueName?: string; venueStatus?: string }) {
+  const name = v.venueName ?? ''
+  // 前台入场仅展示主训练馆（排除测试场馆、私教课区及已关闭场馆）
+  return name.includes('主训练') && v.venueStatus !== '已关闭'
+}
+
 onMounted(async () => {
   await refreshVenues()
   if (curVenueId.value) await refreshActive()
@@ -22,9 +28,10 @@ onMounted(async () => {
 
 async function refreshVenues() {
   try {
-    venues.value = await getVenueStatus()
-    if (venues.value.length > 0 && !curVenueId.value) {
-      curVenueId.value = venues.value[0]!.venueId
+    const all = await getVenueStatus()
+    venues.value = all.filter(isDeskVenue)
+    if (!venues.value.some((v) => v.venueId === curVenueId.value)) {
+      curVenueId.value = venues.value[0]?.venueId ?? 0
     }
   } catch { /* 不管 */ }
 }
