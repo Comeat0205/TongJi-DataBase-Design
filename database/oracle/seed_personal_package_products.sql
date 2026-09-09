@@ -1,0 +1,47 @@
+-- 私教课包可售商品（PRICE_LIST）
+-- 编码格式：PT_PACKAGE_{PERSONAL_COURSE_ID}_{总次数}_{有效天数}
+-- 依赖：PERSONAL_COURSE 中已有 9101/9102/9103（见 seed_personal_training_demo.sql）
+
+SET SERVEROUTPUT ON;
+
+DECLARE
+    v_course_cnt NUMBER;
+    v_exist NUMBER;
+    v_next_id NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_course_cnt
+    FROM PERSONAL_COURSE
+    WHERE PERSONAL_COURSE_ID IN (9101, 9102, 9103);
+
+    IF v_course_cnt < 3 THEN
+        DBMS_OUTPUT.PUT_LINE('WARN: PERSONAL_COURSE 9101-9103 不完整，请先执行 seed_personal_training_demo.sql');
+    END IF;
+
+    SELECT COUNT(*) INTO v_exist FROM PRICE_LIST WHERE PRODUCT_TYPE = 'PT_PACKAGE_9101_12_365';
+    IF v_exist = 0 THEN
+        SELECT NVL(MAX(PRICE_ID), 0) + 1 INTO v_next_id FROM PRICE_LIST;
+        INSERT INTO PRICE_LIST (PRICE_ID, PRODUCT_TYPE, STANDARD_PRICE, PRICE_UPDATE_TIME)
+        VALUES (v_next_id, 'PT_PACKAGE_9101_12_365', 2880, TRUNC(SYSDATE));
+        DBMS_OUTPUT.PUT_LINE('Inserted PT_PACKAGE_9101_12_365 price_id=' || v_next_id);
+    END IF;
+
+    SELECT COUNT(*) INTO v_exist FROM PRICE_LIST WHERE PRODUCT_TYPE = 'PT_PACKAGE_9102_10_180';
+    IF v_exist = 0 THEN
+        SELECT NVL(MAX(PRICE_ID), 0) + 1 INTO v_next_id FROM PRICE_LIST;
+        INSERT INTO PRICE_LIST (PRICE_ID, PRODUCT_TYPE, STANDARD_PRICE, PRICE_UPDATE_TIME)
+        VALUES (v_next_id, 'PT_PACKAGE_9102_10_180', 2380, TRUNC(SYSDATE));
+        DBMS_OUTPUT.PUT_LINE('Inserted PT_PACKAGE_9102_10_180 price_id=' || v_next_id);
+    END IF;
+
+    SELECT COUNT(*) INTO v_exist FROM PRICE_LIST WHERE PRODUCT_TYPE = 'PT_PACKAGE_9103_8_120';
+    IF v_exist = 0 THEN
+        SELECT NVL(MAX(PRICE_ID), 0) + 1 INTO v_next_id FROM PRICE_LIST;
+        INSERT INTO PRICE_LIST (PRICE_ID, PRODUCT_TYPE, STANDARD_PRICE, PRICE_UPDATE_TIME)
+        VALUES (v_next_id, 'PT_PACKAGE_9103_8_120', 1980, TRUNC(SYSDATE));
+        DBMS_OUTPUT.PUT_LINE('Inserted PT_PACKAGE_9103_8_120 price_id=' || v_next_id);
+    END IF;
+
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('PT package products seed done.');
+END;
+/

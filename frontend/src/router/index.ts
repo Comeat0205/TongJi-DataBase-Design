@@ -37,16 +37,11 @@ const router = createRouter({
 router.beforeEach((to) => {
   const session = hasStoredAuthSession()
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
-  const isPreview = to.matched.some((record) => record.meta.preview)
   const userType = [...to.matched].reverse().find((record) => record.meta.userType)?.meta.userType as
     | 'member'
     | 'coach'
     | 'employee'
     | undefined
-
-  if (isPreview) {
-    return true
-  }
 
   if (requiresAuth && !session) {
     return { name: 'login' }

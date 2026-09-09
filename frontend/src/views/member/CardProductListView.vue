@@ -20,8 +20,7 @@ const buyingPriceId = ref<number | null>(null)
 const successMessage = ref('')
 
 const memberId = computed(() => authStore.session?.userId)
-const isPreview = computed(() => route.path.startsWith('/preview/member'))
-const basePath = computed(() => (isPreview.value ? '/preview/member' : '/member'))
+const basePath = computed(() => '/member')
 const displayName = computed(() => authStore.session?.displayName ?? '会员')
 
 async function loadProducts() {
@@ -39,10 +38,6 @@ async function loadProducts() {
 }
 
 async function handlePurchase(product: CardProduct) {
-  if (isPreview.value) {
-    errorMessage.value = '预览模式仅展示界面，请登录会员账号后再购买。'
-    return
-  }
 
   if (!memberId.value) {
     errorMessage.value = '请先登录会员账号后再购买。'
@@ -110,8 +105,6 @@ onMounted(() => {
       </template>
     </PageHeader>
 
-    <p v-if="isPreview" class="preview-banner">预览模式：仅展示页面布局，不能购买。请从登录页用会员账号进入。</p>
-
     <p v-if="successMessage" class="success-banner">{{ successMessage }}</p>
 
     <StateCard v-if="loading" message="商品列表加载中..." />
@@ -122,10 +115,10 @@ onMounted(() => {
       <p>价格表 PRICE_LIST 里还没有 MEMBERSHIP_ 开头的会员卡商品，请联系管理员维护。</p>
     </section>
 
-    <section v-else class="product-list">
+    <section v-else class="product-list panel-tone-blue">
       <p v-if="errorMessage" class="inline-error">{{ errorMessage }}</p>
 
-      <article v-for="product in products" :key="product.priceId" class="product-item">
+      <article v-for="product in products" :key="product.priceId" class="product-item list-item">
         <div class="product-head">
           <div>
             <p class="product-eyebrow">{{ getCardTypeLabel(product.cardType) }}</p>
@@ -139,7 +132,7 @@ onMounted(() => {
         <button
           type="button"
           class="buy-btn"
-          :disabled="buyingPriceId === product.priceId || isPreview"
+          :disabled="buyingPriceId === product.priceId"
           @click="handlePurchase(product)"
         >
           {{ buyingPriceId === product.priceId ? '下单中...' : '立即购买' }}
@@ -154,23 +147,16 @@ onMounted(() => {
   max-width: 960px;
 }
 
-.preview-banner {
-  margin: 0 0 16px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: #fff7ed;
-  color: #c2410c;
-}
-
 .ghost-link {
   display: inline-flex;
   align-items: center;
   padding: 10px 18px;
   border-radius: 999px;
-  border: 1px solid #d7e0ef;
-  color: #2a3c59;
+  border: 1px solid rgba(42, 67, 101, 0.18);
+  color: #2a4365;
   text-decoration: none;
   font-weight: 600;
+  background: #eaf5f6;
 }
 
 .header-actions {
@@ -182,17 +168,22 @@ onMounted(() => {
 .success-banner {
   margin: 0 0 16px;
   padding: 12px 16px;
-  border-radius: 12px;
-  background: #e8f7ee;
-  color: #15803d;
+  border-radius: 20px;
+  background: #e8f4f5;
+  color: #2a4365;
 }
 
-.empty-panel,
+.empty-panel {
+  padding: 24px;
+  border-radius: 28px;
+  background: #eaf2fa;
+  box-shadow: var(--tj-member-lift); border: var(--tj-member-edge);
+}
+
 .product-item {
   padding: 24px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 28px;
+  /* 背景色由父级 panel-tone-* 提供 */
 }
 
 .empty-panel h2 {
@@ -209,6 +200,8 @@ onMounted(() => {
 .product-list {
   display: grid;
   gap: 20px;
+  padding: 22px;
+  border-radius: 28px;
 }
 
 .inline-error {
@@ -238,7 +231,7 @@ onMounted(() => {
 
 .price {
   font-size: 28px;
-  color: #4d77ff;
+  color: #2a4365;
 }
 
 .buy-btn {
@@ -247,7 +240,7 @@ onMounted(() => {
   padding: 12px 18px;
   border: none;
   border-radius: 999px;
-  background: #4d77ff;
+  background: #2a4365;
   color: #fff;
   font-size: 15px;
   font-weight: 600;

@@ -35,8 +35,6 @@ const MemberSchedule = () => import('@/views/member/MemberScheduleView.vue')
 const CoachSchedule = () => import('@/views/coach/CoachScheduleView.vue')
 
 type PortalPrefix = 'member' | 'admin' | 'coach'
-type RouteMode = 'auth' | 'preview'
-
 interface PlaceholderRoute {
   path: string
   name: string
@@ -47,7 +45,7 @@ interface PlaceholderRoute {
   eyebrow?: string
 }
 
-function placeholderChildRoutes(prefix: PortalPrefix, mode: RouteMode, items: PlaceholderRoute[]): RouteRecordRaw[] {
+function placeholderChildRoutes(prefix: PortalPrefix, items: PlaceholderRoute[]): RouteRecordRaw[] {
   return items.map((item) => ({
     path: item.path,
     name: item.name,
@@ -58,29 +56,27 @@ function placeholderChildRoutes(prefix: PortalPrefix, mode: RouteMode, items: Pl
       owner: item.owner,
       features: item.features,
       eyebrow: item.eyebrow,
-      preview: mode === 'preview',
       userType: prefix === 'member' ? 'member' : prefix === 'admin' ? 'employee' : 'coach',
     },
   }))
 }
 
-function memberChildren(mode: RouteMode): RouteRecordRaw[] {
-  const p = mode === 'preview' ? 'preview-member' : 'member'
+function memberChildren(): RouteRecordRaw[] {
+  const p = 'member'
 
   return [
     {
       path: 'home',
       name: `${p}-home`,
       component: MemberHome,
-      meta: { userType: 'member', preview: mode === 'preview' },
+      meta: { userType: 'member' },
     },
     {
       path: 'profile/:id/edit',
       name: `${p}-profile-edit`,
       component: MemberIdentityEdit,
       meta: {
-        requiresAuth: mode === 'auth',
-        preview: mode === 'preview',
+        requiresAuth: true,
         userType: 'member',
       },
     },
@@ -89,9 +85,8 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       name: `${p}-profile`,
       component: MemberProfile,
       meta: {
-        requiresAuth: mode === 'auth',
+        requiresAuth: true,
         userType: 'member',
-        preview: mode === 'preview',
       },
     },
     
@@ -102,7 +97,7 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'check-in',
       name: `${p}-check-in`,
       component: CheckIn,
-      meta: { pageTitle: '签到签退', owner: 'E', features: '#5 #6 #7 #18', preview: mode === 'preview', userType: 'member' },
+      meta: { pageTitle: '签到签退', owner: 'E', features: '#5 #6 #7 #18', userType: 'member' },
     },
 
 
@@ -113,9 +108,8 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       name: `${p}-cards`,
       component: MembershipCardList,
       meta: {
-        requiresAuth: mode === 'auth',
+        requiresAuth: true,
         userType: 'member',
-        preview: mode === 'preview',
         pageTitle: '我的会员卡',
         owner: 'D',
         features: '#1 #5 #6 #20',
@@ -126,9 +120,8 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       name: `${p}-card-products`,
       component: CardProductList,
       meta: {
-        requiresAuth: mode === 'auth',
+        requiresAuth: true,
         userType: 'member',
-        preview: mode === 'preview',
         pageTitle: '购买会员卡',
         owner: 'D',
         features: '#20',
@@ -142,13 +135,13 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'pt-packages',
       name: `${p}-pt-packages`,
       component: PersonalPackageList,
-      meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
+      meta: { requiresAuth: true, userType: 'member' },
     },
     {
       path: 'pt-bookings',
       name: `${p}-pt-bookings`,
       component: PtBooking,
-      meta: { requiresAuth: mode === 'auth', userType: 'member', preview: mode === 'preview' },
+      meta: { requiresAuth: true, userType: 'member' },
     },
 
 
@@ -162,7 +155,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '我的日程',
         owner: 'J',
         features: '#11 #13',
-        preview: mode === 'preview',
         userType: 'member',
       },
     },
@@ -178,7 +170,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '团课预约',
         owner: 'F',
         features: '#4 #8',
-        preview: mode === 'preview',
         userType: 'member',
       },
     },
@@ -190,7 +181,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '我的团课预约',
         owner: 'F',
         features: '#8 #9 #10 #11',
-        preview: mode === 'preview',
         userType: 'member',
       },
     },
@@ -206,7 +196,6 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '我的订单',
         owner: 'H',
         features: '#20',
-        preview: mode === 'preview',
         userType: 'member',
       },
     },
@@ -218,15 +207,14 @@ function memberChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '我的优惠券',
         owner: 'H',
         features: '#18',
-        preview: mode === 'preview',
         userType: 'member',
       },
     },
   ]
 }
 
-function adminChildren(mode: RouteMode): RouteRecordRaw[] {
-  const p = mode === 'preview' ? 'preview-admin' : 'admin'
+function adminChildren(): RouteRecordRaw[] {
+  const p = 'admin'
 
   return [
     {
@@ -235,7 +223,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       component: AdminHome,
       meta: {
         userType: 'employee',
-        preview: mode === 'preview',
       },
     },
 
@@ -246,13 +233,13 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'check-in-desk',
       name: `${p}-check-in-desk`,
       component: CheckInDesk,
-      meta: { pageTitle: '前台入场', owner: 'E', features: '#5 #6 #7', preview: mode === 'preview', userType: 'employee' },
+      meta: { pageTitle: '前台入场', owner: 'E', features: '#5 #6 #7', userType: 'employee' },
     },
     {
       path: 'capacity-logs',
       name: `${p}-capacity-logs`,
       component: CapacityLogs,
-      meta: { pageTitle: '容量日志', owner: 'E', features: '#7 #21', preview: mode === 'preview', userType: 'employee' },
+      meta: { pageTitle: '容量日志', owner: 'E', features: '#7 #21', userType: 'employee' },
     },
 
 
@@ -262,31 +249,31 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'members',
       name: `${p}-members`,
       component: AdminMembers,
-      meta: { requiresAuth: mode === 'auth', userType: 'employee', preview: mode === 'preview' },
+      meta: { requiresAuth: true, userType: 'employee' },
     },
     {
       path: 'members/:id',
       name: `${p}-member-detail`,
       component: AdminMemberDetail,
-      meta: { requiresAuth: mode === 'auth', userType: 'employee', preview: mode === 'preview' },
+      meta: { requiresAuth: true, userType: 'employee' },
     },
     {
       path: 'coaches',
       name: `${p}-coaches`,
       component: AdminCoachList,
-      meta: { requiresAuth: mode === 'auth', userType: 'employee', preview: mode === 'preview' },
+      meta: { requiresAuth: true, userType: 'employee' },
     },
     {
       path: 'venues',
       name: `${p}-venues`,
       component: AdminVenues,
-      meta: { requiresAuth: mode === 'auth', userType: 'employee', preview: mode === 'preview' },
+      meta: { requiresAuth: true, userType: 'employee' },
     },
     {
       path: 'equipment',
       name: `${p}-equipment`,
       component: AdminEquipment,
-      meta: { requiresAuth: mode === 'auth', userType: 'employee', preview: mode === 'preview' },
+      meta: { requiresAuth: true, userType: 'employee' },
     },
 
 
@@ -298,7 +285,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       component: CardProductManage,
       meta: {
          userType: 'employee',
-         preview: mode === 'preview',
          pageTitle: '卡商品管理',
         owner: 'D',
       },
@@ -315,7 +301,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '课程类型维护',
         owner: 'C',
         features: '#3 #4',
-        preview: mode === 'preview',
         userType: 'employee',
       },
     },
@@ -328,7 +313,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '团课排期管理',
         owner: 'F',
         features: '#3 #4',
-        preview: mode === 'preview',
         userType: 'employee',
       },
     },
@@ -343,7 +327,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       meta: {
         pageTitle: '订单管理',
         owner: 'H',
-        preview: mode === 'preview',
         userType: 'employee',
       },
     },
@@ -355,7 +338,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '折扣券发放',
         owner: 'H',
         features: '#18 #20',
-        preview: mode === 'preview',
         userType: 'employee',
       },
     },
@@ -367,7 +349,6 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '流失预警会员',
         owner: 'H',
         features: '#17',
-        preview: mode === 'preview',
         userType: 'employee',
       },
     },
@@ -379,26 +360,26 @@ function adminChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'repairs',
       name: `${p}-repairs`,
       component: RepairRecords,
-      meta: { pageTitle: '器材报修', owner: 'I', features: '#15', preview: mode === 'preview', userType: 'employee' },
+      meta: { pageTitle: '器材报修', owner: 'I', features: '#15', userType: 'employee' },
     },
     {
       path: 'inspections',
       name: `${p}-inspections`,
       component: InspectionTasks,
-      meta: { pageTitle: '巡检任务', owner: 'I', features: '#16', preview: mode === 'preview', userType: 'employee' },
+      meta: { pageTitle: '巡检任务', owner: 'I', features: '#16', userType: 'employee' },
     },
   ]
 }
 
-function coachChildren(mode: RouteMode): RouteRecordRaw[] {
-  const p = mode === 'preview' ? 'preview-coach' : 'coach'
+function coachChildren(): RouteRecordRaw[] {
+  const p = 'coach'
 
   return [
     {
       path: 'home',
       name: `${p}-home`,
       component: CoachHome,
-      meta: { userType: 'coach', preview: mode === 'preview' },
+      meta: { userType: 'coach' },
     },
 
     
@@ -408,7 +389,7 @@ function coachChildren(mode: RouteMode): RouteRecordRaw[] {
       path: 'pt-confirm',
       name: `${p}-pt-confirm`,
       component: PtConfirm,
-      meta: { requiresAuth: mode === 'auth', userType: 'coach', preview: mode === 'preview' },
+      meta: { requiresAuth: true, userType: 'coach' },
     },
 
 
@@ -422,7 +403,6 @@ function coachChildren(mode: RouteMode): RouteRecordRaw[] {
         pageTitle: '教练日程',
         owner: 'J',
         features: '#4 #11 #13',
-        preview: mode === 'preview',
         userType: 'coach',
       },
     }
@@ -451,29 +431,8 @@ export function buildPortalRoutes(options: {
   coachLayout: RouteRecordRaw['component']
 }): RouteRecordRaw[] {
   return [
-    portalRoute('/member', options.memberLayout, {}, { requiresAuth: true, userType: 'member' }, memberChildren('auth')),
-    portalRoute('/admin', options.adminLayout, {}, { requiresAuth: true, userType: 'employee' }, adminChildren('auth')),
-    portalRoute('/coach', options.coachLayout, {}, { requiresAuth: true, userType: 'coach' }, coachChildren('auth')),
-    portalRoute(
-      '/preview/member',
-      options.memberLayout,
-      { preview: true },
-      { preview: true },
-      memberChildren('preview'),
-    ),
-    portalRoute(
-      '/preview/admin',
-      options.adminLayout,
-      { preview: true },
-      { preview: true },
-      adminChildren('preview'),
-    ),
-    portalRoute(
-      '/preview/coach',
-      options.coachLayout,
-      { preview: true },
-      { preview: true },
-      coachChildren('preview'),
-    ),
+    portalRoute('/member', options.memberLayout, {}, { requiresAuth: true, userType: 'member' }, memberChildren()),
+    portalRoute('/admin', options.adminLayout, {}, { requiresAuth: true, userType: 'employee' }, adminChildren()),
+    portalRoute('/coach', options.coachLayout, {}, { requiresAuth: true, userType: 'coach' }, coachChildren()),
   ]
 }

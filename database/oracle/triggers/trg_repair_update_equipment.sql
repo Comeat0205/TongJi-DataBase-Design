@@ -1,6 +1,7 @@
 -- I · 报修状态与器材状态联动
--- 只要同一器材仍有未完成报修（当前为“待处理”或“维修中”），器材保持“维护中”；
--- 该器材所有报修均为“已完成”时，器材恢复“正常”。
+-- 未完成报修（待处理/维修中）→ 器材 STATUS = '0'（维修）
+-- 全部报修已完成 → 器材 STATUS = '1'（正常）
+-- 与应用层编码一致，避免写入中文导致 ORA-01722 / CHECK 失败。
 CREATE OR REPLACE TRIGGER TRG_REPAIR_UPDATE_EQUIPMENT
 FOR INSERT OR DELETE OR UPDATE OF STATUS, EQUIP_ID ON REPAIRRECORD
 COMPOUND TRIGGER
@@ -42,8 +43,8 @@ COMPOUND TRIGGER
                     FROM REPAIRRECORD r
                     WHERE r.EQUIP_ID = v_equip_id
                       AND NVL(r.STATUS, '待处理') <> '已完成'
-                ) THEN '维护中'
-                ELSE '正常'
+                ) THEN '0'
+                ELSE '1'
             END
             WHERE e.EQUIP_ID = v_equip_id;
 

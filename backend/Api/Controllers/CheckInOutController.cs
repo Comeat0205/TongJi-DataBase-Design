@@ -74,7 +74,7 @@ public class CheckInOutController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<CheckInOutDto>>.Success(list, HttpContext.TraceIdentifier));
     }
 
-    // 容量日志分页
+    // 容量日志分页（旧接口保留）
     [HttpGet("capacity-logs")]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<CapacityLogDto>>>> GetCapacityLogs(
         [FromQuery] int venueId = 0,
@@ -84,6 +84,58 @@ public class CheckInOutController : ControllerBase
     {
         var list = await _svc.GetCapacityLogsPagedAsync(venueId, pageNumber, pageSize, ct);
         return Ok(ApiResponse<IReadOnlyList<CapacityLogDto>>.Success(list, HttpContext.TraceIdentifier));
+    }
+
+    // 主训练馆按日容量波形数据（每 10 分钟采样点）
+    [HttpGet("capacity-logs/daily")]
+    public async Task<ActionResult<ApiResponse<CapacityDailySeriesDto>>> GetDailyCapacitySeries(
+        [FromQuery] string? date,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var day = string.IsNullOrWhiteSpace(date)
+                ? DateOnly.FromDateTime(DateTime.Today)
+                : DateOnly.Parse(date);
+            var series = await _svc.GetMainVenueDailySeriesAsync(day, ct);
+            return Ok(ApiResponse<CapacityDailySeriesDto>.Success(series, HttpContext.TraceIdentifier));
+        }
+        catch (FormatException)
+        {
+            return BadRequest(ApiResponse<object>.Failure(
+                "INVALID_DATE", "日期格式应为 yyyy-MM-dd", HttpContext.TraceIdentifier));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Failure(
+                "VENUE_NOT_FOUND", ex.Message, HttpContext.TraceIdentifier));
+        }
+    }
+
+    // 主训练馆按日签到/签退流水
+    [HttpGet("capacity-logs/movements")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<CapacityMovementDto>>>> GetDailyMovements(
+        [FromQuery] string? date,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var day = string.IsNullOrWhiteSpace(date)
+                ? DateOnly.FromDateTime(DateTime.Today)
+                : DateOnly.Parse(date);
+            var list = await _svc.GetMainVenueMovementsAsync(day, ct);
+            return Ok(ApiResponse<IReadOnlyList<CapacityMovementDto>>.Success(list, HttpContext.TraceIdentifier));
+        }
+        catch (FormatException)
+        {
+            return BadRequest(ApiResponse<object>.Failure(
+                "INVALID_DATE", "日期格式应为 yyyy-MM-dd", HttpContext.TraceIdentifier));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Failure(
+                "VENUE_NOT_FOUND", ex.Message, HttpContext.TraceIdentifier));
+        }
     }
 
     // 员工首页统计（今日入场、在场人数、场馆实时容量）
@@ -109,11 +161,21 @@ public class CheckInOutController : ControllerBase
         }
     }
 
-    // 会员查询自己的在场记录
+    // 会员查询自己的在场记录（按卡）
     [HttpGet("my-checkin/{cardId:int}")]
     public async Task<ActionResult<ApiResponse<CheckInOutDto>>> GetMyCheckIn(int cardId, CancellationToken ct)
     {
         var record = await _svc.GetMyActiveCheckInAsync(cardId, ct);
+        if (record is null)
+            return Ok(ApiResponse<CheckInOutDto>.Success(null!, HttpContext.TraceIdentifier));
+        return Ok(ApiResponse<CheckInOutDto>.Success(record, HttpContext.TraceIdentifier));
+    }
+
+    // 会员查询自己的在场记录（按会员，支持多卡）
+    [HttpGet("my-checkin/by-member/{memberId:int}")]
+    public async Task<ActionResult<ApiResponse<CheckInOutDto>>> GetMyCheckInByMember(int memberId, CancellationToken ct)
+    {
+        var record = await _svc.GetMyActiveCheckInByMemberAsync(memberId, ct);
         if (record is null)
             return Ok(ApiResponse<CheckInOutDto>.Success(null!, HttpContext.TraceIdentifier));
         return Ok(ApiResponse<CheckInOutDto>.Success(record, HttpContext.TraceIdentifier));

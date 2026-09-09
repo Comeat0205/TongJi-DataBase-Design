@@ -15,18 +15,25 @@ export interface CreateEquipmentRequest {
   imageUrl?: string | null
 }
 
+export type EquipmentStatus = '1' | '0'
+
 export interface UpdateEquipmentRequest {
   equipName: string
   venueId?: string | null
   imageUrl?: string | null
-  status: '1' | '0'
+  status: EquipmentStatus
+  faultDescription?: string
 }
 
 export interface UploadEquipmentImageResult {
   imageUrl: string
 }
 
-export function getEquipmentManagementList(params: { keyword?: string; status?: 'all' | 'active' | 'inactive'; venueId?: number } = {}) {
+export function getEquipmentManagementList(params: {
+  keyword?: string
+  status?: 'all' | 'active' | 'inactive'
+  venueId?: number
+} = {}) {
   const searchParams = new URLSearchParams()
   if (params.keyword) {
     searchParams.set('keyword', params.keyword)

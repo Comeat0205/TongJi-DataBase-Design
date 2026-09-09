@@ -6,7 +6,7 @@ import { checkIn, checkOut, getActiveCheckIns, getVenueStatus } from '@/api/chec
 import PageHeader from '@/components/ui/PageHeader.vue'
 
 const venues = ref<any[]>([])
-const curVenueId = ref(1)
+const curVenueId = ref(0)
 const activeList = ref<any[]>([])
 const loading = ref(false)
 const msg = ref('') // 成功提示
@@ -15,6 +15,12 @@ const err = ref('')
 const cardInput = ref<number | ''>('')
 const submitting = ref(false)
 
+function isDeskVenue(v: { venueName?: string; venueStatus?: string }) {
+  const name = v.venueName ?? ''
+  // 前台入场仅展示主训练馆（排除测试场馆、私教课区及已关闭场馆）
+  return name.includes('主训练') && v.venueStatus !== '已关闭'
+}
+
 onMounted(async () => {
   await refreshVenues()
   if (curVenueId.value) await refreshActive()
@@ -22,9 +28,10 @@ onMounted(async () => {
 
 async function refreshVenues() {
   try {
-    venues.value = await getVenueStatus()
-    if (venues.value.length > 0 && !curVenueId.value) {
-      curVenueId.value = venues.value[0]!.venueId
+    const all = await getVenueStatus()
+    venues.value = all.filter(isDeskVenue)
+    if (!venues.value.some((v) => v.venueId === curVenueId.value)) {
+      curVenueId.value = venues.value[0]?.venueId ?? 0
     }
   } catch { /* 不管 */ }
 }
@@ -77,7 +84,7 @@ function switchVenue(id: number) {
 
 <template>
   <div class="desk-page">
-    <PageHeader title="前台入场" subtitle="员工办理入场 / 退场，查看在场人员" />
+    <PageHeader title="前台入场" subtitle="按会员卡编号办理入场：次卡扣 1 次，时效卡校验有效期。" />
 
     <!-- 场馆 tab -->
     <div class="venue-bar">
@@ -96,10 +103,10 @@ function switchVenue(id: number) {
     </div>
 
     <!-- 入场 -->
-    <div class="card">
+    <div class="card panel-tone-blue">
       <h2>办理入场</h2>
       <form class="inline" @submit.prevent="doCheckIn">
-        <input v-model.number="cardInput" type="number" min="1001" max="1999" placeholder="会员卡编号（1001-1999）" :disabled="submitting" />
+        <input v-model.number="cardInput" type="number" min="1" placeholder="会员卡编号（次卡扣1次 / 时效卡校验有效期）" :disabled="submitting" />
         <button type="submit" class="btn-primary" :disabled="submitting">
           {{ submitting ? '...' : '入场' }}
         </button>
@@ -109,7 +116,7 @@ function switchVenue(id: number) {
     </div>
 
     <!-- 在场列表 -->
-    <div class="card">
+    <div class="card panel-tone-green">
       <h2>在场人员 ({{ activeList.length }})</h2>
 
       <p v-if="loading" class="muted">加载中...</p>
@@ -146,15 +153,12 @@ function switchVenue(id: number) {
   background: #fff; cursor: pointer; font-size: 14px;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
 }
-.vtab.active { border-color: #4d77ff; background: #f0f5ff; color: #2c57d2; }
+.vtab.active { border-color: #2a4365; background: #f0f5ff; color: #2a4365; }
 .vtab small { font-size: 11px; color: #999; }
 .venue-info { margin-left: auto; font-size: 13px; color: #7a88a0; }
 .venue-info.warn { color: #d46b08; font-weight: 600; }
 
-.card {
-  padding: 24px; border-radius: var(--tj-radius);
-  background: var(--tj-card-bg); box-shadow: var(--tj-shadow);
-}
+.card { padding: 24px; border-radius: var(--tj-radius); }
 .card h2 { margin: 0 0 14px; font-size: 18px; }
 
 .inline { display: flex; gap: 10px; max-width: 380px; }
@@ -162,11 +166,11 @@ function switchVenue(id: number) {
   flex: 1; padding: 8px 12px; border: 1px solid #d8e2f0;
   border-radius: 8px; font-size: 14px;
 }
-.inline input:focus { outline: none; border-color: #4d77ff; }
+.inline input:focus { outline: none; border-color: #2a4365; }
 
 .btn-primary {
   padding: 8px 16px; border: none; border-radius: 8px;
-  background: #285cff; color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap;
+  background: #2a4365; color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
 .btn-primary:disabled { opacity: .5; }
 

@@ -112,7 +112,7 @@ onMounted(async () => {
 <template>
   <div class="admin-vouchers-page">
     <PageHeader
-      eyebrow="Marketing · H"
+      eyebrow="Voucher Issue"
       title="折扣券发放"
       subtitle="员工可向指定会员发放 33 元折扣券，自发放起 7 天内有效。"
     >
@@ -148,11 +148,12 @@ onMounted(async () => {
     <StateCard v-else-if="errorMessage && vouchers.length === 0" type="error" :message="errorMessage" />
     <StateCard v-else-if="vouchers.length === 0" message="暂无已发放的折扣券。" />
 
-    <div v-else class="card-grid">
+    <section v-else class="voucher-panel panel-tone-blue">
+      <div class="card-grid">
       <article
         v-for="voucher in vouchers"
         :key="voucher.voucherId"
-        class="voucher-card"
+        class="voucher-card list-item"
       >
         <div class="top">
           <h2>{{ voucher.voucherType }}</h2>
@@ -176,7 +177,8 @@ onMounted(async () => {
           </div>
         </dl>
       </article>
-    </div>
+      </div>
+    </section>
 
     <p v-if="errorMessage && vouchers.length > 0" class="inline-error">{{ errorMessage }}</p>
   </div>
@@ -186,9 +188,10 @@ onMounted(async () => {
 .issue-panel {
   margin-bottom: 20px;
   padding: 20px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 24px;
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
 }
 
 .issue-panel h2 {
@@ -233,7 +236,7 @@ select {
 
 .primary-btn {
   border: none;
-  background: var(--tj-primary);
+  background: #2a4365;
   color: #fff;
 }
 
@@ -255,6 +258,11 @@ select {
   font-size: 13px;
 }
 
+.voucher-panel {
+  padding: 20px;
+  border-radius: 24px;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -263,9 +271,8 @@ select {
 
 .voucher-card {
   padding: 20px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 24px;
+  /* 背景色由父级 panel-tone-* 提供 */
 }
 
 .top {

@@ -31,8 +31,13 @@ const form = reactive({
   venueId: null as number | null,
   venueName: '',
   imageUrl: '',
-  status: '正常' as '正常' | '停用',
+  status: '1' as '1' | '0',
 })
+
+const faultDialogOpen = ref(false)
+const faultDescription = ref('')
+const pendingStatus = ref<'1' | '0' | null>(null)
+const originalStatus = ref<'1' | '0'>('1')
 
 const isEditing = computed(() => editingEquipmentId.value !== null)
 const visibleEquipment = computed(() => equipmentList.value)
@@ -43,11 +48,22 @@ const filteredVenueList = computed(() => {
 })
 
 function resolveStatusLabel(value?: string) {
-  return value === '0' ? '停用' : '正常'
+  return value === '0' || value === '2' || value === '停用' || value === '维修' || value === '维护中'
+    ? '维修'
+    : '正常'
 }
 
 function resolveBadgeTone(value?: string) {
-  return value === '0' ? 'is-inactive' : 'is-active'
+  return value === '0' || value === '2' || value === '停用' || value === '维修' || value === '维护中'
+    ? 'is-repairing'
+    : 'is-active'
+}
+
+function normalizeStatus(value?: string): '1' | '0' {
+  if (value === '0' || value === '2' || value === '停用' || value === '维修' || value === '维护中') {
+    return '0'
+  }
+  return '1'
 }
 
 function resolveImageUrl(value?: string | null) {
@@ -71,6 +87,10 @@ function resetForm() {
   form.venueName = ''
   form.imageUrl = ''
   form.status = '1'
+  originalStatus.value = '1'
+  pendingStatus.value = null
+  faultDescription.value = ''
+  faultDialogOpen.value = false
   previewImageUrl.value = ''
   editingEquipmentId.value = null
   if (fileInputRef.value) {
@@ -121,10 +141,11 @@ function openEditDialog(item: EquipmentItem) {
   errorMessage.value = ''
   editingEquipmentId.value = item.equipId
   form.equipName = item.equipName
-  form.venueId = item.venueId ?? ''
+  form.venueId = item.venueId ?? null
   form.venueName = resolveVenueName(item.venueId)
   form.imageUrl = item.imageUrl ?? ''
-  form.status = item.status === '0' ? '0' : '1'
+  form.status = normalizeStatus(item.status)
+  originalStatus.value = form.status
   previewImageUrl.value = resolveImageUrl(item.imageUrl)
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
@@ -209,6 +230,18 @@ async function handleSubmit() {
     return
   }
 
+  if (isEditing.value && form.status === '0' && originalStatus.value !== '0') {
+    pendingStatus.value = '0'
+    faultDescription.value = ''
+    faultDialogOpen.value = true
+    return
+  }
+
+  await saveEquipment()
+}
+
+async function saveEquipment(faultReason?: string) {
+  const equipName = form.equipName.trim()
   submitting.value = true
   errorMessage.value = ''
   try {
@@ -218,6 +251,7 @@ async function handleSubmit() {
         venueId: form.venueId,
         imageUrl: form.imageUrl || undefined,
         status: form.status,
+        faultDescription: faultReason,
       })
     } else {
       await createEquipment({
@@ -227,12 +261,29 @@ async function handleSubmit() {
       })
     }
     await loadEquipment()
+    faultDialogOpen.value = false
     closeDialog()
   } catch (error) {
     errorMessage.value = error instanceof ApiError || error instanceof Error ? error.message : '保存失败，请稍后重试。'
   } finally {
     submitting.value = false
   }
+}
+
+function cancelFaultDialog() {
+  faultDialogOpen.value = false
+  form.status = originalStatus.value
+  pendingStatus.value = null
+  faultDescription.value = ''
+}
+
+async function confirmFaultDialog() {
+  const reason = faultDescription.value.trim()
+  if (!reason) {
+    errorMessage.value = '请填写故障原因。'
+    return
+  }
+  await saveEquipment(reason)
 }
 
 async function handleDelete(item: EquipmentItem) {
@@ -277,7 +328,7 @@ onMounted(async () => {
         <select v-model="filters.status" class="select-input compact-select" @change="loadEquipment">
           <option value="all">全部</option>
           <option value="active">正常</option>
-          <option value="inactive">停用</option>
+          <option value="inactive">维修</option>
         </select>
         <button type="button" class="btn-ghost venue-filter-button" @click="openVenuePicker('filter')">
           {{ filters.venueName ? `${filters.venueName}` : '选择场馆' }}
@@ -290,13 +341,13 @@ onMounted(async () => {
     <StateCard v-if="errorMessage" :message="errorMessage" type="error" />
     <div v-else-if="loading" class="loading-state">加载中...</div>
 
-    <section v-else class="grid-card">
+    <section v-else class="grid-card panel-tone-blue">
       <div class="grid-head">
         <span>共 {{ visibleEquipment.length }} 条</span>
       </div>
       <div v-if="!visibleEquipment.length" class="empty-state">暂无器材数据</div>
       <div v-else class="card-grid">
-        <article v-for="equipment in visibleEquipment" :key="equipment.equipId" class="equipment-card compact-card" @click="openEditDialog(equipment)">
+        <article v-for="equipment in visibleEquipment" :key="equipment.equipId" class="equipment-card compact-card list-item" @click="openEditDialog(equipment)">
           <div class="cover-wrap">
             <img v-if="equipment.imageUrl" :src="resolveImageUrl(equipment.imageUrl)" :alt="equipment.equipName" class="cover-image" />
             <div v-else class="cover-placeholder">
@@ -368,7 +419,7 @@ onMounted(async () => {
               <span class="detail-label">器材状态</span>
               <select v-model="form.status" class="select-input">
                 <option value="1">正常</option>
-                <option value="0">停用</option>
+                <option value="0">维修</option>
               </select>
             </label>
           </div>
@@ -378,6 +429,35 @@ onMounted(async () => {
           <button type="button" class="btn-ghost" @click="closeDialog">取消</button>
           <button type="button" class="btn-primary" :disabled="submitting || imageUploading" @click="handleSubmit">
             {{ submitting ? '保存中...' : isEditing ? '保存修改' : '确认添加' }}
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="faultDialogOpen" class="detail-mask" @click.self="cancelFaultDialog">
+      <section class="detail-popup fault-popup">
+        <div class="detail-popup-head">
+          <div>
+            <p class="eyebrow">器材报修</p>
+            <h2>填写故障原因</h2>
+          </div>
+          <button type="button" class="btn-ghost" @click="cancelFaultDialog">关闭</button>
+        </div>
+        <p class="fault-hint">确认后将器材设为「维修」，并自动新增一条器材报修记录。</p>
+        <label class="form-item">
+          <span class="detail-label">故障原因</span>
+          <textarea
+            v-model="faultDescription"
+            class="fault-textarea"
+            maxlength="200"
+            rows="4"
+            placeholder="请描述器材故障情况"
+          />
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="btn-ghost" @click="cancelFaultDialog">取消</button>
+          <button type="button" class="btn-primary" :disabled="submitting" @click="confirmFaultDialog">
+            {{ submitting ? '提交中...' : '确认报修' }}
           </button>
         </div>
       </section>
@@ -419,7 +499,7 @@ onMounted(async () => {
 
 <style scoped>
 .admin-grid-view { display: grid; gap: 18px; }
-.page-head, .filter-bar, .grid-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; }
+.page-head, .filter-bar, .grid-card {  border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; }
 .page-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .page-head h1 { margin: 4px 0 0; font-size: 28px; }
 .eyebrow, .meta-label, .card-id { color: #6b7280; margin: 0; }
@@ -431,7 +511,7 @@ onMounted(async () => {
 .compact-select { width: 120px; }
 .venue-filter-button { min-width: 140px; }
 .card-grid { margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
-.equipment-card { border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden; background: #fcfdff; display: grid; cursor: pointer; transition: box-shadow .2s ease, transform .2s ease; }
+.equipment-card { border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden;  display: grid; cursor: pointer; transition: box-shadow .2s ease, transform .2s ease; }
 .compact-card { width: 100%; justify-self: stretch; }
 .equipment-card:hover { box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); transform: translateY(-2px); }
 .cover-wrap { position: relative; aspect-ratio: 16 / 9; background: #eef2ff; }
@@ -439,8 +519,11 @@ onMounted(async () => {
 .cover-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #94a3b8; background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%); font-weight: 600; }
 .large-placeholder { min-height: 220px; border-radius: 16px; border: 1px dashed #cbd5e1; }
 .status-pill { position: absolute; top: 14px; right: 14px; display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
-.is-active { color: #1d4ed8; background: rgba(219, 234, 254, 0.96); }
-.is-inactive { color: #991b1b; background: rgba(254, 226, 226, 0.96); }
+.is-active { color: #2a4365; background: rgba(219, 234, 254, 0.96); }
+.is-repairing { color: #b45309; background: rgba(254, 243, 199, 0.96); }
+.fault-popup { width: min(520px, 100%); display: grid; gap: 14px; }
+.fault-hint { margin: 0; color: #6b7280; font-size: 14px; }
+.fault-textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 12px; outline: none; resize: vertical; font: inherit; }
 .card-body { display: grid; gap: 10px; padding: 14px; }
 .title-row h3 { margin: 0; font-size: 18px; color: #111827; }
 .meta-grid { display: grid; gap: 10px; }
@@ -475,7 +558,7 @@ onMounted(async () => {
 .picker-id { color: #475569; font-variant-numeric: tabular-nums; }
 .picker-name { color: #111827; }
 .btn-primary, .btn-ghost { border-radius: 10px; padding: 9px 14px; border: 1px solid transparent; cursor: pointer; }
-.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary { background: #2a4365; color: #fff; }
 .btn-ghost { background: #fff; border-color: #d1d5db; color: #1f2937; }
 @media (max-width: 1180px) {
   .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -25,13 +25,16 @@ public sealed class RepairRecordAppService : IRepairRecordAppService
         };
 
     private readonly IRepairRecordRepository _repairRecordRepository;
+    private readonly IEquipmentRepository _equipmentRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public RepairRecordAppService(
         IRepairRecordRepository repairRecordRepository,
+        IEquipmentRepository equipmentRepository,
         IUnitOfWork unitOfWork)
     {
         _repairRecordRepository = repairRecordRepository;
+        _equipmentRepository = equipmentRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -86,9 +89,13 @@ public sealed class RepairRecordAppService : IRepairRecordAppService
         CreateRepairRecordRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!await _repairRecordRepository.EquipmentExistsAsync(request.EquipId, cancellationToken))
+        var equipment = await _equipmentRepository.GetByIdAsync(request.EquipId, cancellationToken)
+            ?? throw new KeyNotFoundException($"未找到编号为 {request.EquipId} 的器材。");
+
+        var description = request.Description.Trim();
+        if (string.IsNullOrWhiteSpace(description))
         {
-            throw new KeyNotFoundException($"未找到编号为 {request.EquipId} 的器材。");
+            throw new DomainException("请填写报修问题描述。");
         }
 
         var record = new Repairrecord
@@ -96,9 +103,13 @@ public sealed class RepairRecordAppService : IRepairRecordAppService
             RecordId = await _repairRecordRepository.GetNextIdAsync(cancellationToken),
             EquipId = request.EquipId,
             Status = "待处理",
-            Description = request.Description.Trim()
+            Description = description,
+            ReportTime = DateTime.Now,
+            RepairCost = 0m
         };
 
+        equipment.Status = "0";
+        _equipmentRepository.Update(equipment);
         await _repairRecordRepository.AddAsync(record, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -137,8 +148,77 @@ public sealed class RepairRecordAppService : IRepairRecordAppService
             record.RepairCost = request.RepairCost.Value;
         }
 
+        if (targetStatus == "已完成")
+        {
+            await RestoreEquipmentIfNoOpenRepairsAsync(record.EquipId, record.RecordId, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return await LoadRequiredAsync(record.RecordId, cancellationToken);
+    }
+
+    public async Task<RepairRecordDto> CompleteAsync(
+        int id,
+        CompleteRepairRecordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var record = await _repairRecordRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new KeyNotFoundException($"未找到编号为 {id} 的报修记录。");
+
+        var current = record.Status?.Trim() ?? "待处理";
+        if (current == "已完成")
+        {
+            throw new DomainException("该报修已完成，无需重复操作。");
+        }
+
+        if (current is not ("待处理" or "维修中"))
+        {
+            throw new DomainException($"当前状态“{current}”无法标记为修理完成。");
+        }
+
+        if (request.EmpId.HasValue)
+        {
+            if (!await _repairRecordRepository.EmployeeExistsAsync(request.EmpId.Value, cancellationToken))
+            {
+                throw new KeyNotFoundException($"未找到编号为 {request.EmpId.Value} 的员工。");
+            }
+
+            record.EmpId = request.EmpId.Value;
+        }
+
+        if (request.RepairCost.HasValue)
+        {
+            record.RepairCost = request.RepairCost.Value;
+        }
+
+        record.Status = "已完成";
+        await RestoreEquipmentIfNoOpenRepairsAsync(record.EquipId, record.RecordId, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await LoadRequiredAsync(record.RecordId, cancellationToken);
+    }
+
+    private async Task RestoreEquipmentIfNoOpenRepairsAsync(
+        int equipId,
+        int completedRecordId,
+        CancellationToken cancellationToken)
+    {
+        var hasOtherOpen = await _repairRecordRepository.HasOpenRepairsAsync(
+            equipId,
+            completedRecordId,
+            cancellationToken);
+        if (hasOtherOpen)
+        {
+            return;
+        }
+
+        var equipment = await _equipmentRepository.GetByIdAsync(equipId, cancellationToken);
+        if (equipment is null)
+        {
+            return;
+        }
+
+        equipment.Status = "1";
+        _equipmentRepository.Update(equipment);
     }
 
     private async Task<RepairRecordDto> LoadRequiredAsync(

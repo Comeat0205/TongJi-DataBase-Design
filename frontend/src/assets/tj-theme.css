@@ -1,14 +1,90 @@
 :root {
-  --tj-primary: #285cff;
+  --tj-primary: #2a4365;
   --tj-primary-soft: #e8f0ff;
-  --tj-sidebar-bg: #121c31;
+  --tj-member-page-bg: #f8f9fb;
+  --tj-page-bg: var(--tj-member-page-bg);
+  --tj-sidebar-bg: #061b35;
   --tj-sidebar-text: rgba(255, 255, 255, 0.78);
-  --tj-sidebar-active: rgba(95, 139, 255, 0.22);
-  --tj-page-bg: #f4f8ff;
+  --tj-sidebar-active-bg: var(--tj-page-bg);
+  --tj-sidebar-active-text: #061b35;
+  --tj-sidebar-radius: 28px;
   --tj-card-bg: #ffffff;
   --tj-text: #17243a;
   --tj-text-muted: #5d6d88;
   --tj-danger: #d73c4f;
   --tj-radius: 16px;
   --tj-shadow: 0 18px 40px rgba(26, 49, 94, 0.08);
+  /* 三端统一：浅色色块悬浮分层，避免与页面背景糊在一起 */
+  --tj-member-lift:
+    0 1px 2px rgba(42, 67, 101, 0.06),
+    0 10px 24px rgba(42, 67, 101, 0.12),
+    0 22px 48px rgba(42, 67, 101, 0.08);
+  --tj-member-edge: 1px solid rgba(42, 67, 101, 0.16);
+
+  /* 大面板 + 列表小卡片色系：同色系，小卡片更浅；页面内交替用 blue / green */
+  --tj-tone-blue-panel: #d9e6f5;
+  --tj-tone-blue-item: #eef4fb;
+  --tj-tone-green-panel: #d4ebee;
+  --tj-tone-green-item: #eaf6f7;
+}
+
+/* 用法：大面板加 panel-tone-blue / panel-tone-green；内部列表项用 .list-item 或 .type-item */
+.panel-tone-blue {
+  background: var(--tj-tone-blue-panel);
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
+}
+.panel-tone-blue .list-item,
+.panel-tone-blue .type-item,
+.panel-tone-blue .course-item,
+.panel-tone-blue .member-row,
+.panel-tone-blue .coach-row,
+.panel-tone-blue .equipment-card,
+.panel-tone-blue .venue-card,
+.panel-tone-blue .voucher-card,
+.panel-tone-blue .product-card,
+.panel-tone-blue .product-item,
+.panel-tone-blue .card-item,
+.panel-tone-blue .product-row,
+.panel-tone-blue .venue-item,
+.panel-tone-blue .recommend-item,
+.panel-tone-blue .session-item,
+.panel-tone-blue .pt-item,
+.panel-tone-blue .pkg-card,
+.panel-tone-blue .booking-card,
+.panel-tone-blue .booking-item,
+.panel-tone-blue .confirmation-card,
+.panel-tone-blue .schedule-course-item {
+  background: var(--tj-tone-blue-item);
+  border: 1px solid rgba(42, 67, 101, 0.1);
+}
+
+.panel-tone-green {
+  background: var(--tj-tone-green-panel);
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
+}
+.panel-tone-green .list-item,
+.panel-tone-green .type-item,
+.panel-tone-green .course-item,
+.panel-tone-green .member-row,
+.panel-tone-green .coach-row,
+.panel-tone-green .equipment-card,
+.panel-tone-green .venue-card,
+.panel-tone-green .voucher-card,
+.panel-tone-green .product-card,
+.panel-tone-green .product-item,
+.panel-tone-green .card-item,
+.panel-tone-green .product-row,
+.panel-tone-green .venue-item,
+.panel-tone-green .recommend-item,
+.panel-tone-green .session-item,
+.panel-tone-green .pt-item,
+.panel-tone-green .pkg-card,
+.panel-tone-green .booking-card,
+.panel-tone-green .booking-item,
+.panel-tone-green .confirmation-card,
+.panel-tone-green .schedule-course-item {
+  background: var(--tj-tone-green-item);
+  border: 1px solid rgba(42, 67, 101, 0.1);
 }

@@ -15,21 +15,21 @@ const member = ref<MemberProfile | null>(null)
 const memberId = computed(() => Number(route.params.id))
 
 function formatDate(value?: string) {
-  if (!value) return '未填写'
+  if (!value) return '未填�?
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '未填写' : date.toLocaleDateString('zh-CN')
+  return Number.isNaN(date.getTime()) ? '未填�? : date.toLocaleDateString('zh-CN')
 }
 
 function resolveStatusLabel(value?: string) {
   if (value === '1') return '有效'
   if (value === '0') return '已注销'
-  return value || '未填写'
+  return value || '未填�?
 }
 
 function resolveGenderLabel(value?: string) {
-  if (value === 'M') return '男'
-  if (value === 'F') return '女'
-  return value || '未填写'
+  if (value === 'M') return '�?
+  if (value === 'F') return '�?
+  return value || '未填�?
 }
 
 async function loadDetail() {
@@ -39,7 +39,7 @@ async function loadDetail() {
   try {
     member.value = await getMemberProfile(memberId.value)
   } catch (error) {
-    errorMessage.value = error instanceof ApiError ? error.message : '会员详情加载失败，请稍后重试。'
+    errorMessage.value = error instanceof ApiError ? error.message : '会员详情加载失败，请稍后重试�?
   } finally {
     loading.value = false
   }
@@ -47,7 +47,7 @@ async function loadDetail() {
 
 async function handleCancel() {
   if (!member.value) return
-  if (!confirm(`确定要注销会员「${member.value.name}」吗？`)) return
+  if (!confirm(`确定要注销会员�?{member.value.name}」吗？`)) return
 
   cancelling.value = true
   errorMessage.value = ''
@@ -55,7 +55,7 @@ async function handleCancel() {
   try {
     member.value = await cancelMember(member.value.memberId)
   } catch (error) {
-    errorMessage.value = error instanceof ApiError ? error.message : '注销失败，请稍后重试。'
+    errorMessage.value = error instanceof ApiError ? error.message : '注销失败，请稍后重试�?
   } finally {
     cancelling.value = false
   }
@@ -74,13 +74,13 @@ onMounted(loadDetail)
       <div class="head-actions">
         <button type="button" class="btn-ghost" @click="router.push('/admin/members')">返回列表</button>
         <button type="button" class="btn-danger" :disabled="cancelling || member?.status === '0'" @click="handleCancel">
-          {{ cancelling ? '注销中...' : '注销会员' }}
+          {{ cancelling ? '注销�?..' : '注销会员' }}
         </button>
       </div>
     </section>
 
     <StateCard v-if="errorMessage" :message="errorMessage" type="error" />
-    <div v-else-if="loading" class="loading-state">加载中...</div>
+    <div v-else-if="loading" class="loading-state">加载�?..</div>
 
     <section v-else-if="member" class="detail-card">
       <div class="title-row">
@@ -93,12 +93,12 @@ onMounted(loadDetail)
 
       <div class="detail-grid">
         <div class="detail-item">
-          <span class="detail-label">手机号</span>
-          <strong class="detail-value">{{ member.phoneNumber || '未填写' }}</strong>
+          <span class="detail-label">手机�?/span>
+          <strong class="detail-value">{{ member.phoneNumber || '未填�? }}</strong>
         </div>
         <div class="detail-item">
           <span class="detail-label">会员等级</span>
-          <strong class="detail-value">{{ member.memberLevel || '未填写' }}</strong>
+          <strong class="detail-value">{{ member.memberLevel || '未填�? }}</strong>
         </div>
         <div class="detail-item">
           <span class="detail-label">性别</span>
@@ -110,7 +110,7 @@ onMounted(loadDetail)
         </div>
         <div class="detail-item full-width">
           <span class="detail-label">身份证号</span>
-          <strong class="detail-value">{{ member.idCard || '未填写' }}</strong>
+          <strong class="detail-value">{{ member.idCard || '未填�? }}</strong>
         </div>
         <div class="detail-item">
           <span class="detail-label">注册时间</span>
@@ -129,10 +129,15 @@ onMounted(loadDetail)
 
 .page-head,
 .detail-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
+  border-radius: 24px;
   padding: 18px;
+}
+
+.detail-card {
+  background: #eaf5f6;
 }
 
 .page-head {
@@ -169,7 +174,7 @@ onMounted(loadDetail)
 
 .status-chip {
   background: #eef2ff;
-  color: #4338ca;
+  color: #2a4365;
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 13px;
@@ -187,7 +192,7 @@ onMounted(loadDetail)
   gap: 10px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: #f8fbff;
+  background: rgba(255, 255, 255, 0.72);
   border: 1px solid #e6edf8;
 }
 
@@ -220,7 +225,7 @@ onMounted(loadDetail)
 
 .btn-ghost {
   background: #eff6ff;
-  color: #2563eb;
+  color: #2a4365;
 }
 
 .btn-danger {

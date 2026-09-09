@@ -351,7 +351,7 @@ onMounted(loadCoaches)
     <StateCard v-if="errorMessage" :message="errorMessage" type="error" />
     <div v-else-if="loading" class="loading-state">加载中...</div>
 
-    <section v-else class="table-card">
+    <section v-else class="table-card panel-tone-blue">
       <div class="table-head">
         <span>共 {{ visibleCoaches.length }} 条</span>
       </div>
@@ -359,7 +359,7 @@ onMounted(loadCoaches)
       <div v-if="!visibleCoaches.length" class="empty-state">暂无教练数据</div>
 
       <div v-else class="coach-list">
-        <article v-for="coach in visibleCoaches" :key="coach.coachId" class="coach-row">
+        <article v-for="coach in visibleCoaches" :key="coach.coachId" class="coach-row list-item">
           <div class="avatar">{{ coach.coachName?.slice(0, 1) || 'C' }}</div>
           <div class="main-info">
             <strong>{{ coach.displayName || coach.coachName || '未命名教练' }}</strong>
@@ -581,13 +581,9 @@ onMounted(loadCoaches)
   border-radius: 12px;
 }
 
-.coach-row:nth-child(odd) {
-  background: #f8fafc;
-}
+.coach-row:nth-child(odd) { /* tone */ }
 
-.coach-row:nth-child(even) {
-  background: #ffffff;
-}
+.coach-row:nth-child(even) { /* tone */ }
 
 .avatar {
   width: 44px;
@@ -596,7 +592,7 @@ onMounted(loadCoaches)
   display: grid;
   place-items: center;
   background: #dbeafe;
-  color: #1d4ed8;
+  color: #2a4365;
   font-weight: 700;
 }
 
@@ -620,8 +616,8 @@ onMounted(loadCoaches)
 .status-is-active, .is-active { background: #e8f7ef; color: #137333; }
 .is-inactive { background: #fee2e2; color: #b91c1c; }
 .btn-ghost, .btn-primary, .btn-danger-soft, .submit-btn, .secondary-btn { border: none; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
-.btn-ghost, .secondary-btn { background: #eff6ff; color: #2563eb; }
-.btn-primary, .submit-btn { background: #2563eb; color: #fff; }
+.btn-ghost, .secondary-btn { background: #eff6ff; color: #2a4365; }
+.btn-primary, .submit-btn { background: #2a4365; color: #fff; }
 .btn-danger-soft { background: #fff1f2; color: #dc2626; }
 .btn-ghost:disabled, .btn-danger-soft:disabled, .submit-btn:disabled, .secondary-btn:disabled { opacity: 0.72; cursor: not-allowed; }
 .detail-mask { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: grid; place-items: center; padding: 20px; z-index: 20; }

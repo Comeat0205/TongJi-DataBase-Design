@@ -10,12 +10,42 @@ export interface CapacityLog {
   occupancyRate?: number
 }
 
-/** 分页查询容量日志 */
-export function getCapacityLogs(venueId = 0, pageNumber = 1, pageSize = 20) {
-  const params = new URLSearchParams({
-    venueId: String(venueId),
-    pageNumber: String(pageNumber),
-    pageSize: String(pageSize),
-  })
-  return http.get<CapacityLog[]>(`/checkinout/capacity-logs?${params}`)
+export interface CapacityLogPoint {
+  timestamp: string
+  timeLabel: string
+  recordedCount: number
+  occupancyRate: number
+  recordedCapacity?: number
+}
+
+export interface CapacityDailySeries {
+  venueId: number
+  venueName: string
+  date: string
+  maxCapacity: number
+  points: CapacityLogPoint[]
+}
+
+export interface CapacityMovement {
+  movementId: number
+  venueId: number
+  venueName: string
+  memberId: number
+  eventTime: string
+  eventTypeLabel: string
+  eventType: string
+  recordedCount: number
+  occupancyRate: number
+}
+
+/** 主训练馆按日容量波形数据（每 10 分钟采样） */
+export function getDailyCapacitySeries(date: string) {
+  const params = new URLSearchParams({ date })
+  return http.get<CapacityDailySeries>(`/checkinout/capacity-logs/daily?${params}`)
+}
+
+/** 主训练馆按日签到/签退流水 */
+export function getDailyCapacityMovements(date: string) {
+  const params = new URLSearchParams({ date })
+  return http.get<CapacityMovement[]>(`/checkinout/capacity-logs/movements?${params}`)
 }

@@ -41,15 +41,7 @@ export interface UpcomingReminder {
   featureRef: string
 }
 
-export interface AtRiskMember {
-  memberId: number
-  memberName: string
-  attendanceDropRate: number
-  lastVisitDate: string
-  suggestedAction: string
-  recommendedCourse: string
-  featureRef: string
-}
+
 
 export function getCrowdLabel(level: CrowdLevel) {
   switch (level) {
@@ -203,28 +195,6 @@ export const adminVenueCapacityListMock: VenueCapacitySnapshot[] = [
     occupancyRate: 100,
     crowdLevel: 'full',
     featureRef: '#7',
-  },
-]
-
-/** 员工首页 · 流失风险会员 #17 */
-export const adminAtRiskMembersMock: AtRiskMember[] = [
-  {
-    memberId: 10023,
-    memberName: '张女士',
-    attendanceDropRate: 58,
-    lastVisitDate: '2026-02-28',
-    suggestedAction: '销售回访 · 推送唤醒优惠券',
-    recommendedCourse: '推荐：周三晚间瑜伽入门团课',
-    featureRef: '#17',
-  },
-  {
-    memberId: 10087,
-    memberName: '李先生',
-    attendanceDropRate: 52,
-    lastVisitDate: '2026-03-02',
-    suggestedAction: '教练跟进 · 建议预约体验私教',
-    recommendedCourse: '推荐：周末力量塑形团课',
-    featureRef: '#17 #19',
   },
 ]
 

@@ -181,7 +181,7 @@ input:focus { border-color: var(--tj-primary); outline: 3px solid rgb(68 112 255
 input:disabled { background: #f4f6fa; color: var(--tj-text-muted); cursor: not-allowed; }
 .option-list { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; max-height: 240px; margin: 0; padding: 6px; overflow-y: auto; list-style: none; border: 1px solid #d7e0ef; border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgb(21 42 83 / 16%); }
 .option-item { display: flex; justify-content: space-between; gap: 12px; padding: 9px 10px; border-radius: 7px; cursor: pointer; }
-.option-item.highlighted, .option-item:hover { background: #edf2ff; color: #285cff; }
+.option-item.highlighted, .option-item:hover { background: #edf2ff; color: #2a4365; }
 .option-item small { color: var(--tj-text-muted); }
 .empty-option { padding: 10px; color: var(--tj-text-muted); }
 </style>

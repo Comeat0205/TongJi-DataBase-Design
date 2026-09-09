@@ -96,4 +96,23 @@ public sealed class RepairRecordsController : ControllerBase
             HttpContext.TraceIdentifier,
             "报修状态更新成功。"));
     }
+
+    [HttpPost("{id:int}/complete")]
+    [ProducesResponseType(typeof(ApiResponse<RepairRecordDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<RepairRecordDto>>> Complete(
+        int id,
+        [FromBody] CompleteRepairRecordRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var record = await _repairRecordAppService.CompleteAsync(
+            id,
+            request ?? new CompleteRepairRecordRequest(),
+            cancellationToken);
+        return Ok(ApiResponse<RepairRecordDto>.Success(
+            record,
+            HttpContext.TraceIdentifier,
+            "修理完成，器材已恢复正常。"));
+    }
 }

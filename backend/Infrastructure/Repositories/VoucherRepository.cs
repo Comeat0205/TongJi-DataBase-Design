@@ -143,34 +143,68 @@ public sealed class VoucherRepository : Repository<Voucher, int>, IVoucherReposi
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var cutoff = DateTime.Now.Date.AddDays(-inactiveDays);
+        // 仅基于 CHECKINOUT 真实签到；最后签到日 ≤ 今天 - N 天
+        var cutoffDate = DateTime.Now.Date.AddDays(-inactiveDays);
+        var cutoffExclusiveEnd = cutoffDate.AddDays(1);
+
+        var lastCheckInRows = await Context.Checkinouts
+            .AsNoTracking()
+            .Where(cio => cio.CardId != null)
+            .Join(
+                Context.MemberBenefitCards.AsNoTracking(),
+                cio => cio.CardId!.Value,
+                card => card.CardId,
+                (cio, card) => new { card.MemberId, cio.CheckInTime })
+            .GroupBy(x => x.MemberId)
+            .Select(g => new
+            {
+                MemberId = g.Key,
+                LastCheckInTime = g.Max(x => x.CheckInTime)
+            })
+            .Where(x => x.LastCheckInTime < cutoffExclusiveEnd)
+            .ToListAsync(cancellationToken);
+
+        if (lastCheckInRows.Count == 0)
+        {
+            return Array.Empty<(Member, DateTime?, int)>();
+        }
+
+        var lastCheckInByMember = lastCheckInRows.ToDictionary(x => x.MemberId, x => x.LastCheckInTime);
+        var memberIds = lastCheckInByMember.Keys.ToList();
+
+        var unusedVoucherRows = await Context.Vouchers
+            .AsNoTracking()
+            .Where(v =>
+                memberIds.Contains(v.MemberId)
+                && v.Status == "0"
+                && (v.VoucherType == VoucherTypes.Birthday
+                    || v.VoucherType == VoucherTypes.Welcome
+                    || v.VoucherType == VoucherTypes.StaffDiscount))
+            .GroupBy(v => v.MemberId)
+            .Select(g => new { MemberId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var unusedByMember = unusedVoucherRows.ToDictionary(x => x.MemberId, x => x.Count);
 
         var members = await Context.Members
             .AsNoTracking()
-            .Where(m => m.Status == null || m.Status != "3")
-            .Select(m => new
+            .Where(m => memberIds.Contains(m.MemberId) && (m.Status == null || m.Status != "0"))
+            .ToListAsync(cancellationToken);
+
+        var today = DateTime.Now.Date;
+
+        return members
+            .Select(m =>
             {
-                Member = m,
-                LastCheckInTime = Context.MemberBenefitCards
-                    .Where(c => c.MemberId == m.MemberId)
-                    .SelectMany(c => c.Checkinouts)
-                    .Select(cio => (DateTime?)cio.CheckInTime)
-                    .Max(),
-                UnusedVoucherCount = Context.Vouchers.Count(v =>
-                    v.MemberId == m.MemberId
-                    && v.Status == "0"
-                    && (v.VoucherType == VoucherTypes.Birthday
-                        || v.VoucherType == VoucherTypes.Welcome
-                        || v.VoucherType == VoucherTypes.StaffDiscount))
+                var last = lastCheckInByMember[m.MemberId];
+                unusedByMember.TryGetValue(m.MemberId, out var unused);
+                var inactive = Math.Max((today - last.Date).Days, 0);
+                return (Member: m, LastCheckInTime: (DateTime?)last, UnusedVoucherCount: unused, InactiveDays: inactive);
             })
-            .Where(x => x.LastCheckInTime == null || x.LastCheckInTime < cutoff)
-            .OrderBy(x => x.LastCheckInTime ?? DateTime.MinValue)
+            .OrderByDescending(x => x.InactiveDays)
             .ThenBy(x => x.Member.MemberId)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return members
             .Select(x => (x.Member, x.LastCheckInTime, x.UnusedVoucherCount))
             .ToList();
     }

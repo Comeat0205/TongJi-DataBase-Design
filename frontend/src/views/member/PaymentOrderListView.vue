@@ -10,7 +10,6 @@ import {
   type PaymentOrder,
 } from '@/api/payment-orders'
 import { getAvailableVouchers, type Voucher } from '@/api/vouchers'
-import { PREVIEW_MEMBER_ID } from '@/config/nav'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StateCard from '@/components/ui/StateCard.vue'
@@ -38,7 +37,6 @@ const busy = ref(false)
 const dialogError = ref('')
 
 const searchMemberId = ref('')
-const searchBusinessOrderId = ref('')
 
 const isAdmin = computed(() => props.mode === 'admin')
 
@@ -46,7 +44,7 @@ const currentMemberId = computed(() => {
   if (authStore.session?.userType === 'member') {
     return authStore.session.userId
   }
-  return PREVIEW_MEMBER_ID
+  return 0
 })
 
 const memberIdForQuery = computed(() => (isAdmin.value ? undefined : currentMemberId.value))
@@ -126,21 +124,17 @@ async function loadOrders() {
   errorMessage.value = ''
   try {
     let memberId = memberIdForQuery.value
-    let businessOrderId: number | undefined
     if (isAdmin.value) {
       const member = parseOptionalId(searchMemberId.value)
-      const business = parseOptionalId(searchBusinessOrderId.value)
-      if (!member.ok || !business.ok) {
-        errorMessage.value = '会员 ID 和业务单号须为正整数。'
+      if (!member.ok) {
+        errorMessage.value = '会员 ID 须为正整数。'
         orders.value = []
         return
       }
       memberId = member.value
-      businessOrderId = business.value
     }
     orders.value = await getPaymentOrders({
       memberId,
-      businessOrderId,
       pageNumber: 1,
       pageSize: 50,
     })
@@ -161,7 +155,6 @@ function parseOptionalId(value: string | number | null | undefined): { ok: true;
 
 function resetSearch() {
   searchMemberId.value = ''
-  searchBusinessOrderId.value = ''
   void loadOrders()
 }
 
@@ -245,7 +238,7 @@ onMounted(loadOrders)
 <template>
   <div class="payment-orders">
     <PageHeader
-      eyebrow="Payment · H"
+      eyebrow="Payment Orders"
       :title="isAdmin ? '订单管理' : '我的订单'"
       :subtitle="
         isAdmin
@@ -265,10 +258,6 @@ onMounted(loadOrders)
         会员 ID
         <input v-model="searchMemberId" type="text" inputmode="numeric" placeholder="例如 1" />
       </label>
-      <label>
-        业务单号
-        <input v-model="searchBusinessOrderId" type="text" inputmode="numeric" placeholder="例如 90018" />
-      </label>
       <div class="search-actions">
         <button type="submit" class="pay-btn" :disabled="loading">检索</button>
         <button type="button" class="ghost-btn" :disabled="loading" @click="resetSearch">清空</button>
@@ -284,7 +273,6 @@ onMounted(loadOrders)
         <thead>
           <tr>
             <th>{{ isAdmin ? '订单号' : '我的订单' }}</th>
-            <th v-if="isAdmin">业务单号</th>
             <th v-if="isAdmin">会员ID</th>
             <th>原价</th>
             <th>优惠券</th>
@@ -298,7 +286,6 @@ onMounted(loadOrders)
         <tbody>
           <tr v-for="order in orders" :key="order.orderId">
             <td>{{ displayOrderNo(order) }}</td>
-            <td v-if="isAdmin">{{ order.businessOrderId }}</td>
             <td v-if="isAdmin">{{ order.memberId ?? '—' }}</td>
             <td>{{ formatMoney(order.totalAmount) }}</td>
             <td>{{ order.voucherType || (order.voucherId ? `#${order.voucherId}` : '未用券') }}</td>
@@ -377,16 +364,18 @@ onMounted(loadOrders)
 }
 
 .ghost-btn {
-  border: 1px solid #c9d6ef;
-  background: #fff;
-  color: var(--tj-text);
+  border: 1px solid rgba(42, 67, 101, 0.18);
+  background: #eaf5f6;
+  color: #2a4365;
+  font-weight: 600;
 }
 
 .primary-btn,
 .pay-btn {
   border: none;
-  background: var(--tj-primary);
+  background: #2a4365;
   color: #fff;
+  font-weight: 600;
 }
 
 .pay-btn,
@@ -410,9 +399,9 @@ onMounted(loadOrders)
 .success-banner {
   margin: 0 0 16px;
   padding: 12px 16px;
-  border-radius: 12px;
-  background: #e7f8ed;
-  color: #1f8f4e;
+  border-radius: 20px;
+  background: #e8f4f5;
+  color: #2a4365;
 }
 
 .search-panel {
@@ -422,9 +411,9 @@ onMounted(loadOrders)
   align-items: flex-end;
   margin-bottom: 16px;
   padding: 16px 18px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 28px;
+  background: #eaf2fa;
+  box-shadow: var(--tj-member-lift); border: var(--tj-member-edge);
 }
 
 .search-panel label {
@@ -437,9 +426,10 @@ onMounted(loadOrders)
 .search-panel input {
   min-width: 160px;
   padding: 10px 12px;
-  border: 1px solid #c9d6ef;
-  border-radius: 10px;
+  border: 1px solid rgba(42, 67, 101, 0.18);
+  border-radius: 16px;
   font: inherit;
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .search-actions {
@@ -449,9 +439,9 @@ onMounted(loadOrders)
 
 .table-wrap {
   overflow: auto;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 28px;
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift); border: var(--tj-member-edge);
 }
 
 table {
@@ -464,27 +454,27 @@ th,
 td {
   padding: 14px 16px;
   text-align: left;
-  border-bottom: 1px solid #e8eef8;
+  border-bottom: 1px solid rgba(42, 67, 101, 0.1);
   font-size: 14px;
 }
 
 th {
   color: var(--tj-text-muted);
   font-weight: 600;
-  background: #f8fbff;
+  background: #e8f1f9;
 }
 
 .payable {
   font-weight: 700;
-  color: var(--tj-primary);
+  color: #2a4365;
 }
 
 .badge {
   display: inline-block;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--tj-primary-soft);
-  color: var(--tj-primary);
+  background: #eaf5f6;
+  color: #2a4365;
   font-size: 12px;
 }
 
@@ -494,8 +484,8 @@ th {
 }
 
 .badge.paid {
-  background: #e7f8ed;
-  color: #1f8f4e;
+  background: #e8f4f5;
+  color: #2a4365;
 }
 
 .badge.cancelled {
@@ -526,9 +516,10 @@ th {
 .pay-modal {
   width: min(460px, 100%);
   padding: 24px;
-  border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 24px 60px rgba(17, 28, 49, 0.2);
+  border-radius: 28px;
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
 }
 
 .eyebrow {
@@ -536,7 +527,7 @@ th {
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #4d77ff;
+  color: #2a4365;
 }
 
 .pay-modal h2 {
@@ -555,11 +546,11 @@ th {
 
 .field select {
   padding: 10px 12px;
-  border: 1px solid #c9d6ef;
-  border-radius: 10px;
+  border: 1px solid rgba(42, 67, 101, 0.18);
+  border-radius: 16px;
   font: inherit;
   color: var(--tj-text);
-  background: #fff;
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .pay-summary {
@@ -586,13 +577,13 @@ th {
 .pay-summary .total {
   margin-top: 6px;
   padding-top: 12px;
-  border-top: 1px solid #e8eef8;
+  border-top: 1px solid rgba(42, 67, 101, 0.12);
   font-size: 16px;
   font-weight: 700;
 }
 
 .pay-summary .total dd {
-  color: var(--tj-primary);
+  color: #2a4365;
 }
 
 .hint {

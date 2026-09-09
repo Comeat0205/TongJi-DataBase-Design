@@ -21,6 +21,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Capacitylog> Capacitylogs { get; set; }
 
+    public virtual DbSet<CapacityMovement> CapacityMovements { get; set; }
+
     public virtual DbSet<Checkinout> Checkinouts { get; set; }
 
     public virtual DbSet<Coach> Coaches { get; set; }
@@ -36,6 +38,8 @@ public partial class AppDbContext : DbContext
     public virtual DbSet<Equipment> Equipment { get; set; }
 
     public virtual DbSet<GroupCourseBooking> GroupCourseBookings { get; set; }
+
+    public virtual DbSet<GroupPackage> GroupPackages { get; set; }
 
     public virtual DbSet<Groupcourse> Groupcourses { get; set; }
 
@@ -154,6 +158,45 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.VenueId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_CAPACITY_VENUE");
+        });
+
+        modelBuilder.Entity<CapacityMovement>(entity =>
+        {
+            entity.HasKey(e => e.MovementId);
+
+            entity.ToTable("CAPACITYMOVEMENT");
+
+            entity.Property(e => e.MovementId)
+                .HasPrecision(10)
+                .ValueGeneratedNever()
+                .HasColumnName("MOVEMENT_ID");
+            entity.Property(e => e.VenueId)
+                .HasPrecision(10)
+                .HasColumnName("VENUE_ID");
+            entity.Property(e => e.MemberId)
+                .HasPrecision(10)
+                .HasColumnName("MEMBER_ID");
+            entity.Property(e => e.EventTime)
+                .HasColumnType("DATE")
+                .HasColumnName("EVENT_TIME");
+            entity.Property(e => e.EventType)
+                .HasMaxLength(1)
+                .IsUnicode(false)
+                .IsFixedLength()
+                .HasColumnName("EVENT_TYPE");
+            entity.Property(e => e.RecordedCount)
+                .HasPrecision(10)
+                .HasColumnName("RECORDED_COUNT");
+            entity.Property(e => e.OccupancyRate)
+                .HasColumnType("NUMBER(5,2)")
+                .HasColumnName("OCCUPANCY_RATE");
+            entity.Property(e => e.CheckInOutId)
+                .HasPrecision(10)
+                .HasColumnName("CHECK_IN_OUT_ID");
+
+            entity.HasOne(d => d.Venue).WithMany()
+                .HasForeignKey(d => d.VenueId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
         });
 
         modelBuilder.Entity<Checkinout>(entity =>
@@ -399,11 +442,9 @@ public partial class AppDbContext : DbContext
 
         modelBuilder.Entity<GroupCourseBooking>(entity =>
         {
-            entity.HasKey(e => e.BookingId).HasName("SYS_C008630");
+            entity.HasKey(e => e.BookingId);
 
             entity.ToTable("GROUP_COURSE_BOOKING");
-
-            entity.HasIndex(e => new { e.MemberId, e.CourseId }, "UK_MEMBER_COURSE").IsUnique();
 
             entity.Property(e => e.BookingId)
                 .HasPrecision(10)
@@ -412,29 +453,72 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.BookingStatus)
                 .HasMaxLength(1)
                 .IsUnicode(false)
-                .HasDefaultValueSql("'0' ")
+                .HasDefaultValueSql("'0'")
                 .IsFixedLength()
                 .HasColumnName("BOOKING_STATUS");
             entity.Property(e => e.BookingTime)
                 .HasDefaultValueSql("SYSDATE")
                 .HasColumnType("DATE")
                 .HasColumnName("BOOKING_TIME");
-            entity.Property(e => e.CourseId)
-                .HasPrecision(10)
-                .HasColumnName("COURSE_ID");
             entity.Property(e => e.MemberId)
                 .HasPrecision(10)
                 .HasColumnName("MEMBER_ID");
-
-            entity.HasOne(d => d.Course).WithMany(p => p.GroupCourseBookings)
-                .HasForeignKey(d => d.CourseId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_BOOKING_COURSE");
+            entity.Property(e => e.PackageId)
+                .HasPrecision(10)
+                .HasColumnName("PACKAGE_ID");
+            entity.Property(e => e.CourseDate)
+                .HasColumnType("DATE")
+                .HasColumnName("COURSE_DATE");
 
             entity.HasOne(d => d.Member).WithMany(p => p.GroupCourseBookings)
                 .HasForeignKey(d => d.MemberId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_BOOKING_MEMBER");
+
+            entity.HasOne(d => d.Package).WithMany(p => p.GroupCourseBookings)
+                .HasForeignKey(d => d.PackageId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_BOOKING_PACKAGE");
+        });
+
+        modelBuilder.Entity<GroupPackage>(entity =>
+        {
+            entity.HasKey(e => e.PackageId).HasName("PK_GROUPPACKAGE");
+
+            entity.ToTable("GROUPPACKAGE");
+
+            entity.Property(e => e.PackageId)
+                .HasPrecision(10)
+                .ValueGeneratedNever()
+                .HasColumnName("PACKAGE_ID");
+            entity.Property(e => e.MemberId)
+                .HasPrecision(10)
+                .HasColumnName("MEMBER_ID");
+            entity.Property(e => e.CourseId)
+                .HasPrecision(10)
+                .HasColumnName("COURSE_ID");
+            entity.Property(e => e.TotalCount)
+                .HasPrecision(10)
+                .HasColumnName("TOTAL_COUNT");
+            entity.Property(e => e.RemainingCount)
+                .HasPrecision(10)
+                .HasColumnName("REMAINING_COUNT");
+            entity.Property(e => e.PackageStatus)
+                .HasMaxLength(1)
+                .IsUnicode(false)
+                .HasDefaultValueSql("'1'")
+                .IsFixedLength()
+                .HasColumnName("PACKAGE_STATUS");
+
+            entity.HasOne(d => d.Member).WithMany(p => p.GroupPackages)
+                .HasForeignKey(d => d.MemberId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_GROUPPACKAGE_MEMBER");
+
+            entity.HasOne(d => d.Course).WithMany(p => p.GroupPackages)
+                .HasForeignKey(d => d.CourseId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_GROUPPACKAGE_COURSE");
         });
 
         modelBuilder.Entity<WaitingQueue>(entity =>

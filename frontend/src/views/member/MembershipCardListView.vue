@@ -18,7 +18,7 @@ const errorMessage = ref('')
 
 // 和首页、档案页一样，从登录会话取会员编号
 const memberId = computed(() => authStore.session?.userId)
-const basePath = computed(() => (route.path.startsWith('/preview/member') ? '/preview/member' : '/member'))
+const basePath = computed(() => '/member')
 const displayName = computed(() => authStore.session?.displayName ?? '会员')
 
 // 把日期格式化成中文显示
@@ -117,8 +117,8 @@ onMounted(() => {
       <RouterLink class="primary-link" :to="`${basePath}/card-products`">去购买会员卡</RouterLink>
     </section>
 
-    <section v-else class="card-list">
-      <article v-for="card in cards" :key="card.cardId" class="card-item">
+    <section v-else class="card-list panel-tone-blue">
+      <article v-for="card in cards" :key="card.cardId" class="card-item list-item">
         <div class="card-head">
           <div>
             <p class="card-eyebrow">卡号 #{{ card.cardId }}</p>
@@ -157,7 +157,7 @@ onMounted(() => {
   justify-content: center;
   padding: 10px 18px;
   border-radius: 999px;
-  background: #4d77ff;
+  background: #2a4365;
   color: #fff;
   text-decoration: none;
   font-weight: 600;
@@ -165,9 +165,9 @@ onMounted(() => {
 
 .empty-panel {
   padding: 32px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 28px;
+  background: #e8f4f5;
+  box-shadow: var(--tj-member-lift); border: var(--tj-member-edge);
 }
 
 .empty-panel h2 {
@@ -184,13 +184,18 @@ onMounted(() => {
 .card-list {
   display: grid;
   gap: 20px;
+  padding: 22px;
+  border-radius: 28px;
 }
 
 .card-item {
   padding: 24px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 28px;
+  /* 背景色由父级 panel-tone-* 提供 */
+}
+
+.card-item:nth-child(3n) {
+  background: #e8f1f9;
 }
 
 .card-head {
@@ -216,15 +221,15 @@ onMounted(() => {
 .status-badge {
   padding: 8px 14px;
   border-radius: 999px;
-  background: #f3f4f6;
+  background: rgba(255, 255, 255, 0.65);
   color: #6b7280;
   font-size: 13px;
   white-space: nowrap;
 }
 
 .status-badge.valid {
-  background: #e8f7ee;
-  color: #15803d;
+  background: #eaf2fa;
+  color: #2a4365;
 }
 
 .card-body {
@@ -237,7 +242,7 @@ onMounted(() => {
   justify-content: space-between;
   gap: 16px;
   padding-top: 12px;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid rgba(42, 67, 101, 0.12);
 }
 
 .info-row span {

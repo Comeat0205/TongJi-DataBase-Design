@@ -204,10 +204,10 @@ onMounted(loadProfile)
 
 .identity-card {
   width: min(860px, 100%);
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(42, 67, 101, 0.12);
+  border-radius: 28px;
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift); border: var(--tj-member-edge);
   overflow: hidden;
 }
 
@@ -217,13 +217,13 @@ onMounted(loadProfile)
   justify-content: space-between;
   gap: 16px;
   padding: 28px 32px 22px;
-  border-bottom: 1px solid #f1f5f9;
-  background: #f8fbff;
+  border-bottom: 1px solid rgba(42, 67, 101, 0.1);
+  background: #e8f1f9;
 }
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #2563eb;
+  color: #2a4365;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -240,7 +240,7 @@ h1 {
 .submit-btn,
 .secondary-btn {
   border: none;
-  border-radius: 10px;
+  border-radius: 999px;
   padding: 12px 18px;
   font-size: 15px;
   font-weight: 600;
@@ -249,12 +249,12 @@ h1 {
 
 .back-btn,
 .secondary-btn {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #eaf5f6;
+  color: #2a4365;
 }
 
 .submit-btn {
-  background: #2563eb;
+  background: #2a4365;
   color: #fff;
 }
 
@@ -276,7 +276,7 @@ h1 {
   width: 32px;
   height: 32px;
   border: 3px solid #dbeafe;
-  border-top-color: #2563eb;
+  border-top-color: #2a4365;
   border-radius: 50%;
   animation: spin 0.85s linear infinite;
 }
@@ -312,22 +312,22 @@ h1 {
 
 .field input {
   width: 100%;
-  border: 1px solid #d5deec;
-  border-radius: 12px;
+  border: 1px solid rgba(42, 67, 101, 0.18);
+  border-radius: 16px;
   padding: 14px 16px;
   font-size: 16px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .field input:disabled {
   color: #64748b;
-  background: #f8fafc;
+  background: #eaf2fa;
 }
 
 .field input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 1px #2563eb;
+  border-color: #2a4365;
+  box-shadow: 0 0 0 1px #2a4365;
 }
 
 .error-message {

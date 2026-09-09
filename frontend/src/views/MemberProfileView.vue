@@ -129,7 +129,7 @@ onMounted(loadProfile)
   font-size: 13px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #4d77ff;
+  color: #2a4365;
 }
 
 .profile-header h1 {
@@ -238,7 +238,7 @@ onMounted(loadProfile)
   padding: 8px 14px;
   border-radius: 999px;
   background: #e8f0ff;
-  color: #2c57d2;
+  color: #2a4365;
   font-size: 13px;
   font-weight: 600;
 }
