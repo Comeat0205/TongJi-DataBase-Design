@@ -33,7 +33,7 @@ defineProps<{
   font-size: 12px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #4d77ff;
+  color: #2a4365;
 }
 
 .page-header h1 {

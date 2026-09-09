@@ -18,4 +18,5 @@ public sealed class PtBookingDto
     public bool IsConsumed { get; init; }
     public bool CanConsume { get; init; }
     public bool CanUndoConsumption { get; init; }
+    public bool CanCancel { get; init; }
 }

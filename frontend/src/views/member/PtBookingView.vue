@@ -41,11 +41,16 @@ const statusText: Record<PtBookingStatus, string> = {
   CANCELLED: '已取消',
 }
 
+import { formatBeijingDateTime } from '@/utils/datetime'
+
+/** 按北京时间墙钟展示 */
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
+  return formatBeijingDateTime(value)
+}
+
+/** datetime-local → 无时区后缀的本地时间字符串，避免 toISOString 转成 UTC。 */
+function toWallClockSessionTime(value: string) {
+  return value.length === 16 ? `${value}:00` : value
 }
 
 async function loadData() {
@@ -84,9 +89,9 @@ async function submitBooking() {
     await createPtBooking({
       memberId: memberId.value,
       packageId: Number(form.packageId),
-      sessionTime: new Date(form.sessionTime).toISOString(),
+      sessionTime: toWallClockSessionTime(form.sessionTime),
     })
-    successMessage.value = '预约已提交，请等待教练确认。'
+    successMessage.value = '预约已提交，已扣除 1 次课包次数，请等待教练确认。'
     form.sessionTime = ''
     await loadData()
   } catch (error) {
@@ -97,7 +102,12 @@ async function submitBooking() {
 }
 
 async function cancelBooking(booking: PtBooking) {
-  if (!window.confirm(`确定取消 ${formatDateTime(booking.sessionTime)} 的预约吗？`)) {
+  if (!booking.canCancel) {
+    errorMessage.value = '距上课不足 24 小时，或当前状态不可取消。'
+    return
+  }
+
+  if (!window.confirm(`确定取消 ${formatDateTime(booking.sessionTime)} 的预约吗？取消后将返还 1 次课包次数。`)) {
     return
   }
 
@@ -105,7 +115,7 @@ async function cancelBooking(booking: PtBooking) {
   successMessage.value = ''
   try {
     await cancelPtBooking(booking.ptBookingId, memberId.value)
-    successMessage.value = '预约已取消。'
+    successMessage.value = '预约已取消，已返还 1 次课包次数。'
     await loadData()
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : '取消预约失败。'
@@ -120,7 +130,7 @@ onMounted(loadData)
     <PageHeader
       eyebrow="PT Booking"
       title="私教预约"
-      subtitle="使用有效课包选择上课时间；系统会检查课包有效期、剩余次数以及会员和教练的时间冲突。"
+      subtitle="使用有效课包选择上课时间；提交预约会立即扣除 1 次。待确认可随时取消；教练已确认的须在上课 24 小时前取消，取消或教练拒绝将返还次数。"
     />
 
     <StateCard v-if="loading" message="私教预约数据加载中..." />
@@ -162,7 +172,7 @@ onMounted(loadData)
           </form>
         </article>
 
-        <article class="panel">
+        <article class="panel panel-tone-blue">
           <div class="panel-head">
             <div>
               <p>Booking History</p>
@@ -178,19 +188,18 @@ onMounted(loadData)
               <div>
                 <p class="course">{{ item.courseName }}</p>
                 <p>{{ item.coachName }}教练 · {{ formatDateTime(item.sessionTime) }}</p>
-                <p>{{ item.isConsumed ? '已消课' : '未消课' }}</p>
               </div>
               <div class="item-actions">
                 <span class="badge" :class="item.status.toLowerCase()">
                   {{ statusText[item.status] }}
                 </span>
                 <button
-                  v-if="item.status === 'PENDING'"
+                  v-if="item.canCancel"
                   type="button"
                   class="cancel-btn"
                   @click="cancelBooking(item)"
                 >
-                  取消
+                  取消预约
                 </button>
               </div>
             </div>
@@ -205,12 +214,12 @@ onMounted(loadData)
 .notice {
   margin: 0 0 18px;
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: 20px;
 }
 
 .notice.success {
-  background: #e9f8ef;
-  color: #187342;
+  background: #e8f4f5;
+  color: #2a4365;
 }
 
 .notice.error {
@@ -227,9 +236,12 @@ onMounted(loadData)
 
 .panel {
   padding: 22px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 28px;
+}
+
+.panel:not(.panel-tone-blue):not(.panel-tone-green) {
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift); border: var(--tj-member-edge);
 }
 
 .panel-head {
@@ -242,7 +254,7 @@ onMounted(loadData)
 
 .panel-head p {
   margin: 0;
-  color: #4d77ff;
+  color: #2a4365;
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -272,20 +284,21 @@ select,
 input {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--tj-border);
-  border-radius: 10px;
+  border: 1px solid rgba(42, 67, 101, 0.18);
+  border-radius: 16px;
   padding: 11px 12px;
-  background: white;
+  background: rgba(255, 255, 255, 0.75);
   color: var(--tj-text);
 }
 
 form button {
   border: 0;
-  border-radius: 10px;
+  border-radius: 999px;
   padding: 12px 16px;
-  background: #315fe8;
+  background: #2a4365;
   color: white;
   cursor: pointer;
+  font-weight: 600;
 }
 
 form button:disabled {
@@ -301,7 +314,8 @@ form button:disabled {
 }
 
 .link-btn {
-  color: #315fe8;
+  color: #2a4365;
+  font-weight: 600;
 }
 
 .cancel-btn {
@@ -318,8 +332,9 @@ form button:disabled {
   justify-content: space-between;
   gap: 18px;
   align-items: center;
-  padding: 15px 0;
-  border-top: 1px solid var(--tj-border);
+  padding: 15px;
+  border-radius: 20px;
+  /* 背景色由父级 panel-tone-* 提供 */
 }
 
 .booking-item p {
@@ -342,15 +357,15 @@ form button:disabled {
 .badge {
   padding: 5px 9px;
   border-radius: 999px;
-  background: #fff7e6;
-  color: #9a6700;
+  background: #eaf2fa;
+  color: #2a4365;
   font-size: 12px;
   white-space: nowrap;
 }
 
 .badge.confirmed {
-  background: #e9f8ef;
-  color: #187342;
+  background: #e8f4f5;
+  color: #2a4365;
 }
 
 .badge.cancelled,

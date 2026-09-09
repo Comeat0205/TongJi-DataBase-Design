@@ -1,7 +1,7 @@
 -- G · 私教预约
 -- 规则：课包可用、剩余次数足够、会员/教练同一时刻无冲突后创建待教练确认的预约。
--- 次数在教练确认预约并完成上课后，由教练端单独消课扣减。
--- 已提交但未消课的预约数不能超过当前剩余次数。
+-- 提交预约时立即扣减 1 次剩余次数；教练拒绝或会员取消（上课前 24 小时外）时返还。
+-- 教练端消课只标记上课完成，不再二次扣次。
 BEGIN
     EXECUTE IMMEDIATE
         'ALTER TABLE PTBOOKING ADD (CONSUME_STATUS CHAR(1) DEFAULT ''0'' NOT NULL)';
@@ -56,7 +56,6 @@ IS
     v_remaining        NUMBER;
     v_expire_date      DATE;
     v_package_status   VARCHAR2(20);
-    v_pending_count    NUMBER;
     v_conflict_count   NUMBER;
 BEGIN
     p_booking_id := NULL;
@@ -96,19 +95,6 @@ BEGIN
     END IF;
 
     SELECT COUNT(*)
-    INTO v_pending_count
-    FROM PTBOOKING
-    WHERE PACKAGE_ID = p_package_id
-      AND MEMBER_CONFIRMED = '1'
-      AND COACH_CONFIRMED IN ('0', '1')
-      AND NVL(CONSUME_STATUS, '0') <> '1';
-
-    IF v_pending_count >= v_remaining THEN
-        p_message := '待确认预约已占满课包剩余次数';
-        RETURN;
-    END IF;
-
-    SELECT COUNT(*)
     INTO v_conflict_count
     FROM PTBOOKING
     WHERE SESSION_TIME = p_session_time
@@ -142,13 +128,23 @@ BEGIN
         p_package_id,
         p_member_id,
         v_coach_id,
-        SYSDATE,
+        -- 写入北京墙钟（云库 SYSDATE 常为 UTC）
+        CAST(SYSTIMESTAMP AT TIME ZONE 'Asia/Shanghai' AS DATE),
         p_session_time,
         '0',
         '1',
         '0',
         NULL
     );
+
+    -- 提交预约即扣减一次；用完时标记课包状态
+    UPDATE PERSONALPACKAGE
+    SET REMAINING_SESSIONS = REMAINING_SESSIONS - 1,
+        PACKAGE_STATUS = CASE
+            WHEN REMAINING_SESSIONS - 1 <= 0 THEN '已用完'
+            ELSE PACKAGE_STATUS
+        END
+    WHERE PACKAGE_ID = p_package_id;
 
     COMMIT;
     p_result := 1;
@@ -164,12 +160,3 @@ EXCEPTION
         p_message := SQLERRM;
 END;
 /
-
--- 验证示例（替换为共享库中真实存在的会员、课包和未来时间）：
--- VAR booking_id NUMBER;
--- VAR result NUMBER;
--- VAR message VARCHAR2(400);
--- EXEC sp_book_personal_training(1, 1, SYSDATE + 1, :booking_id, :result, :message);
--- PRINT booking_id;
--- PRINT result;
--- PRINT message;

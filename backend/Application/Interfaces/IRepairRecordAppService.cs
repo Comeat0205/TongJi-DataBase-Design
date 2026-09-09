@@ -18,4 +18,8 @@ public interface IRepairRecordAppService
         int id,
         UpdateRepairRecordStatusRequest request,
         CancellationToken cancellationToken = default);
+    Task<RepairRecordDto> CompleteAsync(
+        int id,
+        CompleteRepairRecordRequest request,
+        CancellationToken cancellationToken = default);
 }

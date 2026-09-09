@@ -15,7 +15,6 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import StateCard from '@/components/ui/StateCard.vue'
 
 const route = useRoute()
-const isPreview = computed(() => route.path.startsWith('/preview/admin'))
 
 const products = ref<CardProduct[]>([])
 const loading = ref(true)
@@ -53,10 +52,6 @@ async function loadProducts() {
 
 // 新增商品
 async function handleCreate() {
-  if (isPreview.value) {
-    errorMessage.value = '预览模式仅展示界面，请登录员工账号后再维护商品。'
-    return
-  }
 
   saving.value = true
   noticeMessage.value = ''
@@ -93,10 +88,6 @@ function cancelEdit() {
 
 // 保存编辑（全量 PUT）
 async function handleSaveEdit() {
-  if (isPreview.value) {
-    errorMessage.value = '预览模式仅展示界面，请登录员工账号后再维护商品。'
-    return
-  }
 
   saving.value = true
   noticeMessage.value = ''
@@ -120,10 +111,6 @@ async function handleSaveEdit() {
 
 // 快速上架/下架（PATCH）
 async function toggleActive(product: CardProduct) {
-  if (isPreview.value) {
-    errorMessage.value = '预览模式仅展示界面，请登录员工账号后再维护商品。'
-    return
-  }
 
   const nextActive = product.isActive === false
   const actionText = nextActive ? '上架' : '下架'
@@ -159,8 +146,6 @@ onMounted(() => {
       title="卡商品管理"
       subtitle="维护 PRICE_LIST 表中的会员卡商品。下架通过在 PRODUCT_TYPE 前加 INACTIVE_ 前缀实现，无需改表结构。"
     />
-
-    <p v-if="isPreview" class="preview-banner">预览模式：仅展示页面布局与数据，不能新增、编辑或上/下架。请从登录页用员工账号进入。</p>
     <p v-if="noticeMessage" class="notice-banner">{{ noticeMessage }}</p>
     <StateCard v-if="loading" message="商品列表加载中..." />
     <StateCard v-else-if="errorMessage && products.length === 0" :message="errorMessage" type="error" />
@@ -179,7 +164,7 @@ onMounted(() => {
             标准价格
             <input v-model.number="createForm.standardPrice" type="number" min="0.01" step="0.01" />
           </label>
-          <button type="submit" class="primary-btn" :disabled="saving || isPreview">新增</button>
+          <button type="submit" class="primary-btn" :disabled="saving">新增</button>
         </form>
         <p class="hint">示例：MEMBERSHIP_TIME_90（季卡）、MEMBERSHIP_TIME_365（年卡）、MEMBERSHIP_COUNT_20（20次卡）</p>
       </section>
@@ -201,16 +186,16 @@ onMounted(() => {
           </label>
           <div class="btn-row">
             <button type="button" class="ghost-btn" @click="cancelEdit">取消</button>
-            <button type="submit" class="primary-btn" :disabled="saving || isPreview">保存</button>
+            <button type="submit" class="primary-btn" :disabled="saving">保存</button>
           </div>
         </form>
       </section>
 
-      <section class="panel">
+      <section class="panel panel-tone-blue">
         <h2>商品列表</h2>
         <p v-if="products.length === 0" class="empty-text">暂无商品，请先在上方新增。</p>
 
-        <article v-for="product in products" :key="product.priceId" class="product-row">
+        <article v-for="product in products" :key="product.priceId" class="product-row list-item">
           <div>
             <p class="row-eyebrow">#{{ product.priceId }} · {{ product.productType }}</p>
             <h3>{{ product.name }}</h3>
@@ -221,8 +206,8 @@ onMounted(() => {
             <span class="status-tag" :class="{ off: product.isActive === false }">
               {{ product.isActive === false ? '已下架' : '在售' }}
             </span>
-            <button type="button" class="ghost-btn" :disabled="isPreview" @click="startEdit(product)">编辑</button>
-            <button type="button" class="ghost-btn" :disabled="saving || isPreview" @click="toggleActive(product)">
+            <button type="button" class="ghost-btn" @click="startEdit(product)">编辑</button>
+            <button type="button" class="ghost-btn" :disabled="saving" @click="toggleActive(product)">
               {{ product.isActive === false ? '上架' : '下架' }}
             </button>
           </div>
@@ -237,13 +222,6 @@ onMounted(() => {
   max-width: 980px;
 }
 
-.preview-banner {
-  margin: 0 0 16px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: #fff7ed;
-  color: #c2410c;
-}
 
 .notice-banner {
   margin: 0 0 16px;
@@ -261,9 +239,16 @@ onMounted(() => {
 .panel {
   margin-bottom: 20px;
   padding: 24px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 24px;
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
+}
+
+.panel.panel-tone-blue {
+  background: unset;
+  box-shadow: unset;
+  border: unset;
 }
 
 .panel h2 {
@@ -314,8 +299,9 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 0;
-  border-top: 1px solid #eef2f7;
+  padding: 16px;
+  border-radius: 16px;
+  margin-top: 12px;
 }
 
 .row-eyebrow {
@@ -360,7 +346,7 @@ onMounted(() => {
 
 .primary-btn {
   border: none;
-  background: #4d77ff;
+  background: #2a4365;
   color: #fff;
 }
 

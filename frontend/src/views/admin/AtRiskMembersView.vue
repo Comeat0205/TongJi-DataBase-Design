@@ -8,13 +8,13 @@ import StateCard from '@/components/ui/StateCard.vue'
 const members = ref<AtRiskMember[]>([])
 const loading = ref(true)
 const errorMessage = ref('')
-const inactiveDays = ref(30)
+const inactiveDays = ref(1)
 
 function formatDateTime(value?: string) {
   if (!value) return '从未入场'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('zh-CN')
+  return date.toLocaleDateString('zh-CN')
 }
 
 async function loadMembers() {
@@ -39,16 +39,18 @@ onMounted(loadMembers)
 <template>
   <div class="at-risk-page">
     <PageHeader
-      eyebrow="Marketing · H · #17"
+      eyebrow="At Risk Members"
       title="流失预警会员"
-      subtitle="统计长期未入场的会员，便于员工开展召回与营销（功能点 #17）。"
+      subtitle="仅统计有签到记录的会员：未活跃天数 = 今天 − 最后签到日。"
     >
       <template #actions>
-        <label class="days-filter">
-          未入场天数 ≥
-          <input v-model.number="inactiveDays" type="number" min="1" max="365" />
-        </label>
-        <button type="button" class="ghost-btn" :disabled="loading" @click="loadMembers">查询</button>
+        <form class="filter-form" @submit.prevent="loadMembers">
+          <label class="days-filter">
+            未入场天数 ≥
+            <input v-model.number="inactiveDays" type="number" min="1" max="365" />
+          </label>
+          <button type="submit" class="ghost-btn" :disabled="loading">查询</button>
+        </form>
       </template>
     </PageHeader>
 
@@ -64,7 +66,7 @@ onMounted(loadMembers)
             <th>姓名</th>
             <th>手机号</th>
             <th>等级</th>
-            <th>最近入场</th>
+            <th>最近签到日</th>
             <th>未活跃天数</th>
             <th>未用券数</th>
             <th>预警原因</th>
@@ -98,6 +100,12 @@ onMounted(loadMembers)
   font-size: 14px;
 }
 
+.filter-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .days-filter input {
   width: 72px;
   padding: 8px 10px;
@@ -116,9 +124,10 @@ onMounted(loadMembers)
 
 .table-wrap {
   overflow: auto;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 24px;
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
 }
 
 table {
@@ -138,7 +147,15 @@ td {
 th {
   color: var(--tj-text-muted);
   font-weight: 600;
-  background: #f8fbff;
+  background: #eaf5f6;
+}
+
+tbody tr:nth-child(odd) td {
+  background: #eef4fc;
+}
+
+tbody tr:nth-child(even) td {
+  background: #eaf5f6;
 }
 
 .badge.danger {

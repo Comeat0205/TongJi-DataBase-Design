@@ -26,6 +26,17 @@ public sealed class CheckInOutRepository : Repository<Checkinout, int>, ICheckIn
             .FirstOrDefaultAsync(x => x.CardId == cardId && x.CheckOutTime == null, cancellationToken);
     }
 
+    public async Task<Checkinout?> GetActiveCheckInByMemberAsync(int memberId, CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .Include(x => x.Venue)
+            .Include(x => x.Card!)
+                .ThenInclude(c => c.Member)
+            .Where(x => x.CheckOutTime == null && x.Card != null && x.Card.MemberId == memberId)
+            .OrderByDescending(x => x.CheckInTime)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Checkinout>> GetActiveCheckInsByVenueAsync(int venueId, CancellationToken cancellationToken = default)
     {
         return await DbSet

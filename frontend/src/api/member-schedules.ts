@@ -10,6 +10,9 @@ export interface MemberScheduleItem {
   sourceRecordId: number | null
   status: string | null
   isUpcoming: boolean
+  courseName?: string | null
+  coachId?: number | null
+  coachName?: string | null
 }
 
 export function getMemberSchedules(memberId: number) {

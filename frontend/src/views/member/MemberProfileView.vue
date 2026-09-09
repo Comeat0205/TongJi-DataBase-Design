@@ -308,7 +308,7 @@ onMounted(loadProfile)
   width: 34px;
   height: 34px;
   border: 3px solid #dbe7ff;
-  border-top-color: #3b82f6;
+  border-top-color: #2a4365;
   border-radius: 50%;
   animation: spin 0.85s linear infinite;
 }
@@ -321,10 +321,10 @@ onMounted(loadProfile)
 
 .alert-banner {
   padding: 14px 18px;
-  background: #f8fbff;
-  border: 1px solid #dbeafe;
-  border-radius: 10px;
-  color: #375174;
+  background: #e8f4f5;
+  border: 1px solid rgba(42, 67, 101, 0.12);
+  border-radius: 20px;
+  color: #2a4365;
   font-size: 15px;
   font-weight: 500;
 }
@@ -341,7 +341,7 @@ onMounted(loadProfile)
   width: 84px;
   height: 84px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #2a4365;
   color: #fff;
   font-size: 32px;
   font-weight: 700;
@@ -387,17 +387,21 @@ onMounted(loadProfile)
 }
 
 .flat-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  background: #eef4fc;
+  border: 1px solid rgba(42, 67, 101, 0.1);
+  border-radius: 28px;
+  box-shadow: var(--tj-member-lift); border: var(--tj-member-edge);
   overflow: hidden;
+}
+
+.flat-card:nth-of-type(even) {
+  background: #eaf5f6;
 }
 
 .card-header {
   padding: 24px 28px;
-  border-bottom: 1px solid #f3f4f6;
-  background: #f9fafb;
+  border-bottom: 1px solid rgba(42, 67, 101, 0.1);
+  background: #e8f1f9;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -471,18 +475,18 @@ onMounted(loadProfile)
 .form-item input {
   width: 100%;
   padding: 13px 16px;
-  border: 1px solid #cfd8e3;
-  border-radius: 10px;
+  border: 1px solid rgba(42, 67, 101, 0.18);
+  border-radius: 16px;
   font-size: 17px;
   color: #111827;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.75);
   transition: all 0.2s;
   outline: none;
 }
 
 .form-item input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 1px #3b82f6;
+  border-color: #2a4365;
+  box-shadow: 0 0 0 1px #2a4365;
 }
 
 .btn-primary,
@@ -491,7 +495,7 @@ onMounted(loadProfile)
   padding: 10px 18px;
   font-size: 15px;
   font-weight: 600;
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s;
   border: none;
@@ -501,22 +505,22 @@ onMounted(loadProfile)
 }
 
 .btn-primary {
-  background: #2563eb;
+  background: #2a4365;
   color: #ffffff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: #1f334d;
 }
 
 .btn-ghost {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #eaf2fa;
+  color: #2a4365;
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #e8f4f5;
+  color: #2a4365;
 }
 
 .danger-zone {

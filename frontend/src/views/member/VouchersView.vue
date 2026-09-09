@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/http'
 import { getVouchers, type Voucher } from '@/api/vouchers'
-import { PREVIEW_MEMBER_ID } from '@/config/nav'
 import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StateCard from '@/components/ui/StateCard.vue'
@@ -15,7 +13,6 @@ const props = withDefaults(
   { mode: 'member' },
 )
 
-const route = useRoute()
 const authStore = useAuthStore()
 
 const vouchers = ref<Voucher[]>([])
@@ -23,15 +20,12 @@ const loading = ref(true)
 const errorMessage = ref('')
 
 const isAdmin = computed(() => props.mode === 'admin')
-const isPreview = computed(() => route.path.startsWith('/preview/'))
 
 const memberId = computed(() => {
   if (isAdmin.value) {
     return undefined
   }
-  return authStore.session?.userType === 'member'
-    ? authStore.session.userId
-    : PREVIEW_MEMBER_ID
+  return authStore.session?.userType === 'member' ? authStore.session.userId : undefined
 })
 
 function formatMoney(value: number) {
@@ -74,14 +68,12 @@ onMounted(loadVouchers)
 <template>
   <div class="vouchers-page">
     <PageHeader
-      eyebrow="Marketing · H"
+      eyebrow="Vouchers"
       :title="isAdmin ? '优惠券管理' : '我的优惠券'"
       :subtitle="
         isAdmin
           ? '员工端仅管理折扣券发放。'
-          : isPreview
-            ? `预览模式：演示会员 ID ${PREVIEW_MEMBER_ID} 的优惠券。`
-            : '生日福利券按档案生日每年自动发放；新客体验券注册即领；员工折扣券由前台发放。'
+        : '生日福利券按档案生日每年自动发放；新客体验券注册即领；员工折扣券由前台发放。'
       "
     >
       <template #actions>
@@ -93,11 +85,12 @@ onMounted(loadVouchers)
     <StateCard v-else-if="errorMessage" type="error" :message="errorMessage" />
     <StateCard v-else-if="vouchers.length === 0" message="暂无优惠券。" />
 
-    <div v-else class="card-grid">
+    <section v-else class="voucher-panel panel-tone-blue">
+      <div class="card-grid">
       <article
         v-for="voucher in vouchers"
         :key="voucher.voucherId"
-        class="voucher-card"
+        class="voucher-card list-item"
         :class="{ expired: voucher.isExpired || voucher.statusText === '过期作废' }"
       >
         <div class="top">
@@ -126,18 +119,25 @@ onMounted(loadVouchers)
         </dl>
         <p v-if="voucherHint(voucher.voucherType)" class="hint">{{ voucherHint(voucher.voucherType) }}</p>
       </article>
-    </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
 .ghost-btn {
-  border: 1px solid #c9d6ef;
-  background: #fff;
-  color: var(--tj-text);
+  border: 1px solid rgba(42, 67, 101, 0.18);
+  background: #eaf5f6;
+  color: #2a4365;
   border-radius: 999px;
   padding: 10px 18px;
   cursor: pointer;
+  font-weight: 600;
+}
+
+.voucher-panel {
+  padding: 20px;
+  border-radius: 28px;
 }
 
 .card-grid {
@@ -149,9 +149,8 @@ onMounted(loadVouchers)
 .voucher-card {
   position: relative;
   padding: 20px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 28px;
+  /* 背景色由父级 panel-tone-* 提供 */
 }
 
 .voucher-card.expired {
@@ -184,18 +183,18 @@ onMounted(loadVouchers)
   flex-shrink: 0;
   padding: 4px 10px;
   border-radius: 999px;
-  background: #eef2f8;
+  background: rgba(255, 255, 255, 0.7);
   color: var(--tj-text-muted);
   font-size: 12px;
 }
 
 .status[data-status='0'] {
-  background: #e7f8ed;
-  color: #1f8f4e;
+  background: #eaf5f6;
+  color: #2a4365;
 }
 
 .status[data-status='1'] {
-  background: #e8eef8;
+  background: #eaf2fa;
   color: #4a5d7a;
 }
 
@@ -203,7 +202,7 @@ onMounted(loadVouchers)
   margin: 16px 0 12px;
   font-size: 28px;
   font-weight: 700;
-  color: var(--tj-primary);
+  color: #2a4365;
 }
 
 dl {
@@ -231,6 +230,6 @@ dd {
 .hint {
   margin: 14px 0 0;
   font-size: 12px;
-  color: #4d77ff;
+  color: #2a4365;
 }
 </style>

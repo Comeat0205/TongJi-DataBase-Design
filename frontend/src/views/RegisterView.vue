@@ -277,7 +277,7 @@ function goBackToAccountStep() {
   margin: 0;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #2c57d2;
+  color: #2a4365;
   font-size: 0.8rem;
 }
 
@@ -312,7 +312,7 @@ h1 {
 
 .step-chip.active {
   color: #fff;
-  background: #2c57d2;
+  background: #2a4365;
 }
 
 .register-form {
@@ -400,7 +400,7 @@ h1 {
 }
 
 .back-link a {
-  color: #2c57d2;
+  color: #2a4365;
   text-decoration: none;
   font-weight: 600;
 }

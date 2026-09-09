@@ -58,6 +58,11 @@ function resolveCapacityPercent(item: VenueItem) {
   return Math.min(100, Math.max(0, Math.round((current / item.maxCapacity) * 100)))
 }
 
+/** 仅主训练馆展示容量占用条 */
+function showsCapacityOccupancy(item: VenueItem) {
+  return (item.venueName ?? '').includes('主训练')
+}
+
 function resetForm() {
   form.venueName = ''
   form.maxCapacity = ''
@@ -231,7 +236,7 @@ onMounted(loadVenues)
     <StateCard v-if="errorMessage" :message="errorMessage" type="error" />
     <div v-else-if="loading" class="loading-state">加载中...</div>
 
-    <section v-else class="grid-card">
+    <section v-else class="grid-card panel-tone-blue">
       <div class="grid-head">
         <span>共 {{ visibleVenues.length }} 条</span>
       </div>
@@ -239,33 +244,35 @@ onMounted(loadVenues)
       <div v-if="!visibleVenues.length" class="empty-state">暂无场馆数据</div>
 
       <div v-else class="card-grid">
-        <article v-for="venue in visibleVenues" :key="venue.venueId" class="venue-card" @click="openEditDialog(venue)">
+        <article v-for="venue in visibleVenues" :key="venue.venueId" class="venue-card list-item" @click="openEditDialog(venue)">
           <div class="cover-wrap">
             <img v-if="venue.imageUrl" :src="resolveImageUrl(venue.imageUrl)" :alt="venue.venueName" class="cover-image" />
             <div v-else class="cover-placeholder">
               <span>暂无图片</span>
             </div>
-            <span class="status-pill" :class="resolveBadgeTone(venue.venueStatus)">{{ resolveStatusLabel(venue.venueStatus) }}</span>
           </div>
 
           <div class="card-body">
             <div class="title-row">
-              <div>
-                <h3>{{ venue.venueName }}</h3>
-              </div>
+              <h3>{{ venue.venueName }}</h3>
+              <span class="status-pill" :class="resolveBadgeTone(venue.venueStatus)">
+                {{ resolveStatusLabel(venue.venueStatus) }}
+              </span>
             </div>
 
             <div class="capacity-box">
               <div class="capacity-head">
-                <span class="meta-label">容量占用</span>
-                <strong>{{ venue.currentCapacity ?? 0 }} / {{ venue.maxCapacity }}</strong>
+                <span class="meta-label">{{ showsCapacityOccupancy(venue) ? '容量占用' : '最大容量' }}</span>
+                <strong v-if="showsCapacityOccupancy(venue)">
+                  {{ venue.currentCapacity ?? 0 }} / {{ venue.maxCapacity }}
+                </strong>
+                <strong v-else>{{ venue.maxCapacity }}</strong>
               </div>
-              <div class="capacity-track">
+              <div v-if="showsCapacityOccupancy(venue)" class="capacity-track">
                 <div class="capacity-fill" :style="{ width: `${resolveCapacityPercent(venue)}%` }"></div>
               </div>
+              <p v-else class="capacity-note">该场馆不统计实时在场占用</p>
             </div>
-
-
           </div>
         </article>
       </div>
@@ -327,7 +334,7 @@ onMounted(loadVenues)
 
 <style scoped>
 .admin-grid-view { display: grid; gap: 18px; }
-.page-head, .filter-bar, .grid-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; }
+.page-head, .filter-bar, .grid-card {  border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; }
 .page-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .page-head h1 { margin: 4px 0 0; font-size: 28px; }
 .eyebrow, .meta-label, .card-id { color: #6b7280; margin: 0; }
@@ -336,21 +343,63 @@ onMounted(loadVenues)
 .search-input, .select-input { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 12px; outline: none; }
 .compact-select { width: 120px; }
 .card-grid { margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
-.venue-card { border: 1px solid #e5e7eb; border-radius: 18px; overflow: hidden; background: #fcfdff; display: grid; cursor: pointer; transition: box-shadow .2s ease, transform .2s ease; }
+.venue-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  overflow: hidden;
+  
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  cursor: pointer;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
 .venue-card:hover { box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); transform: translateY(-2px); }
-.cover-wrap { position: relative; aspect-ratio: 16 / 9; background: #eef2ff; }
+.cover-wrap { position: relative; aspect-ratio: 16 / 9; background: #eef2ff; overflow: hidden; flex-shrink: 0; }
 .cover-image { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cover-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #94a3b8; background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%); font-weight: 600; }
 .large-placeholder { min-height: 220px; border-radius: 16px; border: 1px dashed #cbd5e1; }
-.status-pill { position: absolute; top: 14px; right: 14px; display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
-.is-active { color: #1d4ed8; background: rgba(219, 234, 254, 0.96); }
-.is-inactive { color: #991b1b; background: rgba(254, 226, 226, 0.96); }
-.card-body { display: grid; gap: 14px; padding: 18px; }
-.title-row h3 { margin: 0 0 6px; font-size: 20px; color: #111827; }
-.capacity-box { display: grid; gap: 8px; }
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 18px;
+  flex: 1;
+  min-width: 0;
+}
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.title-row h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.35;
+  color: #111827;
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.status-pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.is-active { color: #2a4365; background: #dbeafe; }
+.is-inactive { color: #991b1b; background: #fee2e2; }
+.capacity-box { display: grid; gap: 8px; margin-top: auto; }
 .capacity-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; color: #374151; font-size: 14px; }
 .capacity-track { height: 10px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
 .capacity-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #60a5fa 0%, #2563eb 100%); }
+.capacity-note { margin: 0; font-size: 12px; color: #94a3b8; }
 .loading-state, .empty-state { padding: 32px 0; text-align: center; color: #6b7280; }
 .detail-mask { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.28); display: grid; place-items: center; padding: 20px; }
 .detail-popup { width: min(760px, 100%); background: #fff; border-radius: 18px; border: 1px solid #e5e7eb; padding: 22px; }
@@ -366,7 +415,7 @@ onMounted(loadVenues)
 .form-item { display: grid; gap: 8px; }
 .detail-label { color: #6b7280; font-size: 13px; }
 .btn-primary, .btn-ghost, .btn-danger { border-radius: 10px; padding: 9px 14px; border: 1px solid transparent; cursor: pointer; }
-.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary { background: #2a4365; color: #fff; }
 .btn-ghost { background: #fff; border-color: #d1d5db; color: #1f2937; }
 .btn-danger { background: #fff1f2; border-color: #fecdd3; color: #be123c; }
 @media (max-width: 1180px) {

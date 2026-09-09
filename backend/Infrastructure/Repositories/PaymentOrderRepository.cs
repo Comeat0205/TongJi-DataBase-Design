@@ -24,8 +24,7 @@ public sealed class PaymentOrderRepository : Repository<PaymentOrder, int>, IPay
             .Include(x => x.PaymentDetails)
             .AsQueryable();
 
-        // 订单表无 MEMBER_ID：优先按关联优惠券归属会员筛选；
-        // 购卡等业务会把 BusinessOrderId 设为 MemberId，作为无券/去券后的归属兜底。
+        // 订单表暂无 MEMBER_ID：按关联优惠券归属，或 BusinessOrderId(=会员ID) 兜底。
         if (memberId is not null)
         {
             query = query.Where(x =>

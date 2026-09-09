@@ -161,7 +161,7 @@ onMounted(loadMembers)
 
     <div v-else-if="loading" class="loading-state">加载中...</div>
 
-    <section v-else class="table-card">
+    <section v-else class="table-card panel-tone-blue">
       <div class="table-head">
         <span>共 {{ visibleMembers.length }} 条</span>
       </div>
@@ -169,7 +169,7 @@ onMounted(loadMembers)
       <div v-if="!visibleMembers.length" class="empty-state">暂无会员数据</div>
 
       <div v-else class="member-list">
-        <article v-for="member in visibleMembers" :key="member.memberId" class="member-row">
+        <article v-for="member in visibleMembers" :key="member.memberId" class="member-row list-item">
           <div class="avatar">{{ member.realName?.slice(0, 1) || 'M' }}</div>
           <div class="main-info">
             <strong>{{ member.realName }}</strong>
@@ -238,7 +238,7 @@ onMounted(loadMembers)
 .filter-bar,
 .notice-banner,
 .table-card {
-  background: #fff;
+  
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 18px;
@@ -397,13 +397,9 @@ onMounted(loadMembers)
   font-size: 13px;
 }
 
-.member-row:nth-child(odd) {
-  background: #f8fafc;
-}
+.member-row:nth-child(odd) { /* tone */ }
 
-.member-row:nth-child(even) {
-  background: #ffffff;
-}
+.member-row:nth-child(even) { /* tone */ }
 
 .avatar {
   width: 44px;
@@ -412,7 +408,7 @@ onMounted(loadMembers)
   display: grid;
   place-items: center;
   background: #dbeafe;
-  color: #1d4ed8;
+  color: #2a4365;
   font-weight: 700;
 }
 
@@ -463,13 +459,13 @@ onMounted(loadMembers)
 }
 
 .btn-primary {
-  background: #2563eb;
+  background: #2a4365;
   color: #fff;
 }
 
 .btn-ghost {
   background: #eff6ff;
-  color: #2563eb;
+  color: #2a4365;
 }
 
 .btn-danger {

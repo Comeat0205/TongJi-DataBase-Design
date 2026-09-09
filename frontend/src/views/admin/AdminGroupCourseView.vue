@@ -6,14 +6,12 @@ import {
   type CourseType,
 } from '@/api/courseTypes'
 import {
-  checkGroupCourseScheduleConflict,
   createGroupCourse,
   deleteGroupCourse,
   getGroupCourses,
   updateGroupCourse,
   type GroupCourse,
   type GroupCourseRequest,
-  type GroupCourseScheduleConflictRequest,
 } from '@/api/groupCourses'
 import {
   getCoaches,
@@ -38,99 +36,37 @@ const formMaxCapacity = ref<number | null>(null)
 const formCourseSummary = ref('')
 const formCourseTypeId = ref<number | null>(null)
 const formCoachId = ref<number | null>(null)
+const formWeekday = ref<number | null>(null)
+const formStartTime = ref('')
+const formEndTime = ref('')
+const formScheduleFrom = ref('')
+const formScheduleTo = ref('')
 const formTimeSlotId = ref('')
-const availableTimeSlots = ref<
-  {
-    timeSlotId: string
-    label: string
-  }[]
->([])
-const scheduleCourseId = ref<number | null>(null)
-const scheduleCoachId = ref<number | null>(null)
-const scheduleCourseDate = ref('')
-const scheduleStartTime = ref('')
-const scheduleEndTime = ref('')
 
-const scheduleLoading = ref(false)
-const scheduleResult = ref('')
-const scheduleSuccess = ref(false)
-
-function resetScheduleForm() {
-  scheduleCourseId.value = null
-  scheduleCoachId.value = null
-  scheduleCourseDate.value = ''
-  scheduleStartTime.value = ''
-  scheduleEndTime.value = ''
-  scheduleResult.value = ''
-  scheduleSuccess.value = false
+function defaultScheduleFrom() {
+  const d = new Date()
+  return d.toISOString().slice(0, 10)
 }
 
-function selectScheduleCourse(course: GroupCourse) {
-  scheduleCourseId.value = course.courseId
-  scheduleCoachId.value = course.coachId
-  scheduleCourseDate.value = ''
-  scheduleStartTime.value = ''
-  scheduleEndTime.value = ''
-  scheduleResult.value = ''
-  scheduleSuccess.value = false
+function defaultScheduleTo() {
+  const d = new Date()
+  d.setDate(d.getDate() + 84) // 约 12 周
+  return d.toISOString().slice(0, 10)
 }
 
-async function checkScheduleConflict() {
-  scheduleResult.value = ''
-  scheduleSuccess.value = false
+function weekdayFromDate(value?: string | null) {
+  if (!value) return null
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  // JS: 0=周日 → 业务 7；1=周一 → 1
+  const js = d.getDay()
+  return js === 0 ? 7 : js
+}
 
-  if (!scheduleCourseId.value || scheduleCourseId.value <= 0) {
-    scheduleResult.value = '请选择要排期的团课'
-    return
-  }
-
-  if (!scheduleCoachId.value || scheduleCoachId.value <= 0) {
-    scheduleResult.value = '请选择授课教练'
-    return
-  }
-
-  if (!scheduleCourseDate.value) {
-    scheduleResult.value = '请选择课程日期'
-    return
-  }
-
-  if (!scheduleStartTime.value || !scheduleEndTime.value) {
-    scheduleResult.value = '请选择开始时间和结束时间'
-    return
-  }
-
-  if (scheduleStartTime.value >= scheduleEndTime.value) {
-    scheduleResult.value = '开始时间必须早于结束时间'
-    return
-  }
-
-  const request: GroupCourseScheduleConflictRequest = {
-    coachId: scheduleCoachId.value,
-    courseDate: scheduleCourseDate.value,
-    startTime: `${scheduleCourseDate.value}T${scheduleStartTime.value}:00`,
-    endTime: `${scheduleCourseDate.value}T${scheduleEndTime.value}:00`,
-  }
-
-  scheduleLoading.value = true
-
-  try {
-    const response = await checkGroupCourseScheduleConflict(
-      scheduleCourseId.value,
-      request,
-    )
-
-    scheduleSuccess.value = true
-    scheduleResult.value =
-      response?.message ?? '排课无冲突'
-  } catch (error) {
-    scheduleSuccess.value = false
-    scheduleResult.value =
-      error instanceof Error
-        ? error.message
-        : '排课冲突检测失败，请稍后重试'
-  } finally {
-    scheduleLoading.value = false
-  }
+function toHm(value?: string | null) {
+  if (!value) return ''
+  const match = String(value).match(/(\d{2}):(\d{2})/)
+  return match ? `${match[1]}:${match[2]}` : ''
 }
 async function loadCourseTypes() {
   loading.value = true
@@ -151,33 +87,6 @@ async function loadGroupCourses() {
 
   try {
     groupCourses.value = await getGroupCourses()
-
-    const timeSlotMap = new Map<
-      string,
-      {
-        timeSlotId: string
-        label: string
-      }
-    >()
-
-    for (const course of groupCourses.value) {
-      const slot = course.timeSlots?.[0]
-
-      if (!slot || !course.timeSlotId) {
-        continue
-      }
-
-      const label = `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
-
-      if (!timeSlotMap.has(course.timeSlotId)) {
-        timeSlotMap.set(course.timeSlotId, {
-          timeSlotId: course.timeSlotId,
-          label,
-        })
-      }
-    }
-
-    availableTimeSlots.value = Array.from(timeSlotMap.values())
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : '团课加载失败'
@@ -204,6 +113,14 @@ function formatTime(value: string) {
   return match ? `${match[1]}:${match[2]}` : value
 }
 
+function getWeekdayLabel(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  return labels[date.getDay()] ?? ''
+}
+
 function getCourseTimeLabel(course: GroupCourse) {
   const slot = course.timeSlots?.[0]
 
@@ -211,7 +128,9 @@ function getCourseTimeLabel(course: GroupCourse) {
     return '暂无具体时间'
   }
 
-  return `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
+  const weekday = getWeekdayLabel(slot.courseDate)
+  const timeRange = `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`
+  return weekday ? `${weekday} ${timeRange}` : timeRange
 }
 
 function resetCourseForm() {
@@ -221,6 +140,11 @@ function resetCourseForm() {
   formCourseSummary.value = ''
   formCourseTypeId.value = null
   formCoachId.value = null
+  formWeekday.value = 1
+  formStartTime.value = '18:00'
+  formEndTime.value = '19:00'
+  formScheduleFrom.value = defaultScheduleFrom()
+  formScheduleTo.value = defaultScheduleTo()
   formTimeSlotId.value = ''
 }
 
@@ -243,6 +167,13 @@ function openEditCourseForm(course: GroupCourse) {
   formCoachId.value = course.coachId
   formTimeSlotId.value = course.timeSlotId
 
+  const slot = course.timeSlots?.[0]
+  formWeekday.value = weekdayFromDate(slot?.courseDate) ?? 1
+  formStartTime.value = toHm(slot?.startTime) || '18:00'
+  formEndTime.value = toHm(slot?.endTime) || '19:00'
+  formScheduleFrom.value = defaultScheduleFrom()
+  formScheduleTo.value = defaultScheduleTo()
+
   errorMessage.value = ''
   successMessage.value = ''
   showCourseForm.value = true
@@ -258,7 +189,6 @@ async function submitCourseForm() {
 
   const courseName = formCourseName.value.trim()
   const courseSummary = formCourseSummary.value.trim()
-  const timeSlotId = formTimeSlotId.value.trim()
 
   if (
     !editingCourse.value &&
@@ -291,8 +221,28 @@ async function submitCourseForm() {
     return
   }
 
-  if (!timeSlotId) {
-    errorMessage.value = '请输入时间模板ID'
+  if (!formWeekday.value || formWeekday.value < 1 || formWeekday.value > 7) {
+    errorMessage.value = '请选择上课星期'
+    return
+  }
+
+  if (!formStartTime.value || !formEndTime.value) {
+    errorMessage.value = '请选择开始时间和结束时间'
+    return
+  }
+
+  if (formStartTime.value >= formEndTime.value) {
+    errorMessage.value = '结束时间必须晚于开始时间'
+    return
+  }
+
+  if (!formScheduleFrom.value || !formScheduleTo.value) {
+    errorMessage.value = '请选择排期起止日期（用于生成每周上课日）'
+    return
+  }
+
+  if (formScheduleTo.value < formScheduleFrom.value) {
+    errorMessage.value = '排期结束日期不能早于开始日期'
     return
   }
 
@@ -303,7 +253,12 @@ async function submitCourseForm() {
     courseSummary: courseSummary || null,
     typeId: formCourseTypeId.value,
     coachId: formCoachId.value,
-    timeSlotId,
+    weekday: formWeekday.value,
+    startTime: formStartTime.value,
+    endTime: formEndTime.value,
+    scheduleFrom: formScheduleFrom.value,
+    scheduleTo: formScheduleTo.value,
+    timeSlotId: formTimeSlotId.value || undefined,
   }
 
   try {
@@ -383,12 +338,9 @@ onMounted(async () => {
     <div v-if="errorMessage" class="message error">
       {{ errorMessage }}
     </div>
-
-    <!-- F9-2 -->
-    <section class="management-card">
+    <section class="management-card panel-tone-blue">
       <div class="card-head">
         <div>
-          <p class="card-eyebrow">F9-2</p>
           <h2>团课基本信息</h2>
         </div>
 
@@ -415,7 +367,7 @@ onMounted(async () => {
         <article
           v-for="course in groupCourses"
           :key="course.courseId"
-          class="course-item"
+          class="course-item list-item"
         >
           <div class="course-main">
             <div class="course-title-row">
@@ -475,20 +427,16 @@ onMounted(async () => {
         </article>
       </div>
     </section>
-
-    <!-- F9-2 新增 / 编辑团课弹窗 -->
+    <!-- 新增 / 编辑团课弹窗 -->
 <div
   v-if="showCourseForm"
   class="modal-mask"
   @click.self="closeCourseForm"
 >
   <section class="modal-card">
+
     <div class="modal-head">
       <div>
-        <p class="card-eyebrow">
-          {{ editingCourse ? 'F9-2 · EDIT' : 'F9-2 · CREATE' }}
-        </p>
-
         <h2>
           {{ editingCourse ? '修改团课' : '新增团课' }}
         </h2>
@@ -597,23 +545,43 @@ onMounted(async () => {
       </label>
 
       <label>
-  <span>上课时间</span>
+        <span>上课星期</span>
+        <select v-model.number="formWeekday">
+          <option :value="1">周一</option>
+          <option :value="2">周二</option>
+          <option :value="3">周三</option>
+          <option :value="4">周四</option>
+          <option :value="5">周五</option>
+          <option :value="6">周六</option>
+          <option :value="7">周日</option>
+        </select>
+      </label>
 
-  <select v-model="formTimeSlotId">
-    <option value="">
-      请选择上课时间
-    </option>
+      <div class="time-row">
+        <label>
+          <span>开始时间</span>
+          <input v-model="formStartTime" type="time" />
+        </label>
+        <label>
+          <span>结束时间</span>
+          <input v-model="formEndTime" type="time" />
+        </label>
+      </div>
 
-    <option
-      v-for="slot in availableTimeSlots"
-      :key="slot.timeSlotId"
-      :value="slot.timeSlotId"
-    >
-      {{ slot.label }}
-    </option>
-  </select>
+      <div class="time-row">
+        <label>
+          <span>排期起始日</span>
+          <input v-model="formScheduleFrom" type="date" />
+        </label>
+        <label>
+          <span>排期结束日</span>
+          <input v-model="formScheduleTo" type="date" />
+        </label>
+      </div>
 
-</label>
+      <small class="form-hint">
+        按周排课：系统会写入时间模板，并在起止日期内为每个对应星期几生成上课日（本周会员端依赖这些日期）。
+      </small>
 
       <label>
         <span>课程描述</span>
@@ -645,174 +613,6 @@ onMounted(async () => {
     </form>
   </section>
 </div>
-
-    <!-- F9-3 -->
-<section class="management-card">
-  <div class="card-head">
-    <div>
-      <p class="card-eyebrow">F9-3</p>
-      <h2>团课时间排期与冲突检测</h2>
-    </div>
-
-    <span class="count">
-      基于教练 + 日期 + 时间段检测
-    </span>
-  </div>
-
-  <div class="schedule-layout">
-    <div class="schedule-course-list">
-      <div class="schedule-section-title">
-        <strong>选择团课</strong>
-        <span>共 {{ groupCourses.length }} 门</span>
-      </div>
-
-      <div
-        v-if="groupCourses.length === 0"
-        class="empty-state"
-      >
-        暂无团课，请先创建团课。
-      </div>
-
-      <button
-        v-for="course in groupCourses"
-        :key="course.courseId"
-        class="schedule-course-item"
-        :class="{
-          selected: scheduleCourseId === course.courseId,
-        }"
-        type="button"
-        @click="selectScheduleCourse(course)"
-      >
-        <div>
-          <strong>{{ course.courseName }}</strong>
-
-          <span>
-            ID：{{ course.courseId }}
-          </span>
-        </div>
-
-        <small>
-          教练：{{ course.coachName }}
-        </small>
-      </button>
-    </div>
-
-    <div class="schedule-form-area">
-      <div
-        v-if="!scheduleCourseId"
-        class="schedule-placeholder"
-      >
-        <strong>请先选择一门团课</strong>
-        <span>
-          选择团课后，可以指定上课日期和时间，
-          并检测该教练是否存在时间冲突。
-        </span>
-      </div>
-
-      <form
-        v-else
-        class="schedule-form"
-        @submit.prevent="checkScheduleConflict"
-      >
-        <div class="selected-course">
-          <span>当前排期课程</span>
-          <strong>
-            {{
-              groupCourses.find(
-                course => course.courseId === scheduleCourseId,
-              )?.courseName
-            }}
-          </strong>
-        </div>
-
-        <label>
-          <span>授课教练</span>
-
-          <select
-            v-model.number="scheduleCoachId"
-          >
-            <option :value="null">
-              请选择授课教练
-            </option>
-
-            <option
-              v-for="coach in coaches"
-              :key="coach.coachId"
-              :value="coach.coachId"
-            >
-              {{ coach.coachName }}
-              <template v-if="coach.specialty">
-                · {{ coach.specialty }}
-              </template>
-            </option>
-          </select>
-        </label>
-
-        <label>
-          <span>课程日期</span>
-
-          <input
-            v-model="scheduleCourseDate"
-            type="date"
-          />
-        </label>
-
-        <div class="time-row">
-          <label>
-            <span>开始时间</span>
-
-            <input
-              v-model="scheduleStartTime"
-              type="time"
-            />
-          </label>
-
-          <label>
-            <span>结束时间</span>
-
-            <input
-              v-model="scheduleEndTime"
-              type="time"
-            />
-          </label>
-        </div>
-
-        <div
-          v-if="scheduleResult"
-          class="schedule-result"
-          :class="{
-            success: scheduleSuccess,
-            error: !scheduleSuccess,
-          }"
-        >
-          {{ scheduleResult }}
-        </div>
-
-        <div class="form-actions">
-          <button
-            class="secondary-button"
-            type="button"
-            @click="resetScheduleForm"
-          >
-            清空
-          </button>
-
-          <button
-            class="primary-button"
-            type="submit"
-            :disabled="scheduleLoading"
-          >
-            {{
-              scheduleLoading
-                ? '正在检测……'
-                : '检测排课冲突'
-            }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</section>
   </div>
 </template>
 
@@ -825,8 +625,7 @@ onMounted(async () => {
 .management-card {
   padding: 22px;
   border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  /* 背景色由 panel-tone-blue / panel-tone-green 提供 */
 }
 
 .card-head {
@@ -837,13 +636,6 @@ onMounted(async () => {
   margin-bottom: 18px;
 }
 
-.card-eyebrow {
-  margin: 0 0 6px;
-  color: #4d77ff;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
 
 .management-card h2 {
   margin: 0;
@@ -902,13 +694,13 @@ onMounted(async () => {
 }
 
 .primary-button {
-  background: #285cff;
+  background: #2a4365;
   color: #fff;
 }
 
 .secondary-button {
   background: #eef3fb;
-  color: #285cff;
+  color: #2a4365;
 }
 
 .danger-button {
@@ -974,7 +766,7 @@ onMounted(async () => {
 
 .type-form input:focus {
   outline: 2px solid #dbe4ff;
-  border-color: #285cff;
+  border-color: #2a4365;
 }
 
 .form-actions {
@@ -998,9 +790,8 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 20px;
   padding: 16px;
-  border: 1px solid #e6edf8;
   border-radius: 14px;
-  background: #f8fbff;
+  /* 背景色由父级 panel-tone-* 的 .course-item 规则提供 */
 }
 
 .course-main {
@@ -1081,7 +872,7 @@ onMounted(async () => {
 .course-form select:focus,
 .course-form textarea:focus {
   outline: 2px solid #dbe4ff;
-  border-color: #285cff;
+  border-color: #2a4365;
 }
 
 .form-hint {
@@ -1110,178 +901,11 @@ onMounted(async () => {
     width: 100%;
   }
 }
-.schedule-layout {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
-  gap: 20px;
-}
-
-.schedule-course-list {
-  display: grid;
-  gap: 10px;
-  align-content: start;
-}
-
-.schedule-section-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-  color: var(--tj-text);
-  font-size: 14px;
-}
-
-.schedule-section-title span {
-  color: var(--tj-text-muted);
-  font-size: 12px;
-}
-
-.schedule-course-item {
-  width: 100%;
-  padding: 14px;
-  border: 1px solid #e6edf8;
-  border-radius: 12px;
-  background: #f8fbff;
-  color: var(--tj-text);
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-}
-
-.schedule-course-item:hover {
-  border-color: #b9c9f7;
-}
-
-.schedule-course-item.selected {
-  border-color: #285cff;
-  background: #eef3ff;
-}
-
-.schedule-course-item > div {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.schedule-course-item strong {
-  font-size: 15px;
-}
-
-.schedule-course-item span,
-.schedule-course-item small {
-  color: var(--tj-text-muted);
-  font-size: 12px;
-}
-
-.schedule-course-item small {
-  display: block;
-  margin-top: 6px;
-}
-
-.schedule-form-area {
-  min-width: 0;
-}
-
-.schedule-form {
-  display: grid;
-  gap: 16px;
-}
-
-.schedule-form label {
-  display: grid;
-  gap: 7px;
-}
-
-.schedule-form label > span {
-  color: var(--tj-text);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.schedule-form input,
-.schedule-form select {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px 12px;
-  border: 1px solid #d9e2ef;
-  border-radius: 10px;
-  background: #fff;
-  color: var(--tj-text);
-  font: inherit;
-}
-
-.schedule-form input:focus,
-.schedule-form select:focus {
-  outline: 2px solid #dbe4ff;
-  border-color: #285cff;
-}
 
 .time-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-}
-
-.selected-course {
-  display: grid;
-  gap: 5px;
-  padding: 14px;
-  border-radius: 12px;
-  background: #f3f6fc;
-}
-
-.selected-course span {
-  color: var(--tj-text-muted);
-  font-size: 12px;
-}
-
-.selected-course strong {
-  color: var(--tj-text);
-  font-size: 16px;
-}
-
-.schedule-placeholder {
-  min-height: 220px;
-  display: grid;
-  place-content: center;
-  gap: 8px;
-  padding: 20px;
-  border: 1px dashed #d5deec;
-  border-radius: 14px;
-  text-align: center;
-}
-
-.schedule-placeholder strong {
-  color: var(--tj-text);
-}
-
-.schedule-placeholder span {
-  color: var(--tj-text-muted);
-  font-size: 13px;
-}
-
-.schedule-result {
-  padding: 12px 14px;
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.schedule-result.success {
-  background: #e8f7ef;
-  color: #137333;
-}
-
-.schedule-result.error {
-  background: #fde8ea;
-  color: #b42318;
-}
-
-@media (max-width: 800px) {
-  .schedule-layout {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 500px) {
@@ -1373,7 +997,7 @@ onMounted(async () => {
 .course-form select:focus,
 .course-form textarea:focus {
   outline: 2px solid #dbe4ff;
-  border-color: #285cff;
+  border-color: #2a4365;
 }
 
 .form-hint {

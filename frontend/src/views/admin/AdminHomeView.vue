@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import { getDashboardStats, triggerAutoCheckout, type DashboardStats, type VenueStatus } from '@/api/check-in-out'
 import {
-  adminAtRiskMembersMock,
   getCrowdHint,
   getCrowdLabel,
   type CrowdLevel,
@@ -14,17 +13,21 @@ import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
 const authStore = useAuthStore()
 
-const basePath = computed(() => (route.path.startsWith('/preview/admin') ? '/preview/admin' : '/admin'))
+const basePath = computed(() => '/admin')
 const displayName = computed(() => authStore.session?.displayName ?? '员工')
 
 const stats = ref<DashboardStats>({ todayCheckIns: 0, activeMembers: 0, venues: [] })
-const atRiskMembers = adminAtRiskMembersMock
 const loading = ref(false)
 const refreshing = ref(false)
 const autoCheckoutMsg = ref('')
 let timer: ReturnType<typeof setInterval> | null = null
 let refreshAnimationTimer: ReturnType<typeof setTimeout> | null = null
 let refreshAnimationFrame: number | null = null
+
+/** 实时拥挤度仅展示主训练馆 */
+const mainVenueCrowding = computed(() =>
+  stats.value.venues.filter((v) => (v.venueName ?? '').includes('主训练')),
+)
 
 onMounted(async () => {
   await refresh()
@@ -117,7 +120,7 @@ function crowdBarClass(level: CrowdLevel) {
       </article>
       <article class="summary-card">
         <span>场馆数量</span>
-        <strong>{{ stats.venues.length }}</strong>
+        <strong>{{ stats.venues.filter((v) => v.venueStatus !== '已关闭').length }}</strong>
         <small>个</small>
       </article>
       <article class="summary-card refresh-card" :class="{ refreshing }" @click="handleRefreshClick">
@@ -134,10 +137,10 @@ function crowdBarClass(level: CrowdLevel) {
       </article>
     </section>
 
-    <section class="dashboard-card">
+    <section class="dashboard-card panel-tone-blue">
       <div class="card-head">
         <div>
-          <p class="card-eyebrow">场馆容量监控 · 功能点 #7</p>
+          <p class="card-eyebrow">场馆容量监控</p>
           <h2>实时拥挤度</h2>
         </div>
         <div class="card-actions">
@@ -147,7 +150,8 @@ function crowdBarClass(level: CrowdLevel) {
       </div>
       <p v-if="autoCheckoutMsg" class="auto-msg">{{ autoCheckoutMsg }}</p>
       <div class="venue-list">
-        <article v-for="venue in stats.venues" :key="venue.venueId" class="venue-item" :class="`crowd-${getWarningLevel(venue)}`">
+        <p v-if="!mainVenueCrowding.length" class="card-hint">暂无主训练馆数据</p>
+        <article v-for="venue in mainVenueCrowding" :key="venue.venueId" class="venue-item list-item" :class="`crowd-${getWarningLevel(venue)}`">
           <div class="venue-top">
             <h3>{{ venue.venueName }}</h3>
             <span class="status-pill" :class="`crowd-${getWarningLevel(venue)}`">{{ getCrowdLabel(getWarningLevel(venue)) }}</span>
@@ -165,39 +169,15 @@ function crowdBarClass(level: CrowdLevel) {
       </div>
     </section>
 
-    <section class="dashboard-grid">
-      <article class="dashboard-card span-2">
-        <div class="card-head">
-          <div>
-            <p class="card-eyebrow">流失风险 · 功能点 #17</p>
-            <h2>待回访会员与课程推荐</h2>
-          </div>
-          <RouterLink class="text-link" :to="`${basePath}/at-risk-members`">全部名单 →</RouterLink>
-        </div>
-        <div class="risk-list">
-          <article v-for="member in atRiskMembers" :key="member.memberId" class="risk-item">
-            <div>
-              <h3>{{ member.memberName }} <small>#{{ member.memberId }}</small></h3>
-              <p class="meta">近 30 天出勤下降 {{ member.attendanceDropRate }}% · 上次到馆 {{ member.lastVisitDate }}</p>
-              <p class="action">{{ member.suggestedAction }}</p>
-            </div>
-            <div class="risk-side">
-              <p class="recommend">{{ member.recommendedCourse }}</p>
-              <span class="feature-tag">{{ member.featureRef }}</span>
-            </div>
-          </article>
-        </div>
-      </article>
-
-      <article class="dashboard-card">
-        <p class="card-eyebrow">快捷操作</p>
-        <h2>前台常用</h2>
-        <div class="quick-grid">
-          <RouterLink :to="`${basePath}/members`">会员管理</RouterLink>
-          <RouterLink :to="`${basePath}/check-in-desk`">入场 / 退场</RouterLink>
-          <RouterLink :to="`${basePath}/capacity-logs`">容量日志</RouterLink>
-        </div>
-      </article>
+    <section class="dashboard-card quick-card">
+      <p class="card-eyebrow">快捷操作</p>
+      <h2>前台常用</h2>
+      <div class="quick-grid">
+        <RouterLink :to="`${basePath}/members`">会员管理</RouterLink>
+        <RouterLink :to="`${basePath}/check-in-desk`">入场 / 退场</RouterLink>
+        <RouterLink :to="`${basePath}/capacity-logs`">容量日志</RouterLink>
+        <RouterLink :to="`${basePath}/at-risk-members`">流失预警</RouterLink>
+      </div>
     </section>
   </div>
 </template>
@@ -216,9 +196,22 @@ function crowdBarClass(level: CrowdLevel) {
 
 .summary-card {
   padding: 16px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 24px;
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
+}
+
+.summary-card:nth-child(2) {
+  background: #eaf5f6;
+}
+
+.summary-card:nth-child(3) {
+  background: #e8f1f9;
+}
+
+.summary-card:nth-child(4) {
+  background: #eaf2fa;
 }
 
 .summary-card span,
@@ -250,10 +243,10 @@ function crowdBarClass(level: CrowdLevel) {
   transition: background 0.2s;
 }
 .refresh-card:hover {
-  background: #f0f5ff;
+  background: #eaf2fa;
 }
 .refresh-card.refreshing {
-  background: #f0f5ff;
+  background: #eaf2fa;
 }
 
 .refresh-icon-wrap {
@@ -266,24 +259,27 @@ function crowdBarClass(level: CrowdLevel) {
 .refresh-icon {
   width: 28px;
   height: 28px;
-  color: #4d77ff;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
+  color: #2a4365;
 }
 
 .dashboard-card {
   padding: 22px;
-  border-radius: var(--tj-radius);
-  background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  border-radius: 26px;
 }
 
-.span-2 {
-  grid-column: span 1;
+.dashboard-card.panel-tone-blue,
+.dashboard-card.panel-tone-green {
+  /* 背景色由 panel-tone-* 提供 */
+}
+
+.dashboard-card:not(.panel-tone-blue):not(.panel-tone-green) {
+  background: #eef4fc;
+  box-shadow: var(--tj-member-lift);
+  border: var(--tj-member-edge);
+}
+
+.quick-card {
+  max-width: 420px;
 }
 
 .card-head {
@@ -302,7 +298,7 @@ function crowdBarClass(level: CrowdLevel) {
 
 .card-eyebrow {
   margin: 0 0 6px;
-  color: #4d77ff;
+  color: #2a4365;
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -314,41 +310,31 @@ function crowdBarClass(level: CrowdLevel) {
   color: var(--tj-text);
 }
 
-.venue-list,
-.risk-list {
+.venue-list {
   display: grid;
   gap: 12px;
 }
 
-.venue-item,
-.risk-item {
+.venue-item {
   padding: 14px;
   border-radius: 14px;
-  background: #f8fbff;
-  border: 1px solid #e6edf8;
-}
-
-.venue-top,
-.risk-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  /* 背景色由父级 panel-tone-* 提供 */
 }
 
 .venue-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
   align-items: center;
   margin-bottom: 8px;
 }
 
-.venue-item h3,
-.risk-item h3 {
+.venue-item h3 {
   margin: 0;
   font-size: 17px;
 }
 
 .venue-meta,
-.meta,
-.action,
 .card-hint {
   margin: 8px 0 0;
   color: var(--tj-text-muted);
@@ -394,27 +380,6 @@ function crowdBarClass(level: CrowdLevel) {
   border-radius: 999px;
 }
 
-.risk-side {
-  min-width: 220px;
-  text-align: right;
-}
-
-.recommend {
-  margin: 0 0 8px;
-  color: #285cff;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.feature-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #eef3fb;
-  color: #4f5f7a;
-  font-size: 12px;
-}
-
 .quick-grid {
   display: grid;
   gap: 10px;
@@ -424,7 +389,7 @@ function crowdBarClass(level: CrowdLevel) {
 .quick-grid a,
 .text-link,
 .primary-link {
-  color: #285cff;
+  color: #2a4365;
   font-weight: 600;
   text-decoration: none;
 }
@@ -433,23 +398,23 @@ function crowdBarClass(level: CrowdLevel) {
   display: inline-flex;
   padding: 8px 12px;
   border-radius: 10px;
-  background: #285cff;
+  background: #2a4365;
   color: #fff;
 }
 
 .btn-outline {
   padding: 6px 14px;
-  border: 1px solid #4d77ff;
+  border: 1px solid #2a4365;
   border-radius: 8px;
-  background: #fff;
-  color: #4d77ff;
+  background: #eaf2fa;
+  color: #2a4365;
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
 }
 
 .btn-outline:hover {
-  background: #f0f5ff;
+  background: #e8f1f9;
 }
 
 .auto-msg {
@@ -462,19 +427,16 @@ function crowdBarClass(level: CrowdLevel) {
 }
 
 @media (max-width: 960px) {
-  .summary-grid,
-  .dashboard-grid {
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 
-  .venue-top,
-  .risk-item {
-    flex-direction: column;
+  .quick-card {
+    max-width: none;
   }
 
-  .risk-side {
-    min-width: 0;
-    text-align: left;
+  .venue-top {
+    flex-direction: column;
   }
 }
 </style>

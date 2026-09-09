@@ -28,7 +28,7 @@ public sealed class AbsenceRecordAppService : IAbsenceRecordAppService
                 AbsenceId = x.AbsenceId,
                 MemberId = x.MemberId,
                 BookingId = x.BookingId,
-                CourseName = x.Booking.Course.CourseName,
+                CourseName = x.Booking.Package.Course.CourseName,
                 CourseDate = x.CourseDate,
                 AbsenceTime = x.AbsenceTime
             })

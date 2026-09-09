@@ -118,34 +118,59 @@ public class GroupCoursesController : ControllerBase
                 result.Message));
     }
 
-    [HttpPost("{courseId:int}/schedule/check")]
-[ProducesResponseType(
-    typeof(ApiResponse<object>),
-    StatusCodes.Status200OK)]
-public async Task<ActionResult<ApiResponse<object>>> CheckScheduleConflict(
-    int courseId,
-    [FromBody] GroupCourseScheduleConflictRequestDto request,
-    CancellationToken cancellationToken = default)
-{
-    request.CourseId = courseId;
-
-    var result = await _groupCourseAppService.CheckScheduleConflictAsync(
-        request,
-        cancellationToken);
-
-    if (!result.Success)
+    /// <summary>草稿/已有团课排期冲突检测（创建前也可调用，body 传 weekday/start/end）。</summary>
+    [HttpPost("schedule/check")]
+    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<string>>> CheckScheduleConflictPreview(
+        [FromBody] GroupCourseScheduleConflictRequestDto request,
+        CancellationToken cancellationToken = default)
     {
-        return BadRequest(
-            ApiResponse<object>.Failure(
-                "GROUP_COURSE_SCHEDULE_CONFLICT",
+        var result = await _groupCourseAppService.CheckScheduleConflictAsync(
+            request,
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return BadRequest(
+                ApiResponse<string>.Failure(
+                    "GROUP_COURSE_SCHEDULE_CONFLICT",
+                    result.Message,
+                    HttpContext.TraceIdentifier));
+        }
+
+        return Ok(
+            ApiResponse<string>.Success(
                 result.Message,
-                HttpContext.TraceIdentifier));
+                HttpContext.TraceIdentifier,
+                result.Message));
     }
 
-    return Ok(
-        ApiResponse<object>.Success(
-            null,
-            HttpContext.TraceIdentifier,
-            result.Message));
-}
+    [HttpPost("{courseId:int}/schedule/check")]
+    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<string>>> CheckScheduleConflict(
+        int courseId,
+        [FromBody] GroupCourseScheduleConflictRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        request.CourseId = courseId;
+
+        var result = await _groupCourseAppService.CheckScheduleConflictAsync(
+            request,
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return BadRequest(
+                ApiResponse<string>.Failure(
+                    "GROUP_COURSE_SCHEDULE_CONFLICT",
+                    result.Message,
+                    HttpContext.TraceIdentifier));
+        }
+
+        return Ok(
+            ApiResponse<string>.Success(
+                result.Message,
+                HttpContext.TraceIdentifier,
+                result.Message));
+    }
 }

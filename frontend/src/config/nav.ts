@@ -5,9 +5,6 @@ export interface NavItem {
   matchChildren?: boolean
 }
 
-/** 预览模式下档案菜单使用的演示会员 ID（与 docs 中 /api/members/1 示例一致） */
-export const PREVIEW_MEMBER_ID = 1
-
 export function getMemberNav(memberId?: number): NavItem[] {
   const items: NavItem[] = [
     { path: '/member/home', label: '首页' },
@@ -57,27 +54,6 @@ export const coachNav: NavItem[] = [
   { path: '/coach/schedule', label: '我的日程', matchChildren: true },
   { path: '/coach/pt-confirm', label: '私教确认', matchChildren: true },
 ]
-
-export function getPreviewMemberNav(memberId?: number): NavItem[] {
-  return getMemberNav(memberId).map((item) => ({
-    ...item,
-    path: item.path.replace('/member/', '/preview/member/'),
-  }))
-}
-
-export function getPreviewAdminNav(): NavItem[] {
-  return adminNav.map((item) => ({
-    ...item,
-    path: item.path.replace('/admin/', '/preview/admin/'),
-  }))
-}
-
-export function getPreviewCoachNav(): NavItem[] {
-  return coachNav.map((item) => ({
-    ...item,
-    path: item.path.replace('/coach/', '/preview/coach/'),
-  }))
-}
 
 export function isNavItemActive(item: NavItem, currentPath: string) {
   if (currentPath === item.path) {

@@ -2,17 +2,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import PlaceholderPanel from '@/components/ui/PlaceholderPanel.vue'
-import { checkOut, getMyCard, getMyCheckIn, getVenueStatus, type CheckInOutRecord, type MemberCard, type VenueStatus } from '@/api/check-in-out'
+import { checkOut, getMyCheckInByMember, getVenueStatus, type CheckInOutRecord, type VenueStatus } from '@/api/check-in-out'
+import { getMyCards, type MembershipCard } from '@/api/membership-cards'
 import { getMemberProfile } from '@/api/members'
-import {
-  getCrowdHint,
-  getCrowdLabel,
-  memberCourseRecommendationsMock,
-  memberUpcomingRemindersMock,
-  type CrowdLevel,
-} from '@/data/home-dashboard-mock'
+import { getGroupCourses, type GroupCourse } from '@/api/groupCourses'
+import { getCrowdHint, getCrowdLabel, type CrowdLevel } from '@/data/home-dashboard-mock'
 import { useAuthStore } from '@/stores/auth'
+
+/** 会员端只展示主训练馆，隐藏测试场馆 */
+const ALLOWED_VENUE_NAMES = new Set(['主训练馆'])
 
 interface VenueDisplay {
   venueId: number
@@ -21,27 +19,39 @@ interface VenueDisplay {
   maxCapacity: number
   occupancyRate: number
   crowdLevel: CrowdLevel
-  featureRef: string
+}
+
+interface CourseRecommendation {
+  courseId: number
+  courseName: string
+  courseType: string
+  coachName: string
+  scheduleLabel: string
+  remainingSlots: number
+  reason: string
 }
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const basePath = computed(() => (route.path.startsWith('/preview/member') ? '/preview/member' : '/member'))
+const basePath = computed(() => '/member')
 const memberId = computed(() => authStore.session?.userId)
 const displayName = computed(() => authStore.session?.displayName ?? '会员')
 
 const venues = ref<VenueDisplay[]>([])
-const recommendations = memberCourseRecommendationsMock
-const reminders = memberUpcomingRemindersMock
+const recommendations = ref<CourseRecommendation[]>([])
 const birthdayMessage = ref('完善档案生日后，生日当天将自动发放「生日福利券」（¥66，有效期 1 个月）。')
 const isBirthdayToday = ref(false)
 
 const myCheckIn = ref<CheckInOutRecord | null>(null)
-const myCard = ref<MemberCard | null>(null)
+const myCard = ref<MembershipCard | null>(null)
 const checkoutLoading = ref(false)
 const checkoutMsg = ref('')
+
+function toLocalDate(value: string) {
+  return new Date(value.endsWith('Z') ? value.slice(0, -1) : value)
+}
 
 function formatMonthDay(value?: string) {
   if (!value) return ''
@@ -87,7 +97,6 @@ function toDisplay(v: VenueStatus): VenueDisplay {
     maxCapacity: v.maxCapacity,
     occupancyRate: v.occupancyRate,
     crowdLevel: mapWarningLevel(v.capacityWarningLevel),
-    featureRef: '#7',
   }
 }
 
@@ -108,15 +117,70 @@ function goProfile() {
 async function refreshVenues() {
   try {
     const list = await getVenueStatus()
-    venues.value = list.map(toDisplay)
+    venues.value = list
+      .filter((v) => ALLOWED_VENUE_NAMES.has(v.venueName.trim()))
+      .map(toDisplay)
   } catch { /* ignore */ }
 }
 
+function formatSlotLabel(course: GroupCourse) {
+  const slot = course.timeSlots?.[0]
+  if (!slot) return '时段待排'
+  const start = toLocalDate(slot.startTime)
+  const end = toLocalDate(slot.endTime)
+  const datePart = Number.isNaN(start.getTime())
+    ? ''
+    : start.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })
+  const startText = Number.isNaN(start.getTime())
+    ? ''
+    : start.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const endText = Number.isNaN(end.getTime())
+    ? ''
+    : end.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  if (!startText) return '时段待排'
+  return `${datePart} ${startText}${endText ? ` - ${endText}` : ''}`.trim()
+}
+
+function buildRecommendations(courses: GroupCourse[]): CourseRecommendation[] {
+  return courses
+    .map((course) => {
+      const remaining = Math.max(course.maxCapacity - (course.currentCapacity ?? 0), 0)
+      const firstStart = course.timeSlots?.[0]?.startTime
+        ? toLocalDate(course.timeSlots[0].startTime).getTime()
+        : Number.MAX_SAFE_INTEGER
+      return { course, remaining, firstStart }
+    })
+    .filter((item) => item.remaining > 0)
+    .sort((a, b) => a.firstStart - b.firstStart)
+    .slice(0, 3)
+    .map(({ course, remaining }) => ({
+      courseId: course.courseId,
+      courseName: course.courseName,
+      courseType: course.courseTypeName || '团课',
+      coachName: course.coachName || `教练 #${course.coachId}`,
+      scheduleLabel: formatSlotLabel(course),
+      remainingSlots: remaining,
+      reason: remaining <= 3 ? '余量紧张，建议尽快预约' : '当前可预约，欢迎查看详情',
+    }))
+}
+
+async function refreshRecommendations() {
+  try {
+    const courses = await getGroupCourses()
+    recommendations.value = buildRecommendations(courses)
+  } catch {
+    recommendations.value = []
+  }
+}
+
 onMounted(async () => {
-  await refreshVenues()
+  await Promise.all([refreshVenues(), refreshRecommendations()])
   if (memberId.value) {
-    try { myCheckIn.value = await getMyCheckIn(memberId.value) } catch { /* ignore */ }
-    try { myCard.value = await getMyCard(memberId.value) } catch { /* ignore */ }
+    try { myCheckIn.value = await getMyCheckInByMember(memberId.value) } catch { /* ignore */ }
+    try {
+      const cards = await getMyCards(memberId.value)
+      myCard.value = cards.find((c) => c.isValid) ?? cards[0] ?? null
+    } catch { /* ignore */ }
     try {
       const profile = await getMemberProfile(memberId.value)
       refreshBirthdayMessage(profile.birthday)
@@ -146,7 +210,7 @@ async function doCheckOut() {
     <PageHeader
       eyebrow="Member Dashboard"
       :title="`${displayName}，欢迎回来`"
-      subtitle="会员登录首页占位：汇总场馆拥挤度、会籍状态、团课推荐与上课提醒。联调后数据来自 VENUE、MEMBER_BENEFIT_CARD、GROUPCOURSE 等表及相关业务接口。"
+      subtitle="汇总场馆拥挤度、会籍状态与可预约团课。"
     >
       <template #actions>
         <button v-if="memberId" type="button" class="ghost-btn" @click="goProfile">我的档案</button>
@@ -163,14 +227,92 @@ async function doCheckOut() {
 
     <p v-if="checkoutMsg" class="checkout-toast">{{ checkoutMsg }}</p>
 
-    <p class="demo-banner">演示数据 · 功能点占位 · 后续由 E/F/H/J 等模块接入真实 API</p>
-
     <section class="top-grid">
-      <div class="venues-column">
-        <article v-for="v in venues" :key="v.venueId" class="dashboard-card capacity-card" :class="crowdClass(v.crowdLevel)">
+      <div class="membership-column">
+        <article class="dashboard-card membership-card">
+          <p class="card-eyebrow">我的会籍</p>
+          <template v-if="myCard">
+            <h2>{{ myCard.cardTypeLabel }} · {{ myCard.isValid ? '可用' : '不可用' }}</h2>
+            <dl class="info-list">
+              <div>
+                <dt>卡号</dt>
+                <dd>#{{ myCard.cardId }}</dd>
+              </div>
+              <div v-if="myCard.expireDate">
+                <dt>有效期至</dt>
+                <dd>{{ new Date(myCard.expireDate).toLocaleDateString('zh-CN') }}</dd>
+              </div>
+              <div v-if="myCard.remainingCount != null">
+                <dt>剩余次数</dt>
+                <dd>{{ myCard.remainingCount }} / {{ myCard.totalCounts }}</dd>
+              </div>
+            </dl>
+          </template>
+          <template v-else>
+            <h2>暂无会员卡</h2>
+            <p class="card-hint">请先购买会员卡</p>
+          </template>
+          <RouterLink class="text-link membership-link" :to="`${basePath}/cards`">查看会员卡详情 →</RouterLink>
+        </article>
+      </div>
+      <div class="side-column">
+        <article class="dashboard-card promo-card" :class="{ 'promo-today': isBirthdayToday }">
+          <div class="promo-top">
+            <span class="promo-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M20 12v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M3 8h18v4H3V8Z"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M12 21V8"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M12 8H8.5A2.5 2.5 0 1 1 8.5 3C11 3 12 8 12 8Z"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M12 8h3.5A2.5 2.5 0 1 0 15.5 3C13 3 12 8 12 8Z"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+            <div>
+              <p class="card-eyebrow">生日福利</p>
+              <h2>{{ isBirthdayToday ? '生日快乐' : '会员关怀' }}</h2>
+            </div>
+          </div>
+          <p class="promo-desc">{{ birthdayMessage }}</p>
+          <RouterLink class="promo-btn" :to="`${basePath}/vouchers`">查看我的优惠券 →</RouterLink>
+        </article>
+        <article
+          v-for="v in venues"
+          :key="v.venueId"
+          class="dashboard-card capacity-card"
+          :class="crowdClass(v.crowdLevel)"
+        >
           <div class="card-head">
             <div>
-              <p class="card-eyebrow">场馆实时容量 · 功能点 {{ v.featureRef }}</p>
+              <p class="card-eyebrow">场馆实时容量</p>
               <h2>{{ v.venueName }}</h2>
             </div>
             <span class="status-pill" :class="crowdClass(v.crowdLevel)">{{ getCrowdLabel(v.crowdLevel) }}</span>
@@ -199,62 +341,24 @@ async function doCheckOut() {
           <p class="card-hint">{{ getCrowdHint(v.crowdLevel) }}</p>
         </article>
       </div>
-      <div class="info-column">
-        <article class="dashboard-card membership-card">
-          <p class="card-eyebrow">我的会籍</p>
-          <template v-if="myCard">
-            <h2>{{ myCard.cardTypeName }} · {{ myCard.cardStatusName }}</h2>
-            <dl class="info-list">
-              <div v-if="myCard.expireDate">
-                <dt>有效期至</dt>
-                <dd>{{ myCard.expireDate }}</dd>
-              </div>
-              <div v-if="myCard.daysToExpire != null">
-                <dt>剩余天数</dt>
-                <dd :class="{ expired: myCard.daysToExpire < 0 }">{{ myCard.daysToExpire < 0 ? '已过期' : myCard.daysToExpire + ' 天' }}</dd>
-              </div>
-              <div v-if="myCard.remainingCount != null">
-                <dt>剩余次数</dt>
-                <dd>{{ myCard.remainingCount }} / {{ myCard.totalCounts }}</dd>
-              </div>
-            </dl>
-          </template>
-          <template v-else>
-            <h2>暂无会员卡</h2>
-            <p class="card-hint">请先购买会员卡</p>
-          </template>
-          <RouterLink class="text-link" :to="`${basePath}/cards`">查看会员卡详情 →</RouterLink>
-        </article>
-        <article class="dashboard-card promo-card" :class="{ 'promo-today': isBirthdayToday }">
-          <div class="promo-top">
-            <span class="promo-icon">🎁</span>
-            <div>
-              <p class="card-eyebrow">生日福利 · 功能点 #18</p>
-              <h2>{{ isBirthdayToday ? '生日快乐' : '会员关怀' }}</h2>
-            </div>
-          </div>
-          <p class="promo-desc">{{ birthdayMessage }}</p>
-          <RouterLink class="promo-btn" :to="`${basePath}/vouchers`">查看我的优惠券 →</RouterLink>
-        </article>
-      </div>
     </section>
 
     <section class="dashboard-grid">
-      <article class="dashboard-card span-2">
+      <article class="dashboard-card recommend-card span-2 panel-tone-blue">
         <div class="card-head">
           <div>
-            <p class="card-eyebrow">为你推荐团课 · 功能点 #19</p>
-            <h2>热门时段智能推荐</h2>
+            <p class="card-eyebrow">为你推荐团课</p>
+            <h2>可预约热门课程</h2>
           </div>
           <RouterLink class="text-link" :to="`${basePath}/group-courses`">全部团课</RouterLink>
         </div>
-        <div class="recommend-list">
-          <article v-for="course in recommendations" :key="course.courseId" class="recommend-item">
+        <p v-if="recommendations.length === 0" class="card-hint">暂无可推荐团课，去全部团课看看吧。</p>
+        <div v-else class="recommend-list">
+          <article v-for="course in recommendations" :key="course.courseId" class="recommend-item list-item">
             <div>
               <h3>{{ course.courseName }}</h3>
               <p class="meta">{{ course.courseType }} · {{ course.coachName }} · {{ course.scheduleLabel }}</p>
               <p class="reason">{{ course.reason }}</p>
-              <p class="feature-note">关联功能点 {{ course.featureRef }}</p>
             </div>
             <div class="recommend-side">
               <span class="slots-pill">余 {{ course.remainingSlots }} 名额</span>
@@ -263,19 +367,6 @@ async function doCheckOut() {
           </article>
         </div>
       </article>
-
-      <article class="dashboard-card">
-        <p class="card-eyebrow">上课提醒 · 功能点 #11</p>
-        <h2>即将开始</h2>
-        <ul class="reminder-list">
-          <li v-for="item in reminders" :key="item.bookingId">
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.startTime }} · {{ item.venueName }}</span>
-            <small>约 {{ item.minutesUntilStart }} 分钟后开始 · {{ item.featureRef }}</small>
-          </li>
-        </ul>
-        <RouterLink class="text-link" :to="`${basePath}/schedule`">查看完整日程 →</RouterLink>
-      </article>
     </section>
 
     <section class="dashboard-grid">
@@ -283,19 +374,14 @@ async function doCheckOut() {
         <p class="card-eyebrow">快捷入口</p>
         <h2>常用功能</h2>
         <div class="quick-grid">
-          <RouterLink :to="`${basePath}/group-courses`">团课预约 (#4 #8)</RouterLink>
-          <RouterLink :to="`${basePath}/my-group-bookings`">我的团课 (#9 #10)</RouterLink>
-          <RouterLink :to="`${basePath}/pt-bookings`">私教预约 (#12)</RouterLink>
-          <RouterLink :to="`${basePath}/cards`">续费 / 购卡 (#20)</RouterLink>
+          <RouterLink :to="`${basePath}/group-courses`">团课预约</RouterLink>
+          <RouterLink :to="`${basePath}/my-group-bookings`">我的团课</RouterLink>
+          <RouterLink :to="`${basePath}/pt-bookings`">私教预约</RouterLink>
+          <RouterLink :to="`${basePath}/schedule`">我的日程</RouterLink>
+          <RouterLink :to="`${basePath}/cards`">续费 / 购卡</RouterLink>
         </div>
       </article>
     </section>
-
-    <PlaceholderPanel
-      owner="B + E/F/H/J"
-      features="#7 #11 #18 #19 #20"
-      message="本页为需求/设计/功能点驱动的首页占位。E 接入 VENUE/CAPACITYLOG；F/H 接入推荐与候补；J 接入日程提醒；D/H 接入会籍与续费折扣。"
-    />
   </div>
 </template>
 
@@ -327,67 +413,87 @@ async function doCheckOut() {
   align-items: stretch;
 }
 
-.venues-column {
+.membership-column {
+  display: flex;
+  min-height: 0;
+}
+
+.membership-column .membership-card {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.info-column {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.info-column .membership-card,
-.info-column .promo-card {
-  flex: 1;
-}
-
-.venues-column .capacity-card {
-  flex: 1;
+  height: 100%;
   padding: 18px 20px;
 }
 
-.venues-column .capacity-card .card-head {
-  margin-bottom: 12px;
-}
-
-.venues-column .capacity-card h2 {
-  font-size: 20px;
-}
-
-.venues-column .capacity-card .stat-value {
-  font-size: 22px;
-}
-
-.venues-column .capacity-card .capacity-stats {
-  margin-bottom: 10px;
-}
-
-.venues-column .capacity-card .card-hint {
-  margin-top: 8px;
-  font-size: 12px;
-}
-
-.venues-column .capacity-card .feature-note {
-  display: none;
-}
-
-.membership-card {
-  padding: 18px 20px;
-}
-
-.membership-card h2 {
+.membership-column .membership-card h2 {
   font-size: 17px;
   margin-top: 2px;
 }
 
+.membership-column .info-list {
+  flex: 1;
+}
+
+.membership-link {
+  margin-top: auto;
+}
+
+.side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side-column .capacity-card {
+  padding: 18px 20px;
+}
+
+.side-column .capacity-card .card-head {
+  margin-bottom: 12px;
+}
+
+.side-column .capacity-card h2 {
+  font-size: 20px;
+}
+
+.side-column .capacity-card .stat-value {
+  font-size: 22px;
+}
+
+.side-column .capacity-card .capacity-stats {
+  margin-bottom: 10px;
+}
+
+.side-column .capacity-card .card-hint {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
 .dashboard-card {
   padding: 22px;
-  border-radius: var(--tj-radius);
+  border-radius: 28px;
   background: var(--tj-card-bg);
-  box-shadow: var(--tj-shadow);
+  box-shadow: var(--tj-member-lift); border: var(--tj-member-edge);
+}
+
+.membership-card {
+  background: #e8f1f9;
+}
+
+.promo-card,
+.capacity-card {
+  background: #eaf2fa;
+}
+
+.recommend-card.panel-tone-blue {
+  background: unset;
+  box-shadow: unset;
+  border: unset;
+}
+
+.quick-card {
+  background: #eef4fc;
 }
 
 .span-2 {
@@ -404,7 +510,7 @@ async function doCheckOut() {
 
 .card-eyebrow {
   margin: 0 0 6px;
-  color: #4d77ff;
+  color: #2a4365;
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -462,7 +568,7 @@ async function doCheckOut() {
 .capacity-bar-track {
   height: 10px;
   border-radius: 999px;
-  background: #eef2f7;
+  background: rgba(255, 255, 255, 0.65);
   overflow: hidden;
 }
 
@@ -471,8 +577,7 @@ async function doCheckOut() {
   border-radius: 999px;
 }
 
-.card-hint,
-.feature-note {
+.card-hint {
   margin: 12px 0 0;
   color: var(--tj-text-muted);
   font-size: 13px;
@@ -490,7 +595,7 @@ async function doCheckOut() {
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #eef2f7;
+  border-bottom: 1px solid rgba(42, 67, 101, 0.12);
 }
 
 .info-list dt {
@@ -519,9 +624,8 @@ async function doCheckOut() {
   justify-content: space-between;
   gap: 16px;
   padding: 14px;
-  border-radius: 14px;
-  background: #f8fbff;
-  border: 1px solid #e6edf8;
+  border-radius: 20px;
+  /* 背景色由父级 panel-tone-* 提供 */
 }
 
 .recommend-item h3 {
@@ -548,41 +652,19 @@ async function doCheckOut() {
   padding: 4px 10px;
   border-radius: 999px;
   background: var(--tj-primary-soft);
-  color: #2c57d2;
+  color: #2a4365;
   font-size: 12px;
   font-weight: 600;
 }
 
-.reminder-list {
-  list-style: none;
-  padding: 0;
-  margin: 16px 0;
-  display: grid;
-  gap: 12px;
-}
-
-.reminder-list li {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f8fbff;
-}
-
-.reminder-list span,
-.reminder-list small {
-  color: var(--tj-text-muted);
-  font-size: 13px;
-}
-
 .promo-card {
   padding: 18px 20px;
-  background: linear-gradient(180deg, #ffffff 0%, #fff9f0 100%);
+  background: #e8f4f5;
 }
 
 .promo-card.promo-today {
-  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
-  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.12);
+  background: #f5f9fd;
+  box-shadow: 0 8px 24px rgba(42, 67, 101, 0.1);
 }
 
 .promo-card h2 {
@@ -597,8 +679,19 @@ async function doCheckOut() {
 }
 
 .promo-icon {
-  font-size: 28px;
-  line-height: 1;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  color: #2a4365;
+}
+
+.promo-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .promo-desc {
@@ -613,7 +706,7 @@ async function doCheckOut() {
   align-items: center;
   padding: 7px 14px;
   border-radius: 8px;
-  background: #ff7a45;
+  background: #2b4363;
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -628,10 +721,15 @@ async function doCheckOut() {
 }
 
 .quick-grid a,
-.text-link,
+.text-link {
+  color: #2a4365;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .primary-link,
 .mini-btn {
-  color: #285cff;
+  color: #fff;
   font-weight: 600;
   text-decoration: none;
 }
@@ -648,7 +746,7 @@ async function doCheckOut() {
 
 .mini-btn,
 .primary-link {
-  background: #285cff;
+  background: #1e4b62;
   color: #fff;
 }
 
