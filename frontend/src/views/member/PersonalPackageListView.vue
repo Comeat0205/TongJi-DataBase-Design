@@ -109,7 +109,7 @@ onMounted(loadAll)
     <PageHeader
       eyebrow="Personal Training"
       title="私教课包"
-      subtitle="上方购买在售课包；支付成功后出现在下方「我的私教课包」，可前往私教预约使用。"
+      subtitle="您可在此购买在售课包；支付成功后您的课包会出现在下方，可前往私教预约使用。"
     >
       <template #actions>
         <RouterLink class="ghost-link" :to="`${basePath}/pt-bookings`">私教预约</RouterLink>
@@ -126,7 +126,6 @@ onMounted(loadAll)
       <section class="purchase-section panel-tone-blue">
         <div class="section-head">
           <h2>购买私教课包</h2>
-          <p>选择课包下单后到「我的订单」支付；支付成功后自动发放到本页下方。</p>
         </div>
 
         <StateCard v-if="products.length === 0" message="暂无可购私教课包，请联系管理员维护价格表商品。" />

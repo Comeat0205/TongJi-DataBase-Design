@@ -265,7 +265,7 @@ onMounted(loadAll)
     <PageHeader
       eyebrow="MY GROUP CLASSES"
       title="我的团课"
-      subtitle="查看课包剩余次数；预约立即扣次；开课前三小时可取消并还次。"
+      subtitle="您可查看已购课包；预约将提前扣次；开课前三小时可取消，未消耗次数将归还。"
     >
       <template #actions>
         <RouterLink class="ghost-link" to="/member/group-courses">去购买课包</RouterLink>

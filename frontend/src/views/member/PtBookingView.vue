@@ -130,7 +130,7 @@ onMounted(loadData)
     <PageHeader
       eyebrow="PT Booking"
       title="私教预约"
-      subtitle="使用有效课包选择上课时间；提交预约会立即扣除 1 次。待确认可随时取消；教练已确认的须在上课 24 小时前取消，取消或教练拒绝将返还次数。"
+      subtitle="您可使用有效课包预约私教课；提交预约会立即扣次。待确认可随时取消；教练已确认的须在上课 24 小时前取消，取消或教练拒绝将返还次数。"
     />
 
     <StateCard v-if="loading" message="私教预约数据加载中..." />

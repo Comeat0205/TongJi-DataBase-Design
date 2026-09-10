@@ -95,7 +95,7 @@ onMounted(() => {
     <PageHeader
       eyebrow="Buy Membership"
       title="购买会员卡"
-      :subtitle="`${displayName} 可在此选择季卡、年卡或次卡。点击购买后生成待支付订单，可在「我的订单」中使用优惠券并完成支付；支付成功后自动发卡。`"
+      :subtitle="`您可在此选购季卡、年卡或次卡。优惠券可在生成订单后选择使用。`"
     >
       <template #actions>
         <div class="header-actions">

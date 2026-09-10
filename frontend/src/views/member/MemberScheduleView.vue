@@ -293,7 +293,7 @@ onMounted(loadSchedules)
     <PageHeader
       eyebrow="Member Schedule"
       title="我的日程"
-      subtitle="按周课表查看课程安排；可切换星期。已过日期整列置灰（含当天已上完的课）；空档时间轴自动收缩。"
+      subtitle="按周课表查看课程安排；可切换星期。"
     >
       <template #actions>
         <button type="button" class="refresh-btn" :disabled="loading" @click="loadSchedules">
@@ -322,7 +322,6 @@ onMounted(loadSchedules)
       <div class="legend">
         <span class="dot type-pt" />私教
         <span class="dot type-group" />团操
-        <span class="hint">半透明叠加：时间重叠处会加深；灰色列为已过日期</span>
       </div>
 
       <p v-if="schedules.length === 0" class="empty-tip">暂无日程安排。</p>

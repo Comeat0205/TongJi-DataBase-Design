@@ -101,7 +101,6 @@ onMounted(() => {
     <PageHeader
       eyebrow="Membership Cards"
       title="我的会员卡"
-      :subtitle="`${displayName} 的会籍卡列表，数据来自后端 /api/membership-cards 接口。`"
     >
       <template #actions>
         <RouterLink class="primary-link" :to="`${basePath}/card-products`">购买会员卡</RouterLink>

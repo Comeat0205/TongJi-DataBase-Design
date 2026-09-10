@@ -163,7 +163,7 @@ onMounted(loadDashboard)
     <PageHeader
       eyebrow="Coach Dashboard"
       :title="`${displayName}，教练工作台`"
-      subtitle="汇总今日授课、待确认私教与排课冲突，数据与「我的日程」「私教确认」实时同步。"
+      subtitle="汇总今日授课、待确认私教与排课冲突。"
     >
       <template #actions>
         <div class="header-actions">

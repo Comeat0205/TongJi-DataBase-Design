@@ -104,8 +104,8 @@ onMounted(loadData)
   <div class="group-course-page">
     <PageHeader
       eyebrow="GROUP COURSES"
-      title="团课预约"
-      subtitle="购买课包后可到「我的团课」预约扣次；下方课表展示全部周课安排。"
+      title="团课课包"
+      subtitle="您可以在此查看本周全部团课安排并购买心仪课包。购买成功后请到「我的团课」预约。"
     >
       <template #actions>
         <RouterLink class="ghost-link" to="/member/my-group-bookings">我的团课</RouterLink>
@@ -146,7 +146,7 @@ onMounted(loadData)
       <section class="schedule-section">
         <div class="section-head">
           <h2>团课安排</h2>
-          <p>按周展示全部团课；蓝色为已购课包类型，灰色为未购。时间重叠处因半透明叠加会加深。</p>
+          <p>按周展示全部团课；蓝色为您已购课包类型，灰色为未购。</p>
         </div>
         <GroupCourseTimetable :courses="courses" :owned-type-ids="ownedTypeIds" />
         <div class="schedule-actions">

@@ -242,8 +242,8 @@ onMounted(loadOrders)
       :title="isAdmin ? '订单管理' : '我的订单'"
       :subtitle="
         isAdmin
-          ? '员工端按订单号从新到旧排列；待支付可支付/取消，已支付不可取消。'
-          : '订单可由购买会员卡、团课/私教等业务页生成。待支付可改券后支付或取消；已支付不可取消。购卡订单支付成功后自动发卡。'
+          ? '员工端可检索订单并取消待支付订单；支付须由会员本人在会员端完成。'
+          : '待支付可改券后支付或取消；已支付不可取消。'
       "
     >
       <template #actions>
@@ -280,7 +280,7 @@ onMounted(loadOrders)
             <th>应付</th>
             <th>状态</th>
             <th>创建时间</th>
-            <th>操作</th>
+            <th class="actions-col">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -296,9 +296,16 @@ onMounted(loadOrders)
             </td>
             <td>{{ formatDateTime(order.createTime) }}</td>
             <td class="actions-cell">
-              <button v-if="isPending(order)" type="button" class="pay-btn" @click="openPayDialog(order)">去支付</button>
+              <button
+                v-if="!isAdmin && isPending(order)"
+                type="button"
+                class="pay-btn"
+                @click="openPayDialog(order)"
+              >
+                去支付
+              </button>
               <button v-if="canCancel(order)" type="button" class="cancel-btn" @click="handleCancel(order)">取消订单</button>
-              <span v-if="!isPending(order) && !canCancel(order)" class="muted">—</span>
+              <span v-if="(isAdmin || !isPending(order)) && !canCancel(order)" class="muted">—</span>
             </td>
           </tr>
         </tbody>
@@ -493,10 +500,21 @@ th {
   color: var(--tj-danger);
 }
 
+.actions-col,
 .actions-cell {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.actions-cell .pay-btn,
+.actions-cell .cancel-btn,
+.actions-cell .muted {
+  display: inline-block;
+  margin: 0 4px;
 }
 
 .muted {

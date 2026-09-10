@@ -11,7 +11,7 @@ export function getMemberNav(memberId?: number): NavItem[] {
     { path: '/member/cards', label: '我的会员卡' },
     { path: '/member/card-products', label: '购买会员卡' },
     { path: '/member/check-in', label: '签到签退' },
-    { path: '/member/group-courses', label: '团课预约' },
+    { path: '/member/group-courses', label: '团课课包' },
     { path: '/member/my-group-bookings', label: '我的团课' },
     { path: '/member/pt-packages', label: '私教课包' },
     { path: '/member/pt-bookings', label: '私教预约' },

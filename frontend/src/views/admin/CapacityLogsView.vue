@@ -267,7 +267,7 @@ onUnmounted(() => {
           <div class="chart-head">
             <h3>实时在场人数</h3>
             <span class="meta">
-              上限 {{ series?.maxCapacity ?? '-' }} · 当日峰值 {{ peakCount }} · 纵轴 0–{{ countAxisMax }}（自适应）
+              上限 {{ series?.maxCapacity ?? '-' }} · 当日峰值 {{ peakCount }}
             </span>
           </div>
           <div class="chart-stage">
@@ -363,7 +363,7 @@ onUnmounted(() => {
           <div class="chart-head">
             <h3>占用率</h3>
             <span class="meta">
-              当日峰值 {{ peakRate.toFixed(1) }}% · 纵轴 0–{{ rateAxisMax }}%（自适应）
+              当日峰值 {{ peakRate.toFixed(1) }}%
             </span>
           </div>
           <div class="chart-stage">

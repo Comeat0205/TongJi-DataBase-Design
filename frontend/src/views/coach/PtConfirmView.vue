@@ -73,7 +73,7 @@ onMounted(loadBookings)
     <PageHeader
       eyebrow="Coach Confirmation"
       title="私教确认"
-      subtitle="仅显示待确认的私教预约；确认或拒绝后本列表不再展示。拒绝后将自动返还会员 1 次课包次数。"
+      subtitle="仅显示待确认的私教预约；确认或拒绝后本列表不再展示。"
     >
       <template #actions>
         <button type="button" class="refresh-btn" :disabled="loading" @click="loadBookings">

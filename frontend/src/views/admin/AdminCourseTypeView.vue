@@ -254,7 +254,7 @@ onMounted(() => {
     <PageHeader
       eyebrow="Course Type Management"
       title="课程类型"
-      subtitle="维护课程类型，并在此上架/改价/上下架团课课包（按类型核销、按次、无有效期）。"
+      subtitle="维护课程类型，并在此上架/改价/上下架团课课包。"
     >
       <template #actions>
         <button

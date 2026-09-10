@@ -144,7 +144,7 @@ onMounted(() => {
     <PageHeader
       eyebrow="Admin · Card Products"
       title="卡商品管理"
-      subtitle="维护 PRICE_LIST 表中的会员卡商品。下架通过在 PRODUCT_TYPE 前加 INACTIVE_ 前缀实现，无需改表结构。"
+      subtitle="维护会员卡商品。"
     />
     <p v-if="noticeMessage" class="notice-banner">{{ noticeMessage }}</p>
     <StateCard v-if="loading" message="商品列表加载中..." />

@@ -56,7 +56,7 @@ function selectedCardHint() {
   if (card.cardType === '0') {
     return '次卡签到将扣除 1 次剩余次数'
   }
-  return '时效卡签到仅校验是否在有效期内，不扣次数'
+  return '时效卡签到仅校验是否在有效期内'
 }
 
 function curVenue() {
@@ -161,7 +161,7 @@ onMounted(async () => {
   <div class="check-in-page">
     <PageHeader
       title="签到签退"
-      subtitle="自行选择会员卡：时效卡校验有效期，次卡每次签到扣 1 次。"
+      subtitle="请您选择会员卡进行签到。"
     />
 
     <div v-if="displayVenues.length" class="venue-bar">
